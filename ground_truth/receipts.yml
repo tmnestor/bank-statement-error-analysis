@@ -1,6 +1,5 @@
 CASE001:
   layout: receipt_professional
-  degradation_seed: 1897
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Capital Business Supplies
@@ -17,7 +16,6 @@ CASE001:
     LINE_ITEM_TOTAL_PRICES: 9.30|7.77|43.29|54.26|102.27
 CASE002:
   layout: receipt_thermal_57mm
-  degradation_seed: 6070
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Eastern Cellars
@@ -33,7 +31,6 @@ CASE002:
     LINE_ITEM_TOTAL_PRICES: '8.75'
 CASE003:
   layout: receipt_thermal_80mm
-  degradation_seed: 6877
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Coastal Automotive Supplies
@@ -50,7 +47,6 @@ CASE003:
     LINE_ITEM_TOTAL_PRICES: 9.72|111.69|12.99|25.38|12.87
 CASE004:
   layout: receipt_fuel
-  degradation_seed: 7978
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Ibbotson Automotive Supplies
@@ -66,7 +62,6 @@ CASE004:
     LINE_ITEM_TOTAL_PRICES: '26.85'
 CASE005:
   layout: receipt_retail_tax
-  degradation_seed: 6091
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Statewide Fresh Market
@@ -82,7 +77,6 @@ CASE005:
     LINE_ITEM_TOTAL_PRICES: 99.57|92.79
 CASE006:
   layout: receipt_hospitality
-  degradation_seed: 7378
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Metro Motor Spares
@@ -98,7 +92,6 @@ CASE006:
     LINE_ITEM_TOTAL_PRICES: '38.02'
 CASE007:
   layout: receipt_retail_tax
-  degradation_seed: 8263
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Riverside Grocer
@@ -115,7 +108,6 @@ CASE007:
     LINE_ITEM_TOTAL_PRICES: 9.06|88.92|94.86|5.59|154.95
 CASE008:
   layout: receipt_fuel
-  degradation_seed: 3247
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Marchbank Liquor Merchants
@@ -131,7 +123,6 @@ CASE008:
     LINE_ITEM_TOTAL_PRICES: 101.58|15.26|6.36
 CASE009:
   layout: receipt_thermal_57mm
-  degradation_seed: 9924
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: National Pharmacy
@@ -148,7 +139,6 @@ CASE009:
     LINE_ITEM_TOTAL_PRICES: 6.71|33.95|7.14|21.08|13.30
 CASE010:
   layout: receipt_professional
-  degradation_seed: 7912
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Ellery Provisions
@@ -164,7 +154,6 @@ CASE010:
     LINE_ITEM_TOTAL_PRICES: '9.75'
 CASE011:
   layout: receipt_hospitality
-  degradation_seed: 1805
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Quennell Digital Supplies
@@ -180,7 +169,6 @@ CASE011:
     LINE_ITEM_TOTAL_PRICES: '16.92'
 CASE012:
   layout: receipt_thermal_80mm
-  degradation_seed: 3322
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Ellery Business Supplies
@@ -196,7 +184,6 @@ CASE012:
     LINE_ITEM_TOTAL_PRICES: 3.21|6.39|16.62
 CASE013:
   layout: receipt_professional
-  degradation_seed: 4795
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Harbourside Trade Supplies
@@ -213,7 +200,6 @@ CASE013:
     LINE_ITEM_TOTAL_PRICES: 48.90|30.36|15.74|27.34
 CASE014:
   layout: receipt_retail_tax
-  degradation_seed: 7599
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Riverside Automotive Supplies
@@ -229,7 +215,6 @@ CASE014:
     LINE_ITEM_TOTAL_PRICES: 24.69|28.59|24.54
 CASE015:
   layout: receipt_thermal_80mm
-  degradation_seed: 3800
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Bramwell Provisions
@@ -245,7 +230,6 @@ CASE015:
     LINE_ITEM_TOTAL_PRICES: '27.45'
 CASE016:
   layout: receipt_thermal_57mm
-  degradation_seed: 3854
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Southern Stationery Co
@@ -261,7 +245,6 @@ CASE016:
     LINE_ITEM_TOTAL_PRICES: 24.36|17.25|12.18
 CASE017:
   layout: receipt_hospitality
-  degradation_seed: 1619
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Tremayne Corner Market
@@ -277,7 +260,6 @@ CASE017:
     LINE_ITEM_TOTAL_PRICES: '16.92'
 CASE018:
   layout: receipt_fuel
-  degradation_seed: 8231
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Regional Pharmacy
@@ -294,7 +276,6 @@ CASE018:
     LINE_ITEM_TOTAL_PRICES: 78.06|58.32|126.42|33.04|42.27|11.95
 CASE019:
   layout: receipt_professional
-  degradation_seed: 8559
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Southcott Roadhouse
@@ -310,7 +291,6 @@ CASE019:
     LINE_ITEM_TOTAL_PRICES: '41.58'
 CASE020:
   layout: receipt_fuel
-  degradation_seed: 7530
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Eastwick Roadhouse
@@ -326,7 +306,6 @@ CASE020:
     LINE_ITEM_TOTAL_PRICES: 97.11|32.01
 CASE021:
   layout: receipt_hospitality
-  degradation_seed: 7456
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Yarrow Stationery Co
@@ -343,7 +322,6 @@ CASE021:
     LINE_ITEM_TOTAL_PRICES: 24.69|11.07|8.88|17.34|100.68
 CASE022:
   layout: receipt_thermal_57mm
-  degradation_seed: 6535
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Dunmore Tech Store
@@ -360,7 +338,6 @@ CASE022:
     LINE_ITEM_TOTAL_PRICES: 41.04|34.83|94.54|33.18|51.48|30.99
 CASE023:
   layout: receipt_retail_tax
-  degradation_seed: 6250
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Southern Service Station
@@ -377,7 +354,6 @@ CASE023:
     LINE_ITEM_TOTAL_PRICES: 27.18|26.73|6.20|179.07|31.30|128.94
 CASE024:
   layout: receipt_thermal_80mm
-  degradation_seed: 6967
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Coastal Petroleum
@@ -394,7 +370,6 @@ CASE024:
     LINE_ITEM_TOTAL_PRICES: 13.98|4.06|14.01|21.73|9.03
 CASE025:
   layout: receipt_professional
-  degradation_seed: 7983
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Dunmore Emporium
@@ -410,7 +385,6 @@ CASE025:
     LINE_ITEM_TOTAL_PRICES: 54.45|52.29
 CASE026:
   layout: receipt_hospitality
-  degradation_seed: 7273
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Underhill Petroleum
@@ -426,7 +400,6 @@ CASE026:
     LINE_ITEM_TOTAL_PRICES: '16.48'
 CASE027:
   layout: receipt_thermal_80mm
-  degradation_seed: 8369
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Greater Auto Parts
@@ -443,7 +416,6 @@ CASE027:
     LINE_ITEM_TOTAL_PRICES: 6.74|59.13|43.14|64.56|39.18
 CASE028:
   layout: receipt_retail_tax
-  degradation_seed: 1416
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Ellery Tyre & Auto
@@ -460,7 +432,6 @@ CASE028:
     LINE_ITEM_TOTAL_PRICES: 136.64|24.90|18.87|28.65|8.06|149.12
 CASE029:
   layout: receipt_fuel
-  degradation_seed: 8872
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Metro Office Supplies
@@ -476,7 +447,6 @@ CASE029:
     LINE_ITEM_TOTAL_PRICES: 7.48|38.37
 CASE030:
   layout: receipt_thermal_57mm
-  degradation_seed: 7771
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Verrall Home Improvement
@@ -493,7 +463,6 @@ CASE030:
     LINE_ITEM_TOTAL_PRICES: 5.00|149.13|11.38|26.82|130.92
 CASE031:
   layout: receipt_retail_tax
-  degradation_seed: 5994
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Calloway Health Store
@@ -509,7 +478,6 @@ CASE031:
     LINE_ITEM_TOTAL_PRICES: 4.32|36.21
 CASE032:
   layout: receipt_professional
-  degradation_seed: 8727
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Ashcroft Grocer
@@ -525,7 +493,6 @@ CASE032:
     LINE_ITEM_TOTAL_PRICES: 40.70|35.94
 CASE033:
   layout: receipt_fuel
-  degradation_seed: 2675
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Central Cellars
@@ -542,7 +509,6 @@ CASE033:
     LINE_ITEM_TOTAL_PRICES: 70.88|13.91|89.88|100.65|42.00|29.79
 CASE034:
   layout: receipt_hospitality
-  degradation_seed: 4507
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Central Cellars
@@ -558,7 +524,6 @@ CASE034:
     LINE_ITEM_TOTAL_PRICES: 82.44|43.70|6.63|6.93
 CASE035:
   layout: receipt_thermal_80mm
-  degradation_seed: 9850
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Regional Liquor Merchants
@@ -574,7 +539,6 @@ CASE035:
     LINE_ITEM_TOTAL_PRICES: 176.55|212.01
 CASE036:
   layout: receipt_thermal_57mm
-  degradation_seed: 2908
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Northern Digital Supplies
@@ -591,7 +555,6 @@ CASE036:
     LINE_ITEM_TOTAL_PRICES: 17.42|33.99|53.10|173.90
 CASE037:
   layout: receipt_hospitality
-  degradation_seed: 2614
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Bramwell Print & Office
@@ -608,7 +571,6 @@ CASE037:
     LINE_ITEM_TOTAL_PRICES: 5.53|115.11|73.68|28.90
 CASE038:
   layout: receipt_retail_tax
-  degradation_seed: 9765
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Carrington Business Supplies
@@ -625,7 +587,6 @@ CASE038:
     LINE_ITEM_TOTAL_PRICES: 20.20|17.88|69.54|27.27|6.18
 CASE039:
   layout: receipt_thermal_80mm
-  degradation_seed: 3444
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Harbourside Cellars
@@ -641,7 +602,6 @@ CASE039:
     LINE_ITEM_TOTAL_PRICES: 6.40|11.72|138.78|3.58
 CASE040:
   layout: receipt_professional
-  degradation_seed: 9189
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: National Business Supplies
@@ -657,7 +617,6 @@ CASE040:
     LINE_ITEM_TOTAL_PRICES: 10.96|7.26
 CASE041:
   layout: receipt_fuel
-  degradation_seed: 2886
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Central Corner Market
@@ -673,7 +632,6 @@ CASE041:
     LINE_ITEM_TOTAL_PRICES: 10.26|20.52
 CASE042:
   layout: receipt_thermal_57mm
-  degradation_seed: 9669
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Norcott Grocer
@@ -689,7 +647,6 @@ CASE042:
     LINE_ITEM_TOTAL_PRICES: '8.61'
 CASE043:
   layout: receipt_hospitality
-  degradation_seed: 6523
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Western Building Centre
@@ -706,7 +663,6 @@ CASE043:
     LINE_ITEM_TOTAL_PRICES: 20.22|4.14|40.38|26.01
 CASE044:
   layout: receipt_thermal_80mm
-  degradation_seed: 6656
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Central Home Improvement
@@ -722,7 +678,6 @@ CASE044:
     LINE_ITEM_TOTAL_PRICES: 86.79|14.44|4.65
 CASE045:
   layout: receipt_retail_tax
-  degradation_seed: 3558
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Statewide Print & Office
@@ -739,7 +694,6 @@ CASE045:
     LINE_ITEM_TOTAL_PRICES: 41.82|12.54|36.30|13.10
 CASE046:
   layout: receipt_professional
-  degradation_seed: 5610
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Harbourside Trade Supplies
@@ -756,7 +710,6 @@ CASE046:
     LINE_ITEM_TOTAL_PRICES: 58.98|194.07|2.58|24.66|9.56
 CASE047:
   layout: receipt_thermal_57mm
-  degradation_seed: 7644
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Ibbotson Auto Parts
@@ -772,7 +725,6 @@ CASE047:
     LINE_ITEM_TOTAL_PRICES: '5.66'
 CASE048:
   layout: receipt_fuel
-  degradation_seed: 9424
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Farrant Roadhouse
@@ -789,7 +741,6 @@ CASE048:
     LINE_ITEM_TOTAL_PRICES: 46.06|49.11|148.50|4.55|40.11|8.78
 CASE049:
   layout: receipt_retail_tax
-  degradation_seed: 1695
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Norcott Automotive Supplies
@@ -806,7 +757,6 @@ CASE049:
     LINE_ITEM_TOTAL_PRICES: 2.94|6.47|15.79|140.46|5.98
 CASE050:
   layout: receipt_fuel
-  degradation_seed: 3977
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Bramwell Wine & Spirits
@@ -822,7 +772,6 @@ CASE050:
     LINE_ITEM_TOTAL_PRICES: 45.44|31.08|31.95
 CASE051:
   layout: receipt_professional
-  degradation_seed: 8156
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Yarrow Health Store
@@ -838,7 +787,6 @@ CASE051:
     LINE_ITEM_TOTAL_PRICES: 39.68|38.12|65.58
 CASE052:
   layout: receipt_thermal_57mm
-  degradation_seed: 2641
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Calloway Office Supplies
@@ -854,7 +802,6 @@ CASE052:
     LINE_ITEM_TOTAL_PRICES: '95.62'
 CASE053:
   layout: receipt_hospitality
-  degradation_seed: 5416
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Metro Retail Co
@@ -871,7 +818,6 @@ CASE053:
     LINE_ITEM_TOTAL_PRICES: 10.49|11.10|89.01|22.44
 CASE054:
   layout: receipt_thermal_80mm
-  degradation_seed: 8192
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: Yarrow Building Centre
@@ -888,7 +834,6 @@ CASE054:
     LINE_ITEM_TOTAL_PRICES: 47.88|24.96|29.85|32.04|10.38
 CASE055:
   layout: receipt_professional
-  degradation_seed: 8308
   fields:
     DOCUMENT_TYPE: RECEIPT
     SUPPLIER_NAME: National Provisions

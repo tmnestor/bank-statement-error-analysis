@@ -1,6 +1,5 @@
 CASE001:
   layout: cba_standard
-  degradation_seed: 7211
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -23,7 +22,6 @@ CASE001:
     PAYER_NAME: Robin Wood
 CASE002:
   layout: anz_modern
-  degradation_seed: 4824
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -51,7 +49,6 @@ CASE002:
     PAYER_NAME: Juan Taylor
 CASE003:
   layout: nab_classic
-  degradation_seed: 6272
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -69,7 +66,6 @@ CASE003:
     PAYER_NAME: James Edwards
 CASE004:
   layout: anz_standard
-  degradation_seed: 2398
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -93,7 +89,6 @@ CASE004:
     PAYER_NAME: Tanner Johnson
 CASE005:
   layout: westpac_premium
-  degradation_seed: 8204
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -123,7 +118,6 @@ CASE005:
     PAYER_NAME: David Smith
 CASE006:
   layout: nab_dense
-  degradation_seed: 7229
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -147,7 +141,6 @@ CASE006:
     PAYER_NAME: Karen Garcia
 CASE007:
   layout: cba_date_grouped
-  degradation_seed: 6417
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -165,7 +158,6 @@ CASE007:
     PAYER_NAME: Jennifer Hopkins
 CASE008:
   layout: westpac_standard
-  degradation_seed: 9939
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -196,7 +188,6 @@ CASE008:
     PAYER_NAME: Norma Cross
 CASE009:
   layout: cba_date_grouped
-  degradation_seed: 5873
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -213,7 +204,6 @@ CASE009:
     PAYER_NAME: John Manning
 CASE010:
   layout: anz_standard
-  degradation_seed: 2900
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -238,7 +228,6 @@ CASE010:
     PAYER_NAME: Gerald Herrera
 CASE011:
   layout: anz_modern
-  degradation_seed: 3872
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -266,7 +255,6 @@ CASE011:
     PAYER_NAME: Jeffrey Harrison
 CASE012:
   layout: westpac_premium
-  degradation_seed: 3192
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -294,7 +282,6 @@ CASE012:
     PAYER_NAME: Jason Foster
 CASE013:
   layout: cba_standard
-  degradation_seed: 6617
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -317,7 +304,6 @@ CASE013:
     PAYER_NAME: Louis Norris
 CASE014:
   layout: nab_classic
-  degradation_seed: 1144
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -335,7 +321,6 @@ CASE014:
     PAYER_NAME: Tiffany Stanley
 CASE015:
   layout: nab_dense
-  degradation_seed: 2127
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -361,7 +346,6 @@ CASE015:
     PAYER_NAME: Joshua Gilbert
 CASE016:
   layout: westpac_standard
-  degradation_seed: 2675
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -391,7 +375,6 @@ CASE016:
     PAYER_NAME: Ricky Ramirez
 CASE017:
   layout: nab_dense
-  degradation_seed: 9591
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -414,7 +397,6 @@ CASE017:
     PAYER_NAME: Eric Phillips
 CASE018:
   layout: anz_standard
-  degradation_seed: 3155
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -439,7 +421,6 @@ CASE018:
     PAYER_NAME: Katherine Lamb
 CASE019:
   layout: anz_modern
-  degradation_seed: 6187
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -464,7 +445,6 @@ CASE019:
     PAYER_NAME: Erica Mcdaniel
 CASE020:
   layout: cba_standard
-  degradation_seed: 5105
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -488,7 +468,6 @@ CASE020:
     PAYER_NAME: Emily Rice
 CASE021:
   layout: westpac_premium
-  degradation_seed: 6427
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -517,7 +496,6 @@ CASE021:
     PAYER_NAME: Devin Palmer
 CASE022:
   layout: cba_date_grouped
-  degradation_seed: 5932
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -535,7 +513,6 @@ CASE022:
     PAYER_NAME: Michael Smith
 CASE023:
   layout: westpac_standard
-  degradation_seed: 9055
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -567,7 +544,6 @@ CASE023:
     PAYER_NAME: Andrew Richardson
 CASE024:
   layout: nab_classic
-  degradation_seed: 5635
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -585,7 +561,6 @@ CASE024:
     PAYER_NAME: Katherine Murray
 CASE025:
   layout: westpac_premium
-  degradation_seed: 9846
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -613,7 +588,6 @@ CASE025:
     PAYER_NAME: Victoria Smith
 CASE026:
   layout: cba_standard
-  degradation_seed: 8533
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -636,7 +610,6 @@ CASE026:
     PAYER_NAME: Christopher Gonzalez
 CASE027:
   layout: cba_date_grouped
-  degradation_seed: 1546
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -654,7 +627,6 @@ CASE027:
     PAYER_NAME: Suzanne Dixon
 CASE028:
   layout: nab_dense
-  degradation_seed: 3445
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -676,7 +648,6 @@ CASE028:
     PAYER_NAME: Jon Santiago
 CASE029:
   layout: anz_standard
-  degradation_seed: 1217
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -699,7 +670,6 @@ CASE029:
     PAYER_NAME: Kimberly Garcia
 CASE030:
   layout: westpac_standard
-  degradation_seed: 8107
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -728,7 +698,6 @@ CASE030:
     PAYER_NAME: Ryan Mcguire
 CASE031:
   layout: anz_modern
-  degradation_seed: 2353
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -755,7 +724,6 @@ CASE031:
     PAYER_NAME: Ryan Watts
 CASE032:
   layout: nab_classic
-  degradation_seed: 1058
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -774,7 +742,6 @@ CASE032:
     PAYER_NAME: Jonathan Yates
 CASE033:
   layout: westpac_premium
-  degradation_seed: 8999
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -806,7 +773,6 @@ CASE033:
     PAYER_NAME: Katherine Gonzalez
 CASE034:
   layout: nab_dense
-  degradation_seed: 2694
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -829,7 +795,6 @@ CASE034:
     PAYER_NAME: Misty Wilkerson
 CASE035:
   layout: anz_modern
-  degradation_seed: 8763
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -857,7 +822,6 @@ CASE035:
     PAYER_NAME: Allison Davis
 CASE036:
   layout: cba_standard
-  degradation_seed: 8509
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -880,7 +844,6 @@ CASE036:
     PAYER_NAME: Christine Barton
 CASE037:
   layout: anz_standard
-  degradation_seed: 6698
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -904,7 +867,6 @@ CASE037:
     PAYER_NAME: Jeremy Zimmerman
 CASE038:
   layout: cba_date_grouped
-  degradation_seed: 9525
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -922,7 +884,6 @@ CASE038:
     PAYER_NAME: Crystal Sanford
 CASE039:
   layout: nab_classic
-  degradation_seed: 9334
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -939,7 +900,6 @@ CASE039:
     PAYER_NAME: Richard Thompson
 CASE040:
   layout: westpac_standard
-  degradation_seed: 1498
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -970,7 +930,6 @@ CASE040:
     PAYER_NAME: Edward Johnson
 CASE041:
   layout: westpac_standard
-  degradation_seed: 4576
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -1002,7 +961,6 @@ CASE041:
     PAYER_NAME: Jacob Williamson
 CASE042:
   layout: cba_date_grouped
-  degradation_seed: 1585
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -1020,7 +978,6 @@ CASE042:
     PAYER_NAME: Monique Garza
 CASE043:
   layout: cba_standard
-  degradation_seed: 8304
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -1044,7 +1001,6 @@ CASE043:
     PAYER_NAME: Joel Estrada
 CASE044:
   layout: anz_standard
-  degradation_seed: 4721
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -1068,7 +1024,6 @@ CASE044:
     PAYER_NAME: Rick Wilson
 CASE045:
   layout: westpac_premium
-  degradation_seed: 3955
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -1097,7 +1052,6 @@ CASE045:
     PAYER_NAME: Tonya Wall
 CASE046:
   layout: nab_dense
-  degradation_seed: 7535
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -1119,7 +1073,6 @@ CASE046:
     PAYER_NAME: Daniel Perry
 CASE047:
   layout: nab_classic
-  degradation_seed: 5591
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -1137,7 +1090,6 @@ CASE047:
     PAYER_NAME: Edward Foster
 CASE048:
   layout: anz_modern
-  degradation_seed: 8470
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -1163,7 +1115,6 @@ CASE048:
     PAYER_NAME: Robert Henry
 CASE049:
   layout: westpac_standard
-  degradation_seed: 2429
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -1193,7 +1144,6 @@ CASE049:
     PAYER_NAME: Joseph Chase
 CASE050:
   layout: cba_standard
-  degradation_seed: 5075
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank
@@ -1216,7 +1166,6 @@ CASE050:
     PAYER_NAME: Angela Gardner
 CASE051:
   layout: anz_standard
-  degradation_seed: 2086
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -1241,7 +1190,6 @@ CASE051:
     PAYER_NAME: Daniel Lester
 CASE052:
   layout: westpac_premium
-  degradation_seed: 9647
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Westpac
@@ -1271,7 +1219,6 @@ CASE052:
     PAYER_NAME: Karen Hunter
 CASE053:
   layout: anz_modern
-  degradation_seed: 6532
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: ANZ
@@ -1299,7 +1246,6 @@ CASE053:
     PAYER_NAME: Blake Dennis
 CASE054:
   layout: nab_dense
-  degradation_seed: 7807
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: National Australia Bank
@@ -1324,7 +1270,6 @@ CASE054:
     PAYER_NAME: Dawn Cummings
 CASE055:
   layout: cba_date_grouped
-  degradation_seed: 7158
   fields:
     DOCUMENT_TYPE: BANK_STATEMENT
     SUPPLIER_NAME: Commonwealth Bank

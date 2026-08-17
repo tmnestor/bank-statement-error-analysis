@@ -1,6 +1,5 @@
 CASE001:
   layout: tax_invoice_high_value
-  degradation_seed: 5251
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Capital Legal Group
@@ -18,7 +17,6 @@ CASE001:
     PAYER_ADDRESS: 238 Wolfe Ave, Unley SA 5061
 CASE002:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 8214
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Wakeling & Associates Accounting
@@ -36,7 +34,6 @@ CASE002:
     PAYER_ADDRESS: 241 Sutton Way, Subiaco WA 6008
 CASE003:
   layout: tax_invoice_mixed
-  degradation_seed: 2394
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Ashcroft Brand & Media
@@ -54,7 +51,6 @@ CASE003:
     PAYER_ADDRESS: 315 Parsons Cres, Battery Point TAS 7004
 CASE004:
   layout: tax_invoice_standard
-  degradation_seed: 2931
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Verrall IT Consulting
@@ -73,7 +69,6 @@ CASE004:
     PAYER_ADDRESS: 195 Garcia Cl, Hobart TAS 7000
 CASE005:
   layout: tax_invoice_mixed
-  degradation_seed: 5637
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Quennell Tax & Advisory
@@ -92,7 +87,6 @@ CASE005:
     PAYER_ADDRESS: 281 Guerrero Blvd, New Farm QLD 4005
 CASE006:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 7662
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Harrowgate Marketing Co
@@ -111,7 +105,6 @@ CASE006:
     PAYER_ADDRESS: 175 Francis Rd, Fortitude Valley QLD 4006
 CASE007:
   layout: tax_invoice_standard
-  degradation_seed: 2210
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Tremayne Technology Group
@@ -130,7 +123,6 @@ CASE007:
     PAYER_ADDRESS: 144 Farrell Ln, Hawthorn East VIC 3123
 CASE008:
   layout: tax_invoice_high_value
-  degradation_seed: 6903
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Statewide Legal
@@ -149,7 +141,6 @@ CASE008:
     PAYER_ADDRESS: 170 Jones Dr, Parramatta NSW 2150
 CASE009:
   layout: tax_invoice_standard
-  degradation_seed: 3383
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Denholm Solicitors
@@ -168,7 +159,6 @@ CASE009:
     PAYER_ADDRESS: 375 Bennett Cl, Paddington QLD 4064
 CASE010:
   layout: tax_invoice_mixed
-  degradation_seed: 3958
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Ibbotson Tax & Advisory
@@ -187,7 +177,6 @@ CASE010:
     PAYER_ADDRESS: 330 Bennett Pl, Chatswood NSW 2067
 CASE011:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 1125
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Coastal Accounting Group
@@ -206,7 +195,6 @@ CASE011:
     PAYER_ADDRESS: 223 Ray Dr, Prospect SA 5082
 CASE012:
   layout: tax_invoice_high_value
-  degradation_seed: 6091
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Capital & Associates Accounting
@@ -225,7 +213,6 @@ CASE012:
     PAYER_ADDRESS: 193 Jackson St, Glenelg SA 5045
 CASE013:
   layout: tax_invoice_standard
-  degradation_seed: 4019
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Farrant Consulting Partners
@@ -243,7 +230,6 @@ CASE013:
     PAYER_ADDRESS: 358 Gray Ct, Subiaco WA 6008
 CASE014:
   layout: tax_invoice_mixed
-  degradation_seed: 3200
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Metro Advisory
@@ -262,7 +248,6 @@ CASE014:
     PAYER_ADDRESS: 58 Tran Blvd, Manuka ACT 2603
 CASE015:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 7489
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Denholm IT Solutions
@@ -280,7 +265,6 @@ CASE015:
     PAYER_ADDRESS: 272 Meyer St, Alexandria NSW 2015
 CASE016:
   layout: tax_invoice_high_value
-  degradation_seed: 8843
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Central Consulting Partners
@@ -299,7 +283,6 @@ CASE016:
     PAYER_ADDRESS: 371 Moon Tce, Subiaco WA 6008
 CASE017:
   layout: tax_invoice_mixed
-  degradation_seed: 8032
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Greater IT Consulting
@@ -317,7 +300,6 @@ CASE017:
     PAYER_ADDRESS: 183 Clark Rd, Norwood SA 5067
 CASE018:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 2390
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Northern Digital Services
@@ -335,7 +317,6 @@ CASE018:
     PAYER_ADDRESS: 237 Wright Ave, Subiaco WA 6008
 CASE019:
   layout: tax_invoice_standard
-  degradation_seed: 1206
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Western Consulting Partners
@@ -353,7 +334,6 @@ CASE019:
     PAYER_ADDRESS: 270 Nelson Rd, Alexandria NSW 2015
 CASE020:
   layout: tax_invoice_high_value
-  degradation_seed: 1193
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: National Marketing Group
@@ -371,7 +351,6 @@ CASE020:
     PAYER_ADDRESS: 124 Reyes Blvd, St Kilda VIC 3182
 CASE021:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 8784
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Western Marketing Group
@@ -390,7 +369,6 @@ CASE021:
     PAYER_ADDRESS: 110 Turner Pl, Toowoomba QLD 4350
 CASE022:
   layout: tax_invoice_mixed
-  degradation_seed: 6152
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Carrington Creative Agency
@@ -409,7 +387,6 @@ CASE022:
     PAYER_ADDRESS: 117 Jacobs Rd, St Kilda VIC 3182
 CASE023:
   layout: tax_invoice_high_value
-  degradation_seed: 4903
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: National Strategy Group
@@ -427,7 +404,6 @@ CASE023:
     PAYER_ADDRESS: 216 Jacobs Pl, Subiaco WA 6008
 CASE024:
   layout: tax_invoice_standard
-  degradation_seed: 4768
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Denholm Marketing Group
@@ -445,7 +421,6 @@ CASE024:
     PAYER_ADDRESS: 177 Jones Blvd, Paddington QLD 4064
 CASE025:
   layout: tax_invoice_mixed
-  degradation_seed: 4997
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Norcott Accounting Group
@@ -464,7 +439,6 @@ CASE025:
     PAYER_ADDRESS: 186 Hebert Way, Fortitude Valley QLD 4006
 CASE026:
   layout: tax_invoice_high_value
-  degradation_seed: 1057
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Northern & Associates Accounting
@@ -482,7 +456,6 @@ CASE026:
     PAYER_ADDRESS: 37 Dominguez St, Parramatta NSW 2150
 CASE027:
   layout: tax_invoice_standard
-  degradation_seed: 1025
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Regional Digital Services
@@ -501,7 +474,6 @@ CASE027:
     PAYER_ADDRESS: 73 Diaz Ct, Unley SA 5061
 CASE028:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 8522
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Underhill Advisory
@@ -519,7 +491,6 @@ CASE028:
     PAYER_ADDRESS: 385 Brown Ct, St Kilda VIC 3182
 CASE029:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 6873
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Greater Marketing Co
@@ -538,7 +509,6 @@ CASE029:
     PAYER_ADDRESS: 94 Turner Cres, Paddington QLD 4064
 CASE030:
   layout: tax_invoice_mixed
-  degradation_seed: 7309
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Kirriemuir Strategy Group
@@ -557,7 +527,6 @@ CASE030:
     PAYER_ADDRESS: 334 Gentry Cres, Chatswood NSW 2067
 CASE031:
   layout: tax_invoice_high_value
-  degradation_seed: 6678
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: National Creative Agency
@@ -576,7 +545,6 @@ CASE031:
     PAYER_ADDRESS: 348 Chavez Rd, Subiaco WA 6008
 CASE032:
   layout: tax_invoice_standard
-  degradation_seed: 5562
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Dunmore Digital Services
@@ -595,7 +563,6 @@ CASE032:
     PAYER_ADDRESS: 91 Hubbard Rd, Richmond VIC 3121
 CASE033:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 2079
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Harbourside Brand & Media
@@ -614,7 +581,6 @@ CASE033:
     PAYER_ADDRESS: 69 Walter Rd, Cronulla NSW 2230
 CASE034:
   layout: tax_invoice_high_value
-  degradation_seed: 1714
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Capital Tax & Advisory
@@ -632,7 +598,6 @@ CASE034:
     PAYER_ADDRESS: 315 Moyer Pde, Manuka ACT 2603
 CASE035:
   layout: tax_invoice_standard
-  degradation_seed: 6361
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Riverside Technology Group
@@ -651,7 +616,6 @@ CASE035:
     PAYER_ADDRESS: 366 Cooper Ave, Unley SA 5061
 CASE036:
   layout: tax_invoice_mixed
-  degradation_seed: 6444
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Central Technology Group
@@ -670,7 +634,6 @@ CASE036:
     PAYER_ADDRESS: 311 Johnson Tce, Norwood SA 5067
 CASE037:
   layout: tax_invoice_high_value
-  degradation_seed: 9879
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Fenwick Marketing Co
@@ -689,7 +652,6 @@ CASE037:
     PAYER_ADDRESS: 376 Bell Pde, Subiaco WA 6008
 CASE038:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 3994
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Central Creative Agency
@@ -708,7 +670,6 @@ CASE038:
     PAYER_ADDRESS: 91 Johnson Cres, Hawthorn East VIC 3123
 CASE039:
   layout: tax_invoice_mixed
-  degradation_seed: 7355
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Southern & Associates Accounting
@@ -726,7 +687,6 @@ CASE039:
     PAYER_ADDRESS: 299 Erickson Dr, Norwood SA 5067
 CASE040:
   layout: tax_invoice_standard
-  degradation_seed: 6140
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Carrington & Associates Accounting
@@ -745,7 +705,6 @@ CASE040:
     PAYER_ADDRESS: 389 Baker Gr, Alexandria NSW 2015
 CASE041:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 8257
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Regional Legal Group
@@ -764,7 +723,6 @@ CASE041:
     PAYER_ADDRESS: 2 Gonzalez Cres, Leederville WA 6007
 CASE042:
   layout: tax_invoice_mixed
-  degradation_seed: 1514
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Southcott & Partners Lawyers
@@ -783,7 +741,6 @@ CASE042:
     PAYER_ADDRESS: 175 Walker St, Alexandria NSW 2015
 CASE043:
   layout: tax_invoice_standard
-  degradation_seed: 6920
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Underhill Legal Group
@@ -802,7 +759,6 @@ CASE043:
     PAYER_ADDRESS: 59 Montoya Dr, Leederville WA 6007
 CASE044:
   layout: tax_invoice_high_value
-  degradation_seed: 7143
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Ockendon Business Consulting
@@ -821,7 +777,6 @@ CASE044:
     PAYER_ADDRESS: 394 Lee Way, New Farm QLD 4005
 CASE045:
   layout: tax_invoice_mixed
-  degradation_seed: 3448
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Blackwood Consulting Partners
@@ -840,7 +795,6 @@ CASE045:
     PAYER_ADDRESS: 178 Patel Tce, Parramatta NSW 2150
 CASE046:
   layout: tax_invoice_high_value
-  degradation_seed: 9863
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Ellery & Partners Lawyers
@@ -858,7 +812,6 @@ CASE046:
     PAYER_ADDRESS: 69 Barron Pde, Manuka ACT 2603
 CASE047:
   layout: tax_invoice_standard
-  degradation_seed: 7475
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Coastal Marketing Co
@@ -877,7 +830,6 @@ CASE047:
     PAYER_ADDRESS: 67 Foster Pl, Manuka ACT 2603
 CASE048:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 8289
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Coastal Chartered Accountants
@@ -895,7 +847,6 @@ CASE048:
     PAYER_ADDRESS: 78 Morales Tce, Fremantle WA 6160
 CASE049:
   layout: tax_invoice_high_value
-  degradation_seed: 6997
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Greater & Partners Lawyers
@@ -913,7 +864,6 @@ CASE049:
     PAYER_ADDRESS: 337 Cox Cres, Chatswood NSW 2067
 CASE050:
   layout: tax_invoice_gst_inclusive
-  degradation_seed: 8843
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Blackwood Marketing Group
@@ -931,7 +881,6 @@ CASE050:
     PAYER_ADDRESS: 317 Sullivan Blvd, Battery Point TAS 7004
 CASE051:
   layout: tax_invoice_mixed
-  degradation_seed: 4746
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Norcott Creative Agency
@@ -949,7 +898,6 @@ CASE051:
     PAYER_ADDRESS: 392 Bates Blvd, Battery Point TAS 7004
 CASE052:
   layout: tax_invoice_standard
-  degradation_seed: 5538
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Calloway & Partners Lawyers
@@ -968,7 +916,6 @@ CASE052:
     PAYER_ADDRESS: 224 Bailey Ave, Unley SA 5061
 CASE053:
   layout: tax_invoice_mixed
-  degradation_seed: 7670
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Ellery Legal Group
@@ -986,7 +933,6 @@ CASE053:
     PAYER_ADDRESS: 61 Church Cl, Subiaco WA 6008
 CASE054:
   layout: tax_invoice_high_value
-  degradation_seed: 2163
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: Wakeling IT Consulting
@@ -1004,7 +950,6 @@ CASE054:
     PAYER_ADDRESS: 190 Smith Ct, Paddington QLD 4064
 CASE055:
   layout: tax_invoice_standard
-  degradation_seed: 4326
   fields:
     DOCUMENT_TYPE: INVOICE
     SUPPLIER_NAME: National Chartered Accountants

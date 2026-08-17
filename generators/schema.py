@@ -242,7 +242,7 @@ def validate_entry(case_id: str, entry: dict) -> list[str]:
 
     Args:
         case_id: The CASE ID key (e.g. "CASE001").
-        entry: The YAML dict with 'layout', 'degradation_seed', and 'fields'.
+        entry: The YAML dict with 'layout' and 'fields'.
 
     Returns:
         List of error messages. Empty list means valid.
@@ -251,10 +251,6 @@ def validate_entry(case_id: str, entry: dict) -> list[str]:
 
     if "layout" not in entry:
         errors.append(f"{case_id}: missing 'layout' key. Add 'layout: <layout_id>' to the entry.")
-    if "degradation_seed" not in entry:
-        errors.append(
-            f"{case_id}: missing 'degradation_seed' key. Add 'degradation_seed: <integer>' to the entry."
-        )
     if "fields" not in entry:
         errors.append(f"{case_id}: missing 'fields' key.")
         return errors
