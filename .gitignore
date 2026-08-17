@@ -1,0 +1,20 @@
+# Local only while this is a single-developer repo
+CLAUDE.md
+tests/
+
+# Generated corpus artifacts
+derived/
+output/
+parsing_*/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store

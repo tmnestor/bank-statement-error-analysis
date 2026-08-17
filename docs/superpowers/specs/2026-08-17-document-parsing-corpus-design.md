@@ -359,11 +359,20 @@ real risk in a repo a team extends.
 
 ### 8.3 Tests
 
-Tests are **committed in this repo**, departing from the standing local-only
-convention. A team contributing document types must be able to verify a change
-before pushing, CI needs something to run, and the serialiser is precisely the
-code where a silent regression corrupts every label in the corpus without
-anything downstream noticing.
+Tests were to be **committed in this repo**, departing from the standing
+local-only convention, because a team contributing document types must be able
+to verify a change before pushing, CI needs something to run, and the serialiser
+is precisely the code where a silent regression corrupts every label in the
+corpus without anything downstream noticing.
+
+**Reversed 2026-08-17:** with a single developer the first reason is void and the
+second is moot until a CI provider exists (§11), so `tests/` is gitignored and
+stays local, in line with the standing convention. The third reason is unchanged
+and is why the tests below are still written and run — locally, before every
+commit. Golden transcripts live under `tests/` and are therefore local too, which
+means the readable regression net does not travel with the repo; reinstate
+tracking alongside CI, or promote goldens to a tracked directory of their own,
+whichever comes first.
 
 `tests/` mirrors the source layout. Coverage floor 80%.
 
@@ -382,10 +391,15 @@ anything downstream noticing.
 likeliest contribution error and catching it requires no render. Rendering in CI
 is limited to a fixed sample compared against golden files.
 
+Per §8.3's reversal, the `pytest --cov` and golden-file jobs presuppose a tracked
+`tests/` and cannot run until it is reinstated. `ruff`, `mypy` and
+`pipeline validate` are unaffected and are what a CI provider would run first.
+
 ### 8.5 Contribution path
 
 Add a layout in YAML, run `validate`, run `generate --type X`, inspect the page
-against its transcript via `preview`, commit the golden file, open a PR. The
+against its transcript via `preview`, refresh the golden file locally, commit the
+YAML. (Restore the PR step if the repo gains contributors — see §8.3.) The
 inspection step is not optional: a transcription corpus's correctness is
 ultimately visual, and there is no field-level check that would catch a bad
 layout.
@@ -417,12 +431,16 @@ config/     generation_config.yml, field_definitions.yml,
 generators/ layout_dsl/, common.py, content_engine.py,
             transcript.py, serialise.py, pipeline.py
 ground_truth/*.yml
-tests/      committed
-docs/  README.md  CLAUDE.md  LICENSE  environment.yml
+tests/      local only, gitignored (§8.3)
+docs/  README.md  LICENSE  environment.yml
+CLAUDE.md   local only, gitignored (§10)
 ```
 
-`CLAUDE.md` is **tracked** in this repo, unlike in the predecessor, so every
-contributor's agent shares the house rules.
+`CLAUDE.md` was to be **tracked** in this repo, unlike in the predecessor, so
+every contributor's agent would share the house rules. **Reversed 2026-08-17:**
+while this is a single-developer repo there is no second agent to share with, so
+`CLAUDE.md` is gitignored and stays local. Reinstate if the repo gains
+contributors — at which point §8.3's committed-tests rationale also strengthens.
 
 ### 10.1 Environment
 
