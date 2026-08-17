@@ -42,37 +42,38 @@ _EMITS: dict[str, tuple[str, ...]] = {}
 
 _FIELD_DEFINITIONS_PATH = Path("config/field_definitions.yml")
 
-# Loaded once, on first registration -- see _scored_columns().
-_SCORED_COLUMNS: set[str] | None = None
+# Loaded once, on first registration -- see _ground_truth_columns().
+_GROUND_TRUTH_COLUMNS: set[str] | None = None
 
 
 class FieldProviderError(RuntimeError):
     """Raised when a field provider is unknown, misregistered, or misbehaves."""
 
 
-def _scored_columns() -> set[str]:
-    """Return every column name `config/field_definitions.yml` scores.
+def _ground_truth_columns() -> set[str]:
+    """Return every field name `config/field_definitions.yml` owns.
 
     Loaded once and cached: registration happens a handful of times, all at
     import time, so there is no render-time cost to worry about -- this just
     avoids re-reading and re-parsing the YAML on every `@field_provider` use.
 
     Returns:
-        Every name in field_definitions.yml's `all_columns` list -- the same
-        schema `derive_outputs.py` uses as the CSV header, i.e. every column
-        this corpus scores as extraction ground truth.
+        Every name in field_definitions.yml's `all_columns` list -- the field
+        names the authored ground truth owns. A provider must not emit one of
+        them: the layout would then have two sources for the same name and no
+        way to say which the page drew.
 
     Raises:
         FieldProviderError: If the file is missing or has no `all_columns` list.
     """
-    global _SCORED_COLUMNS  # noqa: PLW0603
-    if _SCORED_COLUMNS is not None:
-        return _SCORED_COLUMNS
+    global _GROUND_TRUTH_COLUMNS  # noqa: PLW0603
+    if _GROUND_TRUTH_COLUMNS is not None:
+        return _GROUND_TRUTH_COLUMNS
 
     path = _FIELD_DEFINITIONS_PATH
     if not path.exists():
         msg = (
-            "Cannot check a field provider's emits against the scored-column schema.\n"
+            "Cannot check a field provider's emits against the ground-truth field names.\n"
             f"  What:     field definitions file not found.\n"
             f"  Where:    {path.resolve()}\n"
             "  Expected: config/field_definitions.yml with an 'all_columns:' list.\n"
@@ -85,7 +86,7 @@ def _scored_columns() -> set[str]:
     columns = data.get("all_columns") if isinstance(data, dict) else None
     if not isinstance(columns, list):
         msg = (
-            "Cannot check a field provider's emits against the scored-column schema.\n"
+            "Cannot check a field provider's emits against the ground-truth field names.\n"
             f"  What:     {path} has no 'all_columns:' list.\n"
             f"  Where:    {path.resolve()} -> all_columns\n"
             "  Expected: all_columns:\n              - DOCUMENT_TYPE\n              - ...\n"
@@ -93,8 +94,8 @@ def _scored_columns() -> set[str]:
         )
         raise FieldProviderError(msg)
 
-    _SCORED_COLUMNS = set(columns)
-    return _SCORED_COLUMNS
+    _GROUND_TRUTH_COLUMNS = set(columns)
+    return _GROUND_TRUTH_COLUMNS
 
 
 def field_provider(
@@ -116,7 +117,7 @@ def field_provider(
 
     Raises:
         FieldProviderError: If `name` is already registered, or an emitted
-            name collides with a scored column `config/field_definitions.yml` owns.
+            name collides with a field `config/field_definitions.yml` owns.
     """
 
     def decorate(func: FieldProvider) -> FieldProvider:
@@ -131,18 +132,18 @@ def field_provider(
             )
             raise FieldProviderError(msg)
 
-        collisions = sorted(set(emits) & _scored_columns())
+        collisions = sorted(set(emits) & _ground_truth_columns())
         if collisions:
             msg = (
                 "Cannot register field provider.\n"
                 f"  What:     field provider '{name}' declares emits {collisions} that collide "
-                "with scored column name(s) config/field_definitions.yml owns.\n"
+                "with ground-truth field name(s) config/field_definitions.yml owns.\n"
                 "  Where:    generators/layout_dsl/field_providers.py, "
                 f"@field_provider('{name}', emits=...)\n"
-                "  Expected: emits names distinct from every column in "
+                "  Expected: emits names distinct from every name in "
                 "config/field_definitions.yml's all_columns list.\n"
-                f"  Recover:  rename {collisions} in '{name}''s emits= to a name that is not "
-                "a scored column, e.g. prefix it POS_ or TERMINAL_."
+                f"  Recover:  rename {collisions} in '{name}''s emits= to a name the ground "
+                "truth does not own, e.g. prefix it POS_ or TERMINAL_."
             )
             raise FieldProviderError(msg)
 
