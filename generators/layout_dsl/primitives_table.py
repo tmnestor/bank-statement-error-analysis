@@ -423,6 +423,9 @@ def draw_table(block: dict, ctx: RenderContext, y: int) -> int:
     advance = line_advance(ctx.layout, block, layout_id=ctx.layout_id, layout_path=ctx.layout_path)
     rows = get_provider(block["rows"])(ctx.entry, block.get("params", {}))
 
+    if ctx.transcript is not None:
+        ctx.transcript.emit("table_open", None, columns=[str(column["key"]) for column in columns])
+
     # A leading synthetic row normally renders first, ahead of any group
     # header (CBA's Opening Balance). NAB's Brought-forward row instead
     # belongs *under* the first date-group header, so it is set aside here
@@ -474,13 +477,29 @@ def draw_table(block: dict, ctx: RenderContext, y: int) -> int:
                 ctx.draw.rectangle(
                     [(ctx.region.x, y), (ctx.region.right, y + row_height - fill_inset)], fill=fill_color
                 )
+            # `dedicated_row` grouping puts the date on a row of its own, so it
+            # is a real table row carrying exactly one cell. Emitting it as such
+            # keeps the pipe table's row count matching the page's.
+            group_date = str(row.get("date", ""))
+            if ctx.transcript is not None:
+                ctx.transcript.emit("row_open", None, group_header=True)
+                ctx.transcript.emit(
+                    "cell",
+                    group_date,
+                    row=None,
+                    col=0,
+                    column_key=str(columns[0]["key"]),
+                    header=False,
+                )
             draw_text_left(
                 ctx.draw,
-                str(row.get("date", "")),
+                group_date,
                 ctx.region.x,
                 y,
                 load_font(text_size, family=family, bold=True),
             )
+            if ctx.transcript is not None:
+                ctx.transcript.emit("row_close")
             previous_date = row.get("date")
             y += row_height
 
@@ -540,6 +559,9 @@ def draw_table(block: dict, ctx: RenderContext, y: int) -> int:
         for divider in dividers:
             dx = column_x(divider, ctx)
             ctx.draw.line([(dx, table_body_start), (dx, y)], fill="black")
+
+    if ctx.transcript is not None:
+        ctx.transcript.emit("table_close")
 
     return y
 
@@ -618,6 +640,22 @@ def _draw_header(
     elif frame == "filled":
         ctx.draw.rectangle([(ctx.region.x, y), (ctx.region.right, y + fill_height)], fill=fill_color)
 
+    if ctx.transcript is not None:
+        ctx.transcript.emit("row_open", None, header=True)
+        for position, column in enumerate(columns):
+            # Captured verbatim, embedded newline included: a label like
+            # "Date of\nTransaction" is authored that way, not wrapped, and
+            # §4.2 forbids the generator normalising anything. Folding it onto
+            # one line for a pipe table is the serialiser's policy decision.
+            ctx.transcript.emit(
+                "cell",
+                str(column["label"]),
+                row=None,
+                col=position,
+                column_key=str(column["key"]),
+                header=True,
+            )
+
     for column in columns:
         x = column_x(_label_anchor(column), ctx)
         lines = str(column["label"]).split("\n")
@@ -635,6 +673,9 @@ def _draw_header(
                 draw_text_right(ctx.draw, text, x_right=x, y=line_y, font=font)
             else:
                 draw_text_left(ctx.draw, text, x, line_y, font)
+
+    if ctx.transcript is not None:
+        ctx.transcript.emit("row_close")
 
     y += header_height
     if frame == "ruled":
@@ -753,13 +794,32 @@ def _draw_row(
     bold_font = load_font(size, family=family, bold=True)
     bottom = y + row_height  # Floor: every unbudgeted cell is exactly one row tall.
 
-    for column in columns:
-        if column["key"] == "date" and _date_is_redundant(grouping, is_new_group):
-            continue
-        x = column_x(column, ctx)
-        text = _cell_text(row, column)
+    if ctx.transcript is not None:
+        ctx.transcript.emit("row_open")
+
+    for position, column in enumerate(columns):
+        blanked_date = column["key"] == "date" and _date_is_redundant(grouping, is_new_group)
+        text = "" if blanked_date else _cell_text(row, column)
+
+        # Emitted for every column, including the two that draw nothing: a
+        # blanked repeat date and an empty value. The page shows a blank there,
+        # and a pipe table needs a cell per column to keep its alignment. §4.2
+        # calls the blanked date the clearest case where transcription and
+        # extraction genuinely differ — extraction states the date, this states
+        # what the page shows.
+        if ctx.transcript is not None:
+            ctx.transcript.emit(
+                "cell",
+                text,
+                row=index,
+                col=position,
+                column_key=str(column["key"]),
+                header=False,
+            )
+
         if not text:
             continue
+        x = column_x(column, ctx)
 
         cell_bold = _cell_bold(row, column["key"])
         font = bold_font if cell_bold else regular_font
@@ -787,6 +847,9 @@ def _draw_row(
         bottom = max(bottom, cell_bottom)
 
     bottom += _draw_sub_lines(row, columns, ctx, y)
+
+    if ctx.transcript is not None:
+        ctx.transcript.emit("row_close")
 
     if frame == "bordered" and not first_row and (grouping != "inline" or is_new_group):
         draw_separator_line(ctx.draw, ctx.region.x, ctx.region.right, y, color="black")
@@ -853,6 +916,12 @@ def _draw_sub_lines(row: dict, columns: list, ctx: RenderContext, y: int) -> int
             )
         )
         font = font_for(ctx.layout, sub_line, size, layout_id=ctx.layout_id, layout_path=ctx.layout_path)
+        # A sub-line is real ink with no kind of its own in §4.2's table event
+        # list. It gets one, tagged with its cell's column so the serialiser can
+        # fold it back into that cell — a pipe table cannot hold two lines in a
+        # cell, and dropping it would omit ink that is on the page.
+        if ctx.transcript is not None:
+            ctx.transcript.emit("cell_sub_line", text, column_key=str(column["key"]))
         draw_text_left(ctx.draw, text, x, y + offset_y, font, fill=color)
         sub_line_height = int(
             resolve_param(
