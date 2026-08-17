@@ -38,6 +38,13 @@ cell_newline_join: " "
 # state it.
 split_order: column_major
 
+# What to do when a table drew no column header on the page — several receipt
+# layouts set `header: false`. A pipe table's first row IS its header, so the
+# first line item must not be promoted into that slot: a parser would read the
+# goods as column names. `empty_header_row` emits a blank header instead, which
+# keeps the table parseable without inventing any text the page does not show.
+headerless_table: empty_header_row
+
 # Between top-level blocks.
 block_separator: "\n\n"
 

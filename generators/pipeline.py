@@ -3,10 +3,12 @@
 Usage:
     python -m generators.pipeline validate
     python -m generators.pipeline generate --type invoices --limit 3
+    python -m generators.pipeline serialise
+    python -m generators.pipeline preview CASE001
 
-`serialise`, `export` and `preview` (design §6) arrive with the transcript
-recorder; this module deliberately carries only the two commands that need no
-transcript. The predecessor's `derive` and `eval-set` commands do not cross —
+`export` (design §6.1) is not here yet: the dated deliverable directory, its
+hashed manifest and the shipped prompt are packaging, separable from producing
+the artifact. The predecessor's `derive` and `eval-set` commands do not cross —
 both project extraction ground truth, which belongs to that repo.
 """
 
@@ -26,6 +28,8 @@ from generators.loader import load_generation_config, load_ground_truth, load_la
 from generators.overflow_check import build_overflow_error, check_overflow
 from generators.receipt import render_receipt
 from generators.schema import field_names_for, validate_entry
+from generators.serialise import load_serialisation_policy
+from generators.serialise import serialise as serialise_events
 
 app = typer.Typer(add_completion=False, help="Synthetic document parsing corpus pipeline.")
 
@@ -36,6 +40,7 @@ _RENDERERS = {
 }
 
 _DEFAULT_CONFIG = Path("config/generation_config.yml")
+_DEFAULT_POLICY = Path("config/serialisation.yml")
 
 
 def _validate_layouts(layouts: dict, *, doc_type: str, layout_path: str) -> list[str]:
@@ -234,6 +239,99 @@ def generate(
         for record in records:
             handle.write(json.dumps(record) + "\n")
     rprint(f"[green]Events written: {events_path} ({len(records)} documents)[/green]")
+
+
+def _load_event_records(derived_dir: Path) -> list[dict]:
+    """Read `events.jsonl` from a derived directory.
+
+    Args:
+        derived_dir: The directory `generate` wrote its events into.
+
+    Returns:
+        One record per rendered document.
+
+    Raises:
+        typer.Exit: With code 1 when the file is absent.
+    """
+    events_path = derived_dir / "events.jsonl"
+    if not events_path.exists():
+        rprint("[red]No captured events found.[/red]")
+        rprint(f"[red]  What:     {events_path} does not exist.[/red]")
+        rprint(f"[red]  Where:    {events_path.resolve()}[/red]")
+        rprint("[red]  Expected: the event stream `generate` writes as it renders.[/red]")
+        rprint("[red]  Recover:  run `python -m generators.pipeline generate` first.[/red]")
+        raise typer.Exit(1) from None
+    return [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line]
+
+
+@app.command()
+def serialise(
+    config: Annotated[Path, typer.Option(help="Path to generation_config.yml")] = _DEFAULT_CONFIG,
+    policy: Annotated[Path, typer.Option("--policy", help="Path to serialisation.yml")] = _DEFAULT_POLICY,
+    derived: Annotated[
+        Path | None, typer.Option("--derived", help="Override the configured derived directory.")
+    ] = None,
+) -> None:
+    """Turn captured events into Markdown transcripts.
+
+    A pure function of events and policy: it renders nothing and imports no
+    renderer. That is why it is a separate command (design §6) — the
+    convention is the risky part of this design, so it can change and every
+    transcript re-emit in seconds without re-rendering a single image.
+
+    Raises:
+        typer.Exit: With code 1 when no events have been captured.
+    """
+    cfg = load_generation_config(config)
+    derived_dir = derived if derived is not None else Path(cfg["derived_dir"])
+    records = _load_event_records(derived_dir)
+    convention = load_serialisation_policy(policy)
+
+    transcripts_dir = derived_dir / "transcripts"
+    transcripts_dir.mkdir(parents=True, exist_ok=True)
+    for record in records:
+        target = transcripts_dir / (Path(record["image_file"]).stem + ".md")
+        target.write_text(serialise_events(record["events"], convention), encoding="utf-8")
+
+    rprint(f"[green]Serialised {len(records)} transcripts into {transcripts_dir}.[/green]")
+
+
+@app.command()
+def preview(
+    case_id: Annotated[str, typer.Argument(help="The case to preview, e.g. CASE001")],
+    config: Annotated[Path, typer.Option(help="Path to generation_config.yml")] = _DEFAULT_CONFIG,
+    policy: Annotated[Path, typer.Option("--policy", help="Path to serialisation.yml")] = _DEFAULT_POLICY,
+    derived: Annotated[
+        Path | None, typer.Option("--derived", help="Override the configured derived directory.")
+    ] = None,
+) -> None:
+    """Print one document's transcript beside its image path.
+
+    Exists so the design §8.5 visual check has something to check against: a
+    transcription corpus's correctness is ultimately visual, and no automated
+    check catches a transcript that parses cleanly but describes the wrong page.
+
+    Raises:
+        typer.Exit: With code 1 when the case has no captured events.
+    """
+    cfg = load_generation_config(config)
+    derived_dir = derived if derived is not None else Path(cfg["derived_dir"])
+    records = _load_event_records(derived_dir)
+    convention = load_serialisation_policy(policy)
+
+    matches = [record for record in records if record["case_id"] == case_id]
+    if not matches:
+        rprint(f"[red]No captured events for case '{case_id}'.[/red]")
+        rprint(f"[red]  Known cases: {sorted({r['case_id'] for r in records})[:8]} ...[/red]")
+        raise typer.Exit(1) from None
+
+    for record in matches:
+        subdir = cfg["document_types"][record["doc_type"]]["output_subdir"]
+        image_path = Path(cfg["output_dir"]) / subdir / record["image_file"]
+        rprint(f"[bold]{record['case_id']}[/bold]  ({record['doc_type']})")
+        rprint(f"[cyan]image:[/cyan] {image_path}")
+        rprint("[cyan]transcript:[/cyan]")
+        print(serialise_events(record["events"], convention))
 
 
 if __name__ == "__main__":

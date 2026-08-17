@@ -27,6 +27,7 @@ REQUIRED_POLICY_KEYS: tuple[str, ...] = (
     "cell_sub_line_join",
     "cell_newline_join",
     "split_order",
+    "headerless_table",
     "block_separator",
     "emphasis",
 )
@@ -37,6 +38,7 @@ _ALLOWED: dict[str, tuple[str, ...]] = {
     "title_style": ("atx_h1",),
     "table_style": ("pipe_with_header_rule",),
     "split_order": ("column_major",),
+    "headerless_table": ("empty_header_row",),
     "emphasis": ("none",),
 }
 
@@ -49,6 +51,7 @@ _EXAMPLES: dict[str, str] = {
     "cell_sub_line_join": '" "',
     "cell_newline_join": '" "',
     "split_order": "column_major",
+    "headerless_table": "empty_header_row",
     "block_separator": '"\\n\\n"',
     "emphasis": "none",
 }
@@ -156,24 +159,43 @@ def _join_cell(text: str, policy: dict) -> str:
     return policy["cell_newline_join"].join(part for part in text.split("\n"))
 
 
-def _render_table(columns: list[str], rows: list[list[str]], policy: dict) -> str:
+def _render_table(columns: list[str], rows: list[tuple[list[str], bool]], policy: dict) -> str:
     """Render captured rows as a pipe table with a header separator row.
+
+    A pipe table's first row is its header by definition, so a table that drew
+    no header on the page (several receipt layouts set `header: false`) must not
+    have its first line item promoted into that slot — a parser would read the
+    goods as column names. `headerless_table` decides what happens instead;
+    `empty_header_row` keeps the table parseable without inventing any text that
+    is not on the page.
 
     Args:
         columns: The table's column keys, in order.
-        rows: Cell text per row, already padded to the column count.
+        rows: (cells, was_header) per captured row.
         policy: The validated serialisation policy.
 
     Returns:
         The pipe table as one block.
     """
     width = len(columns)
-    lines = []
-    for index, row in enumerate(rows):
-        padded = list(row) + [policy["empty_cell_token"]] * (width - len(row))
-        lines.append("| " + " | ".join(padded[:width]) + " |")
+    blank = policy["empty_cell_token"]
+    separator = "| " + " | ".join(["---"] * width) + " |"
+
+    def render(cells: list[str]) -> str:
+        padded = list(cells) + [blank] * (width - len(cells))
+        return "| " + " | ".join(padded[:width]) + " |"
+
+    lines: list[str] = []
+    if not rows[0][1]:
+        lines.append(render([blank] * width))
+        lines.append(separator)
+        lines.extend(render(cells) for cells, _ in rows)
+        return "\n".join(lines)
+
+    for index, (cells, _) in enumerate(rows):
+        lines.append(render(cells))
         if index == 0:
-            lines.append("| " + " | ".join(["---"] * width) + " |")
+            lines.append(separator)
     return "\n".join(lines)
 
 
@@ -195,9 +217,10 @@ def serialise(events: list[dict], policy: dict) -> str:
     blocks: list[str] = []
 
     columns: list[str] = []
-    table_rows: list[list[str]] = []
+    table_rows: list[tuple[list[str], bool]] = []
     row: list[str] = []
     row_keys: list[str] = []
+    row_is_header = False
     in_table = False
 
     for event in events:
@@ -225,10 +248,11 @@ def serialise(events: list[dict], policy: dict) -> str:
             columns = [str(key) for key in meta["columns"]]
             table_rows = []
         elif kind == "row_open":
-            row, row_keys = [], []
+            row, row_keys, row_is_header = [], [], False
         elif kind == "cell":
             row.append(_join_cell(str(text or policy["empty_cell_token"]), policy))
             row_keys.append(str(meta.get("column_key", "")))
+            row_is_header = row_is_header or bool(meta.get("header"))
         elif kind == "cell_sub_line":
             # Folded into the cell it belongs to, found by column key so a
             # sub-line under column 2 cannot land on column 0.
@@ -237,8 +261,8 @@ def serialise(events: list[dict], policy: dict) -> str:
                 position = row_keys.index(key)
                 row[position] = f"{row[position]}{policy['cell_sub_line_join']}{text}"
         elif kind == "row_close":
-            table_rows.append(row)
-            row, row_keys = [], []
+            table_rows.append((row, row_is_header))
+            row, row_keys, row_is_header = [], [], False
         elif kind == "table_close":
             if table_rows:
                 blocks.append(_render_table(columns, table_rows, policy))
