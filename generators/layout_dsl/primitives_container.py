@@ -65,7 +65,11 @@ def draw_panel(block: dict, ctx: RenderContext, y: int) -> int:
         )
     )
     inner_ctx = ctx.within(ctx.region.indent(padding, padding))
+    if ctx.transcript is not None:
+        ctx.transcript.emit("panel_open")
     inner_end = render_children(block["children"], inner_ctx, y + padding)
+    if ctx.transcript is not None:
+        ctx.transcript.emit("panel_close")
 
     fixed = block.get("height")
     if fixed is not None:
@@ -122,6 +126,8 @@ def draw_split(block: dict, ctx: RenderContext, y: int) -> int:
     """
     render_children = _walker(ctx)
     columns = block["children"]
+    if ctx.transcript is not None:
+        ctx.transcript.emit("split_open", None, columns=len(columns))
     gap = int(
         resolve_param(
             block,
@@ -137,10 +143,18 @@ def draw_split(block: dict, ctx: RenderContext, y: int) -> int:
         regions = ctx.region.divide_widths([int(w) for w in widths], gap=gap)
     else:
         regions = ctx.region.divide(len(columns), gap=gap)
-    ends = [
-        render_children(child_blocks, ctx.within(region), y)
-        for child_blocks, region in zip(columns, regions, strict=True)
-    ]
+    # Column by column in DSL order, left to right, never interleaved by
+    # vertical position (design §4.3). This is the one convention competent
+    # models genuinely disagree on — a two-column header with payer left and
+    # document metadata right is often read across visual rows instead — so no
+    # normalisation can repair a mismatch and the shipped prompt must state it.
+    ends = []
+    for child_blocks, region in zip(columns, regions, strict=True):
+        if ctx.transcript is not None:
+            ctx.transcript.emit("column_open")
+        ends.append(render_children(child_blocks, ctx.within(region), y))
+        if ctx.transcript is not None:
+            ctx.transcript.emit("column_close")
     bottom = max(ends)
     if block.get("divider"):
         color = str(
@@ -158,4 +172,6 @@ def draw_split(block: dict, ctx: RenderContext, y: int) -> int:
         for left_region, right_region in zip(regions, regions[1:], strict=False):
             divider_x = (left_region.right + right_region.x) // 2
             ctx.draw.line([(divider_x, y), (divider_x, bottom)], fill=color)
+    if ctx.transcript is not None:
+        ctx.transcript.emit("split_close")
     return bottom
