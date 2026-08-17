@@ -10,6 +10,8 @@ from dataclasses import dataclass
 
 from PIL import ImageDraw
 
+from generators.transcript import TranscriptRecorder
+
 
 @dataclass(frozen=True)
 class Region:
@@ -175,6 +177,9 @@ class RenderContext:
         layout_id: Layout id, used in diagnostics.
         layout_path: Path to the layout YAML, used in diagnostics.
         region: The horizontal slice this block may draw into.
+        transcript: Optional draw-time transcript capture (design §4.1). When
+            given, primitives emit an event as they resolve each string, and
+            `TranscriptDraw` refuses any text draw no event authorised.
         render_children: The walker, injected by the engine so containers can
             render nested blocks without importing the engine — which would be
             a circular import, since the engine's dispatch table imports them.
@@ -186,6 +191,7 @@ class RenderContext:
     layout_id: str
     layout_path: str
     region: Region
+    transcript: TranscriptRecorder | None = None
     render_children: "Callable[[list, RenderContext, int], int] | None" = None
 
     def within(self, region: Region) -> "RenderContext":
@@ -204,5 +210,6 @@ class RenderContext:
             layout_id=self.layout_id,
             layout_path=self.layout_path,
             region=region,
+            transcript=self.transcript,
             render_children=self.render_children,
         )

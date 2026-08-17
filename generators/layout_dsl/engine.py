@@ -22,6 +22,7 @@ from generators.layout_dsl.primitives_text import (
     draw_spacer,
     draw_text_block,
 )
+from generators.transcript import TranscriptRecorder
 
 Drawer = Callable[[dict, RenderContext, int], int]
 
@@ -125,7 +126,14 @@ def render_blocks(blocks: list, ctx: RenderContext, y: int) -> int:
             raise unknown
 
         try:
-            y = drawer(block, ctx, y)
+            if ctx.transcript is not None:
+                # One authorisation scope per block. Without it a primitive that
+                # draws but emits nothing would inherit its neighbour's seq and
+                # pass the coverage check silently — the §8.2 hole exactly.
+                with ctx.transcript.block():
+                    y = drawer(block, ctx, y)
+            else:
+                y = drawer(block, ctx, y)
         except _DSL_ERRORS as err:
             # Each nesting level prepends its own segment as the error unwinds, so
             # the final path reads outermost-first: body[2].children[0].
@@ -143,6 +151,7 @@ def render_body(
     draw: ImageDraw.ImageDraw,
     region: Region,
     y: int,
+    transcript: TranscriptRecorder | None = None,
 ) -> int:
     """Render a layout's whole body onto a drawing surface.
 
@@ -154,6 +163,7 @@ def render_body(
         draw: The PIL drawing surface.
         region: The page's content region.
         y: Starting y-cursor, normally the layout's top margin.
+        transcript: Optional draw-time transcript capture (design §4.1).
 
     Returns:
         The y-cursor after the last block.
@@ -188,6 +198,7 @@ def render_body(
         layout_id=layout_id,
         layout_path=layout_path,
         region=region,
+        transcript=transcript,
         render_children=render_blocks,
     )
     try:
