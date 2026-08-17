@@ -2,8 +2,13 @@
 
 Font loading, text drawing helpers, and ABN/GST validation.
 
-Image degradation lives in `generators/degradation/`, not here: it applies to
-receipts only and is a pipeline of its own rather than a shared helper.
+Every page this corpus ships is pristine. The predecessor's image degradation
+(`generators/degradation/`) does not cross into this repo — design §3 puts
+degraded and scanned pages out of scope — so nothing here dirties a page.
+
+Draw helpers take a `DrawSurface`, which at render time is the coverage
+invariant's `TranscriptDraw` proxy rather than a bare `ImageDraw`: text
+reaching the canvas from here is checked against an emitted event.
 """
 
 import random

@@ -197,12 +197,12 @@ _PAGE_LAYOUT_KEYS = frozenset(
 # invariant rather than a page.
 #
 #   bank               -- the full legal bank name a bank layout's letterhead
-#                         stands for. tests/test_bank_supplier_header.py holds
-#                         SUPPLIER_NAME to it, so the scored field cannot
-#                         contradict the letterhead ("bank = f(layout)").
-#   transaction_count  -- {min, max} row count scripts/seed_ground_truth.py
-#                         sizes a statement's transaction list to, so a dense
-#                         layout is seeded with enough rows to look dense.
+#                         stands for, holding SUPPLIER_NAME to it so the
+#                         authored field cannot contradict the letterhead
+#                         ("bank = f(layout)").
+#   transaction_count  -- {min, max} row count a seeding pass sizes a
+#                         statement's transaction list to, so a dense layout is
+#                         seeded with enough rows to look dense.
 _CORPUS_LAYOUT_KEYS = frozenset({"bank", "transaction_count"})
 
 # Block keys whose *value* is the name of a layout key, rather than a `{FIELD}`
@@ -434,10 +434,12 @@ def _validate_block(
 def _validate_references(block: dict, *, layout_path: str, known_fields: set[str], key_path: str) -> None:
     """Check every {FIELD} placeholder, `when:`, and `field:` is a known field.
 
-    `field:` decides what a block's drawn geometry gets recorded as in
-    `derived/geometry.jsonl` — a typo there is invisible to both the pixel
-    snapshot (pixels are unaffected) and a `{FIELD}`-reference check (it is
-    not a template), so it needs its own check here.
+    `field:` named a block's captured bounding box in the predecessor's
+    `derived/geometry.jsonl`. Events carry no geometry here (design §4.2), so
+    no render path reads it and a typo changes no pixel and no transcript.
+    It is still checked: the key survives in the ported layouts as the block's
+    declared identity, and a name that resolves against nothing is a layout
+    error worth catching at `validate` rather than leaving to rot.
     """
     texts: list[str] = []
     for key in ("content", "label", "value", "heading"):

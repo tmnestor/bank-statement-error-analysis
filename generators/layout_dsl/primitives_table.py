@@ -283,17 +283,18 @@ def draw_table(block: dict, ctx: RenderContext, y: int) -> int:
             the rule above the header labels is drawn at all — ANZ's legacy
             header rules only *below* its labels, never above) and
             `header_rule_gap` (default 16, the y-advance after that below
-            rule — ANZ's is 14, not CBA's 16). A third key, `capture`
-            (default True, via the `table_capture` layout default), suppresses
-            all geometry recording for this table when False — invoice's
-            `tax_invoice_mixed` draws the same `LINE_ITEM_*` list into two
-            tables (a taxable/GST-free split display), and a second recorded
-            box for the same field would collide with the first, since one
-            ground-truth value has exactly one bounding box. Four more are
-            typographic: `role` (the font-size role every label and cell
-            draws at — a table used to be pinned to "body" in Python, which
-            the invoice tables, drawn one role larger than their own page's
-            name lines, cannot express), `header_bold` (the column headings'
+            rule — ANZ's is 14, not CBA's 16). The predecessor's third key,
+            `capture`, is gone: it suppressed geometry recording for a table
+            drawing a field a second time (invoice's `tax_invoice_mixed`
+            splits one `LINE_ITEM_*` list across a taxable and a GST-free
+            table, and one ground-truth value could hold only one bounding
+            box). Transcription has no such constraint — a page that shows a
+            row twice has a transcript that says it twice — so the key was
+            dropped rather than ported inert. Four more are typographic:
+            `role` (the font-size role every label and cell draws at — a table
+            used to be pinned to "body" in Python, which the invoice tables,
+            drawn one role larger than their own page's name lines, cannot
+            express), `header_bold` (the column headings'
             weight, `table_header_bold`), `row_inset_y` (the cells' ink inset
             inside the row band, `table_row_inset_y` — see `_draw_row`; it
             moves cells only, not the dedicated date sub-header row `grouping:
@@ -728,14 +729,16 @@ def _draw_row(
 ) -> int:
     """Draw one row.
 
-    `index` (None for a provider-synthesised row) and `is_last` (the final row
-    in the table's own list) currently drive nothing here. Both existed solely
-    to name a cell's captured bounding box — an indexed `field` per row, or a
-    column's unindexed `last_row_field` on the closing-balance row. That
-    capture does not cross into this repo (design §3, §4.2), so they are inert
-    row identity, retained because the transcript recorder this table will
-    grow next needs exactly that identity to stamp a cell event's row number.
-    Nothing reads them until then.
+    `index` (None for a provider-synthesised row) stamps `row=` on every cell
+    event this row emits, which is how a transcript cell knows its row number.
+    `is_last` (the final row in the table's own list) still drives nothing.
+
+    Both existed in the predecessor solely to name a cell's captured bounding
+    box — an indexed `field` per row, or a column's unindexed `last_row_field`
+    on the closing-balance row. That geometry capture does not cross into this
+    repo (design §3, §4.2); `index` survived because the recorder needed
+    exactly that row identity, and `is_last` is kept as the matching row
+    identity for the closing-balance row, which nothing yet reads.
 
     `first_row`/`is_new_group` drive the `bordered` frame combined with
     `inline` grouping: plain `bordered` (grouping `none`) draws a divider

@@ -155,7 +155,9 @@ def load_generation_config(path: Path) -> dict:
         path: Path to generation_config.yml.
 
     Returns:
-        Config dict with document_types, degradation params, etc.
+        Config dict with `output_dir`, `derived_dir`, `ground_truth_dir`, and
+        a `document_types` mapping, each entry naming its `ground_truth`,
+        `layouts` and `output_subdir`.
 
     Raises:
         FileNotFoundError: If file does not exist.

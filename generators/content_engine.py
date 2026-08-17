@@ -1,12 +1,18 @@
-"""Shared content-generation engine for scripts/seed_ground_truth.py.
+"""Shared content-generation engine for authoring ground truth.
 
 Loads config/data_pools.yml once, owns a seeded Faker("en_AU"), and exposes
-the primitives scripts/seed_ground_truth.py calls in place of in-script
-constants and `pool[i % len(pool)]` cycling: person/location/address (Faker +
-curated locations), fictional_business (invented AU entities screened
-against a real-name blocklist), and sample / NonRepeatingSampler (seeded pool
-draws). Every primitive is driven by an injected `random.Random`, so a
-reseed is reproducible and diffable run-to-run.
+the primitives a seeding script calls in place of in-script constants and
+`pool[i % len(pool)]` cycling: person/location/address (Faker + curated
+locations), fictional_business (invented AU entities screened against a
+real-name blocklist), and sample / NonRepeatingSampler (seeded pool draws).
+Every primitive is driven by an injected `random.Random`, so a reseed is
+reproducible and diffable run-to-run.
+
+The predecessor's `scripts/seed_ground_truth.py` did not cross into this repo
+— the 165 entries under `ground_truth/` came over already authored. What this
+module still serves at runtime is `pipeline.validate`, which calls
+`load_pools` and `reachable_blocked_names` to prove the business-name grammar
+cannot emit a real company. The rest is here for the next seeding pass.
 """
 
 import random
