@@ -4,6 +4,8 @@ Each takes (block, ctx, y) and returns the advanced y-cursor, matching the
 convention the existing renderers already use.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 
 from generators.common import (
@@ -38,6 +40,20 @@ PAIR_VALUE_ALIGNS = ("left", "right")
 # `symbol` and `plain` name exactly that difference, matching the vocabulary a
 # table column's own `currency: plain` already uses (primitives_table._cell_text).
 PAIR_CURRENCIES = ("symbol", "plain")
+
+
+@contextmanager
+def _decoration(ctx: RenderContext) -> Iterator[None]:
+    """Scope decorative text, tolerating a context with no recorder.
+
+    Args:
+        ctx: Render context, whose `transcript` may be None on a bare render.
+    """
+    if ctx.transcript is None:
+        yield
+        return
+    with ctx.transcript.decoration():
+        yield
 
 
 class RoleError(RuntimeError):
@@ -360,6 +376,14 @@ def draw_text_block(block: dict, ctx: RenderContext, y: int) -> int:
     if suppress_key is not None and (not text or text == str(ctx.layout.get(suppress_key))):
         return y
 
+    # Emitted below the suppression gate, above every draw path: the code that
+    # suppresses is the code that would have emitted, so a suppressed block
+    # cannot leave a transcript event behind (design §4.2). Captured pre-wrap —
+    # `_draw_fitted_text` may split this string across lines, but wrapping is an
+    # artifact of the fit budget, not of content.
+    if ctx.transcript is not None:
+        ctx.transcript.emit("line", text)
+
     bold = bool(
         resolve_param(block, ctx.layout, "bold", layout_id=ctx.layout_id, layout_path=ctx.layout_path)
     )
@@ -505,6 +529,13 @@ def draw_pair(block: dict, ctx: RenderContext, y: int) -> int:
     )
     label_text = f"{label}{separator}"
 
+    # The label is captured exactly as drawn, trailing separator included.
+    # §4.3's `pair_strip_trailing_colon` is the serialiser's job, so the raw
+    # drawn form survives in the event stream and the convention stays a policy
+    # decision rather than something baked into the corpus.
+    if ctx.transcript is not None:
+        ctx.transcript.emit("pair", None, label=label_text, value=value)
+
     budget_name = block.get("budget")
     if budget_name is not None:
         ctx.draw.text((ctx.region.x, y), label_text, font=font, fill=color)
@@ -585,20 +616,20 @@ def draw_block(block: dict, ctx: RenderContext, y: int) -> int:
         heading_font = font_for(
             ctx.layout, block, size, bold=True, layout_id=ctx.layout_id, layout_path=ctx.layout_path
         )
-        _draw_line(
-            ctx,
-            interpolate(heading, ctx.entry["fields"]),
-            y,
-            font=heading_font,
-            align="left",
-            color=color,
-        )
+        heading_text = interpolate(heading, ctx.entry["fields"])
+        # A heading is a `line`, not a `title`. §4.3 reserves the H1 for the
+        # page's banner; a block heading is body text drawn bold, and emphasis
+        # is deliberately outside the Markdown subset.
+        if ctx.transcript is not None:
+            ctx.transcript.emit("line", heading_text)
+        _draw_line(ctx, heading_text, y, font=heading_font, align="left", color=color)
         y += advance
     line_font = font_for(ctx.layout, block, size, layout_id=ctx.layout_id, layout_path=ctx.layout_path)
     for line in block["lines"]:
-        _draw_line(
-            ctx, interpolate(line, ctx.entry["fields"]), y, font=line_font, align="left", color=color
-        )
+        line_text = interpolate(line, ctx.entry["fields"])
+        if ctx.transcript is not None:
+            ctx.transcript.emit("line", line_text)
+        _draw_line(ctx, line_text, y, font=line_font, align="left", color=color)
         y += advance
     return y
 
@@ -669,15 +700,19 @@ def draw_rule(block: dict, ctx: RenderContext, y: int) -> int:
         # `ctx.region.x * 2 + ctx.region.width` reconstructs the symmetric-margin
         # page width draw_separator expects (margin=region.x on both sides) --
         # the same reconstruction _draw_fitted_text's center alignment uses.
-        draw_separator(
-            ctx.draw,
-            y,
-            ctx.region.x * 2 + ctx.region.width,
-            ctx.region.x,
-            font,
-            fill=color,
-            char=fill_char,
-        )
+        # A glyph rule paints a row of repeated characters, so it puts *text* on
+        # the canvas that §4.3 says emits nothing. This is the only sanctioned
+        # exemption from the coverage invariant; keep it this narrow.
+        with _decoration(ctx):
+            draw_separator(
+                ctx.draw,
+                y,
+                ctx.region.x * 2 + ctx.region.width,
+                ctx.region.x,
+                font,
+                fill=color,
+                char=fill_char,
+            )
         return (
             y
             + line_advance(ctx.layout, block, layout_id=ctx.layout_id, layout_path=ctx.layout_path)
@@ -773,6 +808,8 @@ def draw_banner(block: dict, ctx: RenderContext, y: int) -> int:
         text = str(ctx.layout[block["from_layout"]])
     else:
         text = interpolate(block["content"], ctx.entry["fields"])
+    if ctx.transcript is not None:
+        ctx.transcript.emit("title", text)
     text_y = int(
         resolve_param(
             block,
