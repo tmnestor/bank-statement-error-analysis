@@ -5,14 +5,19 @@ Usage:
     python -m generators.pipeline generate --type invoices --limit 3
     python -m generators.pipeline serialise
     python -m generators.pipeline preview CASE001
+    python -m generators.pipeline export
 
-`export` (design §6.1) is not here yet: the dated deliverable directory, its
-hashed manifest and the shipped prompt are packaging, separable from producing
-the artifact. The predecessor's `derive` and `eval-set` commands do not cross —
-both project extraction ground truth, which belongs to that repo.
+The commands are ordered: `generate` renders and captures, `serialise` turns
+captured events into transcripts, `export` packages what those two produced.
+Each reads only the previous one's output, so a convention change re-emits every
+transcript without re-rendering an image (design §6).
+
+The predecessor's `derive` and `eval-set` commands do not cross — both project
+extraction ground truth, which belongs to that repo.
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -22,6 +27,7 @@ from rich import print as rprint
 from generators.bank_statement import render_bank_statement
 from generators.common import FitError
 from generators.content_engine import load_pools, reachable_blocked_names
+from generators.export import ExportError, export_corpus
 from generators.invoice import render_invoice
 from generators.layout_dsl.schema import LayoutSchemaError, validate_layout
 from generators.loader import load_generation_config, load_ground_truth, load_layout_registry
@@ -41,6 +47,7 @@ _RENDERERS = {
 
 _DEFAULT_CONFIG = Path("config/generation_config.yml")
 _DEFAULT_POLICY = Path("config/serialisation.yml")
+_DEFAULT_PROMPT = Path("config/prompt.md")
 
 
 def _validate_layouts(layouts: dict, *, doc_type: str, layout_path: str) -> list[str]:
@@ -332,6 +339,58 @@ def preview(
         rprint(f"[cyan]image:[/cyan] {image_path}")
         rprint("[cyan]transcript:[/cyan]")
         print(serialise_events(record["events"], convention))
+
+
+@app.command()
+def export(
+    config: Annotated[Path, typer.Option(help="Path to generation_config.yml")] = _DEFAULT_CONFIG,
+    policy: Annotated[Path, typer.Option("--policy", help="Path to serialisation.yml")] = _DEFAULT_POLICY,
+    prompt: Annotated[Path, typer.Option("--prompt", help="Path to prompt.md")] = _DEFAULT_PROMPT,
+    derived: Annotated[
+        Path | None, typer.Option("--derived", help="Override the configured derived directory.")
+    ] = None,
+    output: Annotated[
+        Path | None, typer.Option("--output", help="Override the configured output directory.")
+    ] = None,
+    target: Annotated[
+        Path, typer.Option("--target", help="Directory to create the export inside.")
+    ] = Path(),
+    date: Annotated[
+        str | None, typer.Option("--date", help="Corpus date stamp, YYYYMMDD. Defaults to today.")
+    ] = None,
+) -> None:
+    """Assemble the dated deliverable directory (design §6.1).
+
+    Copies images and transcripts verbatim — it never re-renders or
+    re-serialises — and adds the three artifacts that make the corpus
+    interpretable away from this checkout: a hashed manifest, a copy of the
+    policy that produced the transcripts, and the prompt they assume.
+
+    Raises:
+        typer.Exit: With code 1 when a needed artifact is missing.
+    """
+    cfg = load_generation_config(config)
+    derived_dir = derived if derived is not None else Path(cfg["derived_dir"])
+    output_dir = output if output is not None else Path(cfg["output_dir"])
+    records = _load_event_records(derived_dir)
+    date_stamp = date if date is not None else datetime.now().strftime("%Y%m%d")
+
+    try:
+        root = export_corpus(
+            records,
+            images_root=output_dir,
+            transcripts_dir=derived_dir / "transcripts",
+            policy_path=policy,
+            prompt_path=prompt,
+            target=target,
+            date_stamp=date_stamp,
+        )
+    except ExportError as exc:
+        rprint(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from None
+
+    rprint(f"[green]Exported {len(records)} documents into {root}.[/green]")
+    rprint("[cyan]Verify every image against its sha256 in manifest.jsonl before scoring.[/cyan]")
 
 
 if __name__ == "__main__":
