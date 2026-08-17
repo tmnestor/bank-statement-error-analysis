@@ -53,7 +53,6 @@ _receipt_defaults_values: &receipt_defaults_values
   table_fill_inset: 0
   table_dividers: []
   table_offset_y: 0
-  table_capture: true
   table_sub_line_height: 0
   banner_text_color: "white"
   banner_text_y: 0
@@ -97,9 +96,11 @@ _receipt_body: &receipt_body
       - [{type: text, content: "#{RECEIPT_NUMBER}", align: right}]
   - {type: rule}
   # --- line items --------------------------------------------------------
-  # `prefix_key`/`prefix_field` record the "2x " quantity marker the row
-  # provider concatenates onto the description, which legacy captured as its
-  # own LINE_ITEM_QUANTITIES[i] box.
+  # `quantity_prefix_format` below concatenates the "2x " marker onto the
+  # description, so it is part of the drawn cell text and reaches a transcript
+  # that way. The predecessor's `prefix_key`/`prefix_field` pair, which
+  # recorded that marker as its own LINE_ITEM_QUANTITIES[i] bounding box, does
+  # not cross: nothing here captures geometry (design §4.2).
   - type: table
     rows: receipt_line_items
     frame: plain
@@ -110,8 +111,7 @@ _receipt_body: &receipt_body
       quantity_prefix_format: "{quantity}x "
     columns:
       - {key: description, label: Description, align: left, x: 0,
-         budget: LINE_ITEM_DESC, field: LINE_ITEM_DESCRIPTIONS,
-         prefix_key: quantity_prefix, prefix_field: LINE_ITEM_QUANTITIES}
+         budget: LINE_ITEM_DESC, field: LINE_ITEM_DESCRIPTIONS}
       - {key: total, label: Amount, align: right, x_right: 0,
          budget: LINE_ITEM_AMOUNT, currency: plain, field: LINE_ITEM_TOTAL_PRICES}
   - {type: rule}

@@ -38,7 +38,6 @@ PARAMETER_DEFAULTS: frozenset[str] = frozenset(
         "table_fill_inset",
         "table_dividers",
         "table_offset_y",
-        "table_capture",
         "table_sub_line_height",
         "banner_text_color",
         "banner_role",

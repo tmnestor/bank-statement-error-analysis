@@ -72,7 +72,6 @@ _invoice_defaults_values: &invoice_defaults_values
   table_fill_inset: 0
   table_dividers: []
   table_offset_y: 0
-  table_capture: true
   table_sub_line_height: 0
   banner_text_color: "white"
   banner_text_y: 0
