@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-from PIL import ImageDraw, ImageFont
+from PIL import ImageFont
+
+from generators.transcript import DrawSurface
 
 Font = ImageFont.FreeTypeFont | ImageFont.ImageFont
 
@@ -315,7 +317,7 @@ def _fit_from_budget(text: str, budget: dict, nominal_size: int, *, family: str,
 
 
 def draw_fitted_left(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     x: int,
     y: int,
@@ -344,7 +346,7 @@ def draw_fitted_left(
 
 
 def draw_fitted_center(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     y: int,
     canvas_width: int,
@@ -373,7 +375,7 @@ def draw_fitted_center(
 
 
 def draw_fitted_right(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     x_right: int,
     y: int,
@@ -401,7 +403,7 @@ def draw_fitted_right(
 
 
 def draw_text_left(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     x: int,
     y: int,
@@ -413,7 +415,7 @@ def draw_text_left(
 
 
 def draw_text_right(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     x_right: int,
     y: int,
@@ -428,7 +430,7 @@ def draw_text_right(
 
 
 def draw_text_center(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     y: int,
     width: int,
@@ -443,7 +445,7 @@ def draw_text_center(
 
 
 def draw_separator(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     y: int,
     width: int,
     margin: int,
@@ -460,7 +462,7 @@ def draw_separator(
 
 
 def draw_separator_line(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     x1: int,
     x2: int,
     y: int,
@@ -481,7 +483,7 @@ def draw_separator_line(
 
 
 def draw_line_item(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     desc: str,
     amount: str,
     y: int,

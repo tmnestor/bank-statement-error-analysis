@@ -15,11 +15,12 @@ from PIL import Image, ImageDraw
 
 from generators.layout_dsl.context import Region
 from generators.layout_dsl.engine import render_body
+from generators.transcript import TranscriptDraw, TranscriptRecorder
 
 _LAYOUT_PATH = "config/layouts/receipts.yml"
 
 
-def render_receipt(entry: dict, layout: dict) -> Image.Image:
+def render_receipt(entry: dict, layout: dict) -> tuple[Image.Image, TranscriptRecorder]:
     """Render a receipt image from ground truth entry and layout config.
 
     Receipts are variable-height: the body is drawn onto a canvas
@@ -33,7 +34,11 @@ def render_receipt(entry: dict, layout: dict) -> Image.Image:
             `margin`, `content_width` and `canvas_ceiling`.
 
     Returns:
-        PIL Image of the rendered receipt, cropped to its content.
+        The rendered receipt cropped to its content, and the transcript
+        captured while drawing it. Cropping changes pixels, never events.
+
+    Raises:
+        CoverageError: A primitive drew text without emitting an event.
     """
     layout_id = str(entry.get("layout", ""))
     width = int(layout["width"])
@@ -41,17 +46,18 @@ def render_receipt(entry: dict, layout: dict) -> Image.Image:
     margin = int(layout["margin"])
 
     image = Image.new("RGB", (width, ceiling), "white")
-    draw = ImageDraw.Draw(image)
+    recorder = TranscriptRecorder()
 
     end_y = render_body(
         layout,
         entry,
         layout_id=layout_id,
         layout_path=_LAYOUT_PATH,
-        draw=draw,
+        draw=TranscriptDraw(ImageDraw.Draw(image), recorder),
         region=Region(x=margin, width=int(layout["content_width"])),
         y=margin,
+        transcript=recorder,
     )
 
     height = min(end_y + margin, ceiling)
-    return image.crop((0, 0, width, height))
+    return image.crop((0, 0, width, height)), recorder

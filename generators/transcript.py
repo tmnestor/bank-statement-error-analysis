@@ -16,6 +16,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
+from PIL import ImageDraw
+
 
 class CoverageError(RuntimeError):
     """Raised when text reaches the canvas with no event authorising it."""
@@ -146,7 +148,7 @@ class TranscriptDraw:
     themselves, and therefore exactly where an unnoticed gap would open.
     """
 
-    def __init__(self, draw, recorder: TranscriptRecorder) -> None:
+    def __init__(self, draw: ImageDraw.ImageDraw, recorder: TranscriptRecorder) -> None:
         """Wrap a drawing surface.
 
         Args:
@@ -168,3 +170,10 @@ class TranscriptDraw:
     def __getattr__(self, name: str):
         """Forward everything else (line, rectangle, textlength) untouched."""
         return getattr(self._draw, name)
+
+
+# Either drawing surface the DSL may be handed: the bare PIL one on a plain
+# render, or the checked proxy above when a transcript is being captured. The
+# primitives and common.py's helpers genuinely accept both, so they say so
+# rather than claiming an ImageDraw and being handed a proxy.
+DrawSurface = ImageDraw.ImageDraw | TranscriptDraw

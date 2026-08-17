@@ -18,11 +18,12 @@ from PIL import Image, ImageDraw
 
 from generators.layout_dsl.context import Region
 from generators.layout_dsl.engine import render_body
+from generators.transcript import TranscriptDraw, TranscriptRecorder
 
 _LAYOUT_PATH = "config/layouts/invoices.yml"
 
 
-def render_invoice(entry: dict, layout: dict) -> Image.Image:
+def render_invoice(entry: dict, layout: dict) -> tuple[Image.Image, TranscriptRecorder]:
     """Render a compliant Australian tax invoice from ground truth and layout config.
 
     Invoices are fixed-page, so this is page setup and nothing else: no crop and
@@ -35,20 +36,24 @@ def render_invoice(entry: dict, layout: dict) -> Image.Image:
             'page_dimensions', 'margin' and 'content_width'.
 
     Returns:
-        PIL Image of the rendered invoice.
+        The rendered page, and the transcript captured while drawing it.
+
+    Raises:
+        CoverageError: A primitive drew text without emitting an event.
     """
     dims = layout["page_dimensions"]
     width, height = int(dims["width"]), int(dims["height"])
     image = Image.new("RGB", (width, height), "white")
-    draw = ImageDraw.Draw(image)
+    recorder = TranscriptRecorder()
 
     render_body(
         layout,
         entry,
         layout_id=str(entry.get("layout", "")),
         layout_path=_LAYOUT_PATH,
-        draw=draw,
+        draw=TranscriptDraw(ImageDraw.Draw(image), recorder),
         region=Region(x=int(layout["margin"]), width=int(layout["content_width"])),
         y=int(layout["margin"]),
+        transcript=recorder,
     )
-    return image
+    return image, recorder

@@ -10,6 +10,7 @@ transcript. The predecessor's `derive` and `eval-set` commands do not cross —
 both project extraction ground truth, which belongs to that repo.
 """
 
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -149,18 +150,27 @@ def generate(
     output: Annotated[
         Path | None, typer.Option("--output", help="Override the configured output directory.")
     ] = None,
+    derived: Annotated[
+        Path | None, typer.Option("--derived", help="Override the configured derived directory.")
+    ] = None,
 ) -> None:
-    """Render page images from ground truth.
+    """Render page images from ground truth, capturing a transcript per page.
 
     Filenames are `{case_id}_{doc_type}.png`, never `{case_id}_{layout_id}.png`
     (design §6.1): a model must not be able to infer the layout template from
     the filename before it has read a pixel.
 
+    The §8.2 coverage invariant runs here, not only under pytest: if a primitive
+    puts text on the page without emitting an event, this command fails and
+    names it, rather than writing a quietly incomplete transcript.
+
     Raises:
         typer.Exit: With code 1 on an unknown `--type` or an invalid layout.
+        CoverageError: A primitive drew text without emitting an event.
     """
     cfg = load_generation_config(config)
     output_dir = output if output is not None else Path(cfg["output_dir"])
+    records: list[dict] = []
 
     doc_types = cfg["document_types"]
     if doc_type:
@@ -197,16 +207,33 @@ def generate(
 
             entry["case_id"] = str(case_id)
             try:
-                image = renderer(entry, layout)
+                image, recorder = renderer(entry, layout)
             except FitError as exc:
                 raise build_overflow_error(
                     [f"{case_id} / {layout_ref}: {str(exc).splitlines()[0]}"]
                 ) from None
 
-            image.save(target / f"{case_id}_{dtype}.png")
+            image_file = f"{case_id}_{dtype}.png"
+            image.save(target / image_file)
+            records.append(
+                {
+                    "case_id": str(case_id),
+                    "doc_type": dtype,
+                    "image_file": image_file,
+                    "events": [event.as_dict() for event in recorder.events],
+                }
+            )
             count += 1
 
         rprint(f"[green]{dtype}: generated {count} documents into {target}.[/green]")
+
+    derived_dir = derived if derived is not None else Path(cfg["derived_dir"])
+    derived_dir.mkdir(parents=True, exist_ok=True)
+    events_path = derived_dir / "events.jsonl"
+    with events_path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record) + "\n")
+    rprint(f"[green]Events written: {events_path} ({len(records)} documents)[/green]")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw
 
 from generators.layout_dsl.context import Region
 from generators.layout_dsl.engine import render_body
+from generators.transcript import TranscriptDraw, TranscriptRecorder
 
 _LAYOUT_PATH = "config/layouts/bank_statements.yml"
 
@@ -35,7 +36,7 @@ def _parse_transactions(fields: dict) -> list[dict]:
     return txns
 
 
-def render_via_dsl(entry: dict, layout: dict, layout_id: str) -> Image.Image:
+def render_via_dsl(entry: dict, layout: dict, layout_id: str) -> tuple[Image.Image, TranscriptRecorder]:
     """Render a bank statement through the declarative layout DSL.
 
     Args:
@@ -44,26 +45,30 @@ def render_via_dsl(entry: dict, layout: dict, layout_id: str) -> Image.Image:
         layout_id: The layout's registry id, used in diagnostics.
 
     Returns:
-        PIL Image of the rendered bank statement.
+        The rendered page, and the transcript captured while drawing it.
+
+    Raises:
+        CoverageError: A primitive drew text without emitting an event.
     """
     dims = layout["page_dimensions"]
     width, height = dims["width"], dims["height"]
     image = Image.new("RGB", (width, height), "white")
-    draw = ImageDraw.Draw(image)
+    recorder = TranscriptRecorder()
 
     render_body(
         layout,
         entry,
         layout_id=layout_id,
         layout_path=_LAYOUT_PATH,
-        draw=draw,
+        draw=TranscriptDraw(ImageDraw.Draw(image), recorder),
         region=Region(x=layout["margin"], width=layout["content_width"]),
         y=layout["margin"],
+        transcript=recorder,
     )
-    return image
+    return image, recorder
 
 
-def render_bank_statement(entry: dict, layout: dict) -> Image.Image:
+def render_bank_statement(entry: dict, layout: dict) -> tuple[Image.Image, TranscriptRecorder]:
     """Render a bank statement image from ground truth entry and layout config.
 
     Args:
@@ -72,6 +77,6 @@ def render_bank_statement(entry: dict, layout: dict) -> Image.Image:
             'margin', and 'content_width'.
 
     Returns:
-        PIL Image of the rendered bank statement.
+        The rendered page, and the transcript captured while drawing it.
     """
     return render_via_dsl(entry, layout, str(entry.get("layout", "")))

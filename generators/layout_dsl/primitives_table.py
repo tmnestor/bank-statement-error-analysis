@@ -7,8 +7,6 @@ container positions correctly without knowing it is nested.
 
 from decimal import Decimal
 
-from PIL import ImageDraw
-
 from generators.common import (
     Font,
     draw_fitted_left,
@@ -24,6 +22,7 @@ from generators.layout_dsl.context import RenderContext
 from generators.layout_dsl.defaults import resolve_param
 from generators.layout_dsl.primitives_text import font_for, line_advance, resolve_role
 from generators.layout_dsl.providers import get_provider
+from generators.transcript import DrawSurface
 
 _ABSENT = "NOT_FOUND"
 
@@ -938,7 +937,7 @@ def _draw_sub_lines(row: dict, columns: list, ctx: RenderContext, y: int) -> int
 
 
 def _draw_cell(
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     text: str,
     x: int,
     y: int,

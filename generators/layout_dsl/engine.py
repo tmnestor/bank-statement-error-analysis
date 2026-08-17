@@ -2,8 +2,6 @@
 
 from collections.abc import Callable
 
-from PIL import ImageDraw
-
 from generators.common import FitError
 from generators.layout_budgets import LayoutBudgetError
 from generators.layout_dsl.binding import BindingError, is_present
@@ -22,7 +20,7 @@ from generators.layout_dsl.primitives_text import (
     draw_spacer,
     draw_text_block,
 )
-from generators.transcript import TranscriptRecorder
+from generators.transcript import DrawSurface, TranscriptRecorder
 
 Drawer = Callable[[dict, RenderContext, int], int]
 
@@ -148,7 +146,7 @@ def render_body(
     *,
     layout_id: str,
     layout_path: str,
-    draw: ImageDraw.ImageDraw,
+    draw: DrawSurface,
     region: Region,
     y: int,
     transcript: TranscriptRecorder | None = None,

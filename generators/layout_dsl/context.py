@@ -8,9 +8,7 @@ needs to know how deeply it is nested.
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from PIL import ImageDraw
-
-from generators.transcript import TranscriptRecorder
+from generators.transcript import DrawSurface, TranscriptRecorder
 
 
 @dataclass(frozen=True)
@@ -185,7 +183,7 @@ class RenderContext:
             a circular import, since the engine's dispatch table imports them.
     """
 
-    draw: ImageDraw.ImageDraw
+    draw: DrawSurface
     entry: dict
     layout: dict
     layout_id: str
