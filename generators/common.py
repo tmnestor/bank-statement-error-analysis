@@ -40,8 +40,8 @@ _BUNDLED_FONTS_DIR = Path(__file__).resolve().parent.parent / "fonts"
 # glyph metrics, which re-runs every `fit_text()` decision and diverges the
 # rendered pixels Mac<->PROD without erroring. Since these files are vendored
 # and tracked in git, a missing one means a broken checkout, and the only safe
-# response is to fail loudly. This is the single-path guarantee `fit_text` and
-# `derived/geometry.jsonl` both rest on.
+# response is to fail loudly. This is the single-path guarantee `fit_text`
+# rests on, and therefore what makes a render reproducible across machines.
 #
 # All three families are metric-compatible substitutes for the proprietary
 # fonts real Australian business documents actually use, so they are both
