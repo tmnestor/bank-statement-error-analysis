@@ -27,7 +27,7 @@ from rich import print as rprint
 from generators.bank_statement import render_bank_statement
 from generators.common import FitError
 from generators.content_engine import load_pools, reachable_blocked_names
-from generators.export import ExportError, export_corpus
+from generators.export import ExportError, export_corpus, sha256_of
 from generators.invoice import render_invoice
 from generators.layout_dsl.schema import LayoutSchemaError, validate_layout
 from generators.loader import load_generation_config, load_ground_truth, load_layout_registry
@@ -350,6 +350,137 @@ def _load_event_records(derived_dir: Path) -> list[dict]:
         rprint("[red]  Recover:  run `python -m generators.pipeline generate` first.[/red]")
         raise typer.Exit(1) from None
     return [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line]
+
+
+class ScoreInputError(RuntimeError):
+    """Raised when the corpus or the predictions cannot be trusted to score."""
+
+
+def _score_input_err(what: str, *, where: str, expected: str, recover: str) -> ScoreInputError:
+    """Build a four-element fail-fast diagnostic."""
+    return ScoreInputError(
+        "Cannot score.\n"
+        f"  What:     {what}\n"
+        f"  Where:    {where}\n"
+        f"  Expected: {expected}\n"
+        f"  Recover:  {recover}"
+    )
+
+
+def _verify_corpus(corpus: Path) -> list[dict]:
+    """Read the manifest and check every image against its recorded hash.
+
+    The shipped README calls this "not ceremony". A mismatch means the
+    predictions and the ground truth are different vintages, and any number
+    computed from them is meaningless -- so scoring refuses rather than
+    reporting (scoring spec §6).
+
+    Args:
+        corpus: An exported `parsing_YYYYMMDD/` directory.
+
+    Returns:
+        The manifest rows, in file order.
+
+    Raises:
+        ScoreInputError: The manifest is absent or any image hash differs.
+    """
+    manifest = corpus / "manifest.jsonl"
+    if not manifest.exists():
+        raise _score_input_err(
+            f"{manifest} does not exist.",
+            where=str(manifest.resolve()),
+            expected="the manifest.jsonl written by `export`, one JSON row per case, e.g.\n"
+            '              {"image": "images/CASE001_invoices.png", ...}',
+            recover="pass --corpus pointing at an exported parsing_YYYYMMDD/ directory, "
+            "or run `python -m generators.pipeline export` to produce one.",
+        )
+
+    rows = [json.loads(line) for line in manifest.read_text(encoding="utf-8").splitlines() if line]
+    for row in rows:
+        image = corpus / row["image"]
+        if not image.exists():
+            raise _score_input_err(
+                f"{row['image']} is in the manifest but not on disk.",
+                where=str(image.resolve()),
+                expected="every manifest row to name an image present in the corpus.",
+                recover="re-export the corpus so manifest and images agree.",
+            )
+        if sha256_of(image) != row["sha256"]:
+            raise _score_input_err(
+                f"{row['image']} does not match its sha256 in the manifest.",
+                where=f"{manifest.resolve()} -> {row['image']}",
+                expected=f"sha256 {row['sha256']}.",
+                recover="score against the corpus these predictions were produced from, or "
+                "re-run the predictions against this corpus. Scoring across vintages is "
+                "the failure the manifest exists to prevent.",
+            )
+    return rows
+
+
+def _pair_predictions(corpus: Path, predictions: Path) -> dict[str, dict[str, Path]]:
+    """Pair every transcript with one prediction per system, by filename stem.
+
+    Each immediate subdirectory of `predictions` is one system, named by the
+    directory. The rule is stated rather than sniffed, so a directory of loose
+    `.md` files is an error rather than an anonymous system (scoring spec §6).
+
+    Args:
+        corpus: An exported `parsing_YYYYMMDD/` directory.
+        predictions: Directory whose subdirectories are systems.
+
+    Returns:
+        System name -> {transcript stem -> prediction path}.
+
+    Raises:
+        ScoreInputError: No subdirectories, or any system's files do not
+            exactly cover the corpus's transcripts.
+    """
+    if not predictions.is_dir():
+        raise _score_input_err(
+            f"{predictions} is not a directory.",
+            where=str(predictions.resolve()),
+            expected="a directory whose immediate subdirectories are systems, e.g.\n"
+            "              runs/docling/CASE001_invoices.md",
+            recover="create one directory per system under the --predictions path.",
+        )
+
+    systems = sorted(p for p in predictions.iterdir() if p.is_dir())
+    if not systems:
+        raise _score_input_err(
+            f"{predictions} contains no subdirectory.",
+            where=str(predictions.resolve()),
+            expected="one subdirectory per system, each holding predictions named for the "
+            "transcript stems, e.g.\n              runs/docling/CASE001_invoices.md",
+            recover="move the prediction files into a subdirectory named for the system "
+            "that produced them.",
+        )
+
+    expected_stems = {p.stem for p in (corpus / "transcripts").glob("*.md")}
+    paired: dict[str, dict[str, Path]] = {}
+    for system in systems:
+        found = {p.stem: p for p in system.glob("*.md")}
+        missing = sorted(expected_stems - set(found))
+        if missing:
+            raise _score_input_err(
+                f"system '{system.name}' has no prediction for {len(missing)} transcript(s): "
+                f"{missing[:5]}{' ...' if len(missing) > 5 else ''}.",
+                where=str(system.resolve()),
+                expected=f"one .md per transcript stem, {len(expected_stems)} in total.",
+                recover="re-run inference for the missing cases, or score a corpus subset "
+                "by exporting one.",
+            )
+        extra = sorted(set(found) - expected_stems)
+        if extra:
+            raise _score_input_err(
+                f"system '{system.name}' has {len(extra)} prediction(s) with no transcript: "
+                f"{extra[:5]}{' ...' if len(extra) > 5 else ''}.",
+                where=str(system.resolve()),
+                expected="every prediction to name a transcript stem in this corpus.",
+                recover="remove the extra files, or score against the corpus they came from "
+                "-- an extra file usually means two corpora have been mixed.",
+            )
+        paired[system.name] = found
+    return paired
 
 
 @app.command()
