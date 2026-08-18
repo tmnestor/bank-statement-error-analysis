@@ -23,17 +23,21 @@ from typing import Annotated
 
 import typer
 from rich import print as rprint
+from rich.table import Table
 
 from generators.bank_statement import render_bank_statement
 from generators.common import FitError
 from generators.content_engine import load_pools, reachable_blocked_names
+from generators.divergence import CONVENTION, READING, group, hunks
 from generators.export import ExportError, export_corpus, sha256_of
 from generators.invoice import render_invoice
 from generators.layout_dsl.schema import LayoutSchemaError, validate_layout
 from generators.loader import load_generation_config, load_ground_truth, load_layout_registry
+from generators.metrics import cer, error_rate, wer
 from generators.overflow_check import build_overflow_error, check_overflow
 from generators.receipt import render_receipt
 from generators.schema import field_names_for, validate_entry
+from generators.scoring import ScoringError, load_scoring_policy, normalise
 from generators.serialise import load_serialisation_policy
 from generators.serialise import serialise as serialise_events
 
@@ -48,6 +52,7 @@ _RENDERERS = {
 _DEFAULT_CONFIG = Path("config/generation_config.yml")
 _DEFAULT_POLICY = Path("config/serialisation.yml")
 _DEFAULT_PROMPT = Path("config/prompt.md")
+_DEFAULT_SCORING = Path("config/scoring.yml")
 
 
 def _validate_layouts(layouts: dict, *, doc_type: str, layout_path: str) -> list[str]:
@@ -603,6 +608,148 @@ def export(
 
     rprint(f"[green]Exported {len(records)} documents into {root}.[/green]")
     rprint("[cyan]Verify every image against its sha256 in manifest.jsonl before scoring.[/cyan]")
+
+
+@app.command()
+def score(
+    corpus: Annotated[Path, typer.Option("--corpus", help="An exported parsing_YYYYMMDD/ directory.")],
+    predictions: Annotated[
+        Path, typer.Option("--predictions", help="Directory whose subdirectories are systems.")
+    ],
+    policy: Annotated[Path, typer.Option("--policy", help="Path to scoring.yml")] = _DEFAULT_SCORING,
+    report: Annotated[Path, typer.Option("--report", help="Where to write the JSON report.")] = Path(
+        "scores.json"
+    ),
+) -> None:
+    """Score predictions against the corpus and classify every divergence.
+
+    Reports two metrics per system -- normalised, which measures reading, and
+    strict, which measures reading plus convention adherence -- and groups the
+    divergences behind them into convention mismatches and reading errors, so
+    the §8.6 calibration pass can tell which of the two it is looking at.
+
+    Raises:
+        typer.Exit: With code 1 when the corpus fails verification, the
+            predictions do not cover it, or the policy is invalid.
+    """
+    try:
+        convention = load_scoring_policy(policy)
+        _verify_corpus(corpus)
+        paired = _pair_predictions(corpus, predictions)
+    except (ScoringError, ScoreInputError) as exc:
+        rprint(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from None
+
+    transcripts = {p.stem: p for p in (corpus / "transcripts").glob("*.md")}
+    systems: dict[str, dict] = {}
+    hunks_by_system: dict[str, list] = {}
+
+    for system, files in sorted(paired.items()):
+        totals = {
+            "strict": {"char_distance": 0, "chars": 0, "word_distance": 0, "words": 0},
+            "normalised": {"char_distance": 0, "chars": 0, "word_distance": 0, "words": 0},
+        }
+        per_document: list[dict] = []
+        system_hunks: list = []
+
+        for stem in sorted(files):
+            truth = transcripts[stem].read_text(encoding="utf-8")
+            prediction = files[stem].read_text(encoding="utf-8")
+            pairs = {
+                "strict": (truth, prediction),
+                "normalised": (normalise(truth, convention), normalise(prediction, convention)),
+            }
+            row: dict[str, str | float] = {"stem": stem}
+            for metric, (left, right) in pairs.items():
+                char_distance, char_rate = cer(left, right)
+                word_distance, word_rate = wer(left, right)
+                totals[metric]["char_distance"] += char_distance
+                totals[metric]["chars"] += len(left)
+                totals[metric]["word_distance"] += word_distance
+                totals[metric]["words"] += len(left.split())
+                row[f"{metric}_cer"] = char_rate
+                row[f"{metric}_wer"] = word_rate
+            per_document.append(row)
+            system_hunks.extend(hunks(truth, prediction, convention))
+
+        systems[system] = {
+            metric: {
+                "cer": error_rate(totals[metric]["char_distance"], totals[metric]["chars"]),
+                "wer": error_rate(totals[metric]["word_distance"], totals[metric]["words"]),
+                "distance": totals[metric]["char_distance"],
+            }
+            for metric in ("normalised", "strict")
+        }
+        systems[system]["macro"] = {
+            f"{metric}_cer": (
+                sum(row[f"{metric}_cer"] for row in per_document) / len(per_document)
+                if per_document
+                else 0.0
+            )
+            for metric in ("normalised", "strict")
+        }
+        systems[system]["documents"] = per_document
+        hunks_by_system[system] = system_hunks
+
+    grouped = group(hunks_by_system)
+    payload = {
+        "corpus": str(corpus),
+        "policy": str(policy),
+        "systems": systems,
+        "divergences": grouped,
+    }
+    report.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    _print_score_report(systems, grouped, report)
+
+
+def _print_score_report(systems: dict, grouped: dict, report: Path) -> None:
+    """Render the JSON payload as terminal tables.
+
+    Derived from the same structure that was written to disk rather than
+    computed separately, so the terminal and the report cannot disagree.
+
+    Args:
+        systems: Per-system aggregates and per-document rows.
+        grouped: Divergence groups, keyed by class.
+        report: Where the JSON was written, echoed for the reader.
+    """
+    table = Table(title="Scores (micro-averaged; macro in the JSON report)")
+    table.add_column("system")
+    table.add_column("normalised CER", justify="right")
+    table.add_column("normalised WER", justify="right")
+    table.add_column("strict CER", justify="right")
+    table.add_column("strict WER", justify="right")
+    for system, scores in sorted(systems.items()):
+        table.add_row(
+            system,
+            f"{scores['normalised']['cer']:.4f}",
+            f"{scores['normalised']['wer']:.4f}",
+            f"{scores['strict']['cer']:.4f}",
+            f"{scores['strict']['wer']:.4f}",
+        )
+    rprint(table)
+
+    for kind, heading in ((CONVENTION, "Convention mismatches"), (READING, "Reading errors")):
+        entries = grouped[kind]
+        if not entries:
+            rprint(f"[green]{heading}: none.[/green]")
+            continue
+        divergences = Table(title=f"{heading} (top 20 of {len(entries)})")
+        divergences.add_column("count", justify="right")
+        divergences.add_column("transcript")
+        divergences.add_column("prediction")
+        divergences.add_column("systems")
+        for entry in entries[:20]:
+            divergences.add_row(
+                str(entry["count"]),
+                entry["truth"][:60],
+                entry["prediction"][:60],
+                ", ".join(entry["systems"]),
+            )
+        rprint(divergences)
+
+    rprint(f"[green]Full report written to {report}.[/green]")
 
 
 if __name__ == "__main__":
