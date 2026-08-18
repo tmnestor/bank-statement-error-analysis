@@ -12,6 +12,7 @@ prediction is written so that `score` can pair it (scoring spec §6 —
 `runs/<system>/<stem>.md`, one per transcript stem, no extras).
 """
 
+import json
 from pathlib import Path
 
 _ELIDE_AFTER = 5
@@ -212,6 +213,39 @@ def keep_truncated(out_dir: Path, stem: str, markdown: str) -> Path:
     kept.mkdir(parents=True, exist_ok=True)
     path = kept / f"{stem}.md"
     path.write_text(markdown, encoding="utf-8")
+    return path
+
+
+def write_settings_provenance(out_dir: Path, penalty: float, stems: list[str]) -> Path:
+    """Record which pages were produced under a non-declared setting.
+
+    A benchmark's numbers mean nothing without knowing what produced them, and
+    an override applied to a handful of rescued pages is exactly the sort of
+    deviation that silently becomes invisible. `score` globs `*.md`, so a JSON
+    sidecar is never mistaken for a prediction.
+
+    Args:
+        out_dir: The system's prediction directory.
+        penalty: The repetition penalty actually used for these pages.
+        stems: The stems this invocation will attempt.
+
+    Returns:
+        The path written.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "_settings_provenance.json"
+    path.write_text(
+        json.dumps(
+            {
+                "overridden": "repetition_penalty",
+                "value": penalty,
+                "reason": "retrying pages that ran to the token cap",
+                "pages": sorted(stems),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return path
 
 

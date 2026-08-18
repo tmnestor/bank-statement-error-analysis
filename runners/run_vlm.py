@@ -44,6 +44,7 @@ from runners.common import (
     runner_error,
     verify_complete,
     write_prediction,
+    write_settings_provenance,
 )
 from runners.vlm_config import load_vlm_systems, resolve_base_url, system_named
 
@@ -51,6 +52,25 @@ app = typer.Typer(add_completion=False)
 
 _DEFAULT_SYSTEMS = Path("config/vlm_systems.yml")
 _DEFAULT_PROMPT = Path("config/prompt.md")
+
+
+def apply_penalty_override(spec: dict, penalty: float | None) -> tuple[dict, bool]:
+    """Override the declared repetition penalty for one invocation.
+
+    The declared value is the benchmark's; an override is a deliberate
+    experiment on the pages a model could not finish. Pages produced under one
+    are not directly comparable to the rest, so the caller records which.
+
+    Args:
+        spec: A validated system spec.
+        penalty: The override, or None to use the declared value.
+
+    Returns:
+        The spec to use, and whether it differs from the declaration.
+    """
+    if penalty is None or penalty == spec["repetition_penalty"]:
+        return spec, False
+    return dict(spec, repetition_penalty=penalty), True
 
 
 def read_prompt(path: Path) -> str:
@@ -606,6 +626,14 @@ def main(
     prompt_path: Annotated[
         Path, typer.Option("--prompt", help="The prompt shipped with the corpus.")
     ] = _DEFAULT_PROMPT,
+    repetition_penalty: Annotated[
+        float | None,
+        typer.Option(
+            "--repetition-penalty",
+            help="Override the declared penalty for this run only. Use to retry pages "
+            "that ran to the token cap; pages produced under it are recorded.",
+        ),
+    ] = None,
 ) -> None:
     """Transcribe every corpus page with one prompted VLM, skipping pages done.
 
@@ -628,8 +656,17 @@ def main(
         rprint(f"[red]{err}[/red]")
         raise typer.Exit(1) from None
 
+    spec, overridden = apply_penalty_override(spec, repetition_penalty)
+
     out_dir = out / system
     todo = pending(out_dir, stems)
+    if overridden:
+        rprint(
+            f"[yellow]repetition_penalty overridden to {spec['repetition_penalty']} for this "
+            f"run — the declared value is the benchmark's; these pages are recorded as "
+            f"produced under an override.[/yellow]"
+        )
+        write_settings_provenance(out_dir, spec["repetition_penalty"], todo)
     rprint(
         f"[bold]{system}[/bold] ({spec['transport']}, temperature {spec['temperature']}): "
         f"{len(todo)} of {len(stems)} page(s) to transcribe"
