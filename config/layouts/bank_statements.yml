@@ -15,6 +15,10 @@ _dsl_defaults_values: &dsl_defaults_values
   color: "black"
   align: left
   bold: false
+  # Off for every text block but the one that sets `title: true` — the page's
+  # own title. The two ANZ layouts instead carry theirs in a `banner`, which
+  # emits `title` unconditionally; either way each page yields one H1.
+  text_title: false
   rule_thickness: 1
   rule_pad_above: 0
   rule_pad_below: 0
@@ -181,7 +185,8 @@ _anz_txn_columns: &anz_txn_columns
 # different font_sizes and therefore different natural line_height() advances.
 _nab_classic_body: &nab_classic_body
   # Letterhead reads logo_text dynamically (legacy: draw.text(..., layout["logo_text"], ...)).
-  - {type: text, from_layout: logo_text, role: header, color: "#003366", bold: true}
+  - {type: text, from_layout: logo_text, role: header, color: "#003366", bold: true,
+     title: true}
   - {type: spacer, height: 11}  # line_height(44)=61 -> legacy's real 72px jump.
   - type: panel
     height: 150
@@ -217,7 +222,8 @@ _nab_classic_body: &nab_classic_body
 
 _nab_dense_body: &nab_dense_body
   # See nab_classic_body's identical comments.
-  - {type: text, from_layout: logo_text, role: header, color: "#003366", bold: true}
+  - {type: text, from_layout: logo_text, role: header, color: "#003366", bold: true,
+     title: true}
   - {type: spacer, height: 16}  # line_height(40)=56 -> legacy's real 72px jump.
   - type: panel
     height: 150
@@ -396,7 +402,8 @@ layouts:
       # The content supplier is a separate, subordinate line further down,
       # suppressed whenever it already equals the letterhead (see
       # suppress_if_equals below) — mirrors legacy's `_draw_supplier_line`.
-      - {type: text, from_layout: logo_text, role: header, color: "#12107D"}
+      - {type: text, from_layout: logo_text, role: header, color: "#12107D",
+         title: true}
       - type: block
         role: footer
         color: "#666666"
@@ -450,7 +457,8 @@ layouts:
     body:
       # See cba_standard's identical comment: letterhead reads logo_text
       # dynamically; the supplier line is suppressed when it matches.
-      - {type: text, from_layout: logo_text, role: header, color: "#12107D"}
+      - {type: text, from_layout: logo_text, role: header, color: "#12107D",
+         title: true}
       - type: block
         role: footer
         color: "#666666"
@@ -509,7 +517,7 @@ layouts:
       - type: split
         children:
           - - {type: text, from_layout: logo_text, role: header, color: "#C41E3A",
-                bold: true}
+                bold: true, title: true}
           - - {type: text, content: "Page 1 of 1", role: footer, align: right, color: "#666666"}
       - {type: text, content: "Transaction Details", role: body, bold: true}
       - {type: spacer, height: 14}
@@ -546,7 +554,7 @@ layouts:
       - type: split
         children:
           - - {type: text, from_layout: logo_text, role: header, color: "#C41E3A",
-                bold: true}
+                bold: true, title: true}
           - - {type: text, content: "Page 1 of 1", role: footer, align: right, color: "#666666"}
       - {type: spacer, height: 37}
       - type: panel

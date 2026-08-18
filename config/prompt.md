@@ -16,9 +16,17 @@ boilerplate text, and do not add anything the page does not show.
 
 Follow these conventions exactly.
 
-**Use only this small Markdown subset.** A single `#` heading for a banner
+**Use only this small Markdown subset.** A single `#` heading for the page's own
 title, plain paragraph lines for ordinary text, and pipe tables for tables.
 Nothing else.
+
+**The `#` heading is the document's title, and there is exactly one per page.**
+It is the name of the document or of the business that issued it, printed at the
+top — "TAX INVOICE" on an invoice, the bank's name on a statement, the shop's
+name on a receipt. Write that one line as `# `. Every other line on the page is
+an ordinary paragraph, including section headings inside the body such as
+"Payment Terms:" or "Rewards Points Balance Summary", however large or bold they
+are printed.
 
 **Never use bold or italic.** No `**`, no `__`, no `*`. Some text on the page is
 visually bold; write it as ordinary text anyway.

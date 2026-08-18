@@ -355,6 +355,10 @@ def draw_text_block(block: dict, ctx: RenderContext, y: int) -> int:
     `field_budgets` entry. A block without `budget:` renders exactly as
     before; this is an additive, opt-in engine capability.
 
+    `title: true` marks the block as the page's main title, emitting a `title`
+    event rather than a `line` — see the comment at the emit below. It changes
+    no pixel, only the event kind.
+
     Args:
         block: The `text` block.
         ctx: Render context.
@@ -376,13 +380,34 @@ def draw_text_block(block: dict, ctx: RenderContext, y: int) -> int:
     if suppress_key is not None and (not text or text == str(ctx.layout.get(suppress_key))):
         return y
 
+    # `title: true` marks this block as the page's main title, so it emits a
+    # `title` event (an H1) instead of a `line`. It is purely an event-kind
+    # switch: nothing about the draw changes, so turning it on re-serialises
+    # without re-rendering a pixel. It exists because `banner` — a full-bleed
+    # coloured masthead pinned to (0, 0) — was the only primitive that could
+    # emit `title`, which left the H1 firing on bank statements and on nothing
+    # else. A model cannot infer "coloured bar is a heading, equally large bold
+    # text is not", so the convention was unlearnable rather than merely
+    # inconsistent. Only a document's own title takes it; a `block` heading
+    # stays a `line`, being a section sub-head rather than the page's title.
+    is_title = bool(
+        resolve_param(
+            block,
+            ctx.layout,
+            "text_title",
+            layout_id=ctx.layout_id,
+            layout_path=ctx.layout_path,
+            block_key="title",
+        )
+    )
+
     # Emitted below the suppression gate, above every draw path: the code that
     # suppresses is the code that would have emitted, so a suppressed block
     # cannot leave a transcript event behind (design §4.2). Captured pre-wrap —
     # `_draw_fitted_text` may split this string across lines, but wrapping is an
     # artifact of the fit budget, not of content.
     if ctx.transcript is not None:
-        ctx.transcript.emit("line", text)
+        ctx.transcript.emit("title" if is_title else "line", text)
 
     bold = bool(
         resolve_param(block, ctx.layout, "bold", layout_id=ctx.layout_id, layout_path=ctx.layout_path)
@@ -617,9 +642,10 @@ def draw_block(block: dict, ctx: RenderContext, y: int) -> int:
             ctx.layout, block, size, bold=True, layout_id=ctx.layout_id, layout_path=ctx.layout_path
         )
         heading_text = interpolate(heading, ctx.entry["fields"])
-        # A heading is a `line`, not a `title`. §4.3 reserves the H1 for the
-        # page's banner; a block heading is body text drawn bold, and emphasis
-        # is deliberately outside the Markdown subset.
+        # A heading is a `line`, not a `title`. The H1 belongs to the page's
+        # own title — a `banner`, or a `text` block carrying `title: true`;
+        # a block heading is a section sub-head drawn bold, and emphasis is
+        # deliberately outside the Markdown subset.
         if ctx.transcript is not None:
             ctx.transcript.emit("line", heading_text)
         _draw_line(ctx, heading_text, y, font=heading_font, align="left", color=color)

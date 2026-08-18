@@ -70,6 +70,7 @@ PRIMITIVES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
             "color",
             "field",
             "bold",
+            "title",
             "suppress_if_equals",
             "family",
             "line_advance",
@@ -394,6 +395,19 @@ def _validate_block(
                 key_path=f"{key_path}.align",
                 expected=f"one of {list(ALIGNMENTS)}.",
                 recover=f"set align: to one of {list(ALIGNMENTS)}.",
+            )
+        # Checked as a type rather than left to `bool()`, which would read the
+        # string "false" as True and silently promote a body line to the H1.
+        title = block.get("title")
+        if title is not None and not isinstance(title, bool):
+            raise _err(
+                f"title must be a boolean, got {type(title).__name__} ({title!r}).",
+                layout_path=layout_path,
+                key_path=f"{key_path}.title",
+                expected="title: true on the one block carrying the page's own title, "
+                "e.g. {type: text, content: 'TAX INVOICE', title: true}.",
+                recover="set title: true or title: false, unquoted, or drop the key to "
+                "take the layout's text_title default.",
             )
 
     if kind == "pair":

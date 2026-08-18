@@ -20,6 +20,7 @@ PARAMETER_DEFAULTS: frozenset[str] = frozenset(
         "bold",
         "line_advance",
         "family",
+        "text_title",
         "rule_thickness",
         "rule_pad_above",
         "rule_pad_below",

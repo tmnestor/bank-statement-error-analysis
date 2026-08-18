@@ -3,7 +3,12 @@
 # consulting Python. Every key is required — the loader fails fast on any
 # omission, including the keys whose value is a no-op.
 
-# `title` events become an ATX H1 heading.
+# `title` events become an ATX H1 heading. Exactly one block per page emits
+# one: a `banner` (the bank mastheads), or a `text` block marked `title: true`
+# (every other layout's own title line). Section sub-heads inside the body stay
+# ordinary paragraphs however large they are printed — "is this line a heading?"
+# has to be answerable from the page, and "the document's title" is, where
+# "anything drawn big and bold" is not.
 title_style: atx_h1
 
 # A `pair` event joins its label and value with this separator...
