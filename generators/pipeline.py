@@ -184,7 +184,10 @@ def generate(
     output_dir = output if output is not None else Path(cfg["output_dir"])
     records: list[dict] = []
 
-    doc_types = cfg["document_types"]
+    # Kept unfiltered: a partial run still has to resolve where *every* type's
+    # images live, to tell a carried-over event record from a stale one.
+    all_doc_types = cfg["document_types"]
+    doc_types = all_doc_types
     if doc_type:
         if doc_type not in doc_types:
             rprint(f"[red]Unknown document type '{doc_type}'. Available: {sorted(doc_types)}[/red]")
@@ -242,10 +245,88 @@ def generate(
     derived_dir = derived if derived is not None else Path(cfg["derived_dir"])
     derived_dir.mkdir(parents=True, exist_ok=True)
     events_path = derived_dir / "events.jsonl"
+
+    image_dir_for = {
+        dtype: output_dir if output is not None else output_dir / doc_cfg["output_subdir"]
+        for dtype, doc_cfg in all_doc_types.items()
+    }
+    merged, dropped = _merge_event_records(events_path, records, image_dir_for=image_dir_for)
     with events_path.open("w", encoding="utf-8") as handle:
-        for record in records:
+        for record in merged:
             handle.write(json.dumps(record) + "\n")
-    rprint(f"[green]Events written: {events_path} ({len(records)} documents)[/green]")
+
+    for image_file in dropped:
+        rprint(f"[yellow]Dropped stale events for {image_file}: no such image on disk.[/yellow]")
+    carried = len(merged) - len(records)
+    if carried:
+        rprint(
+            f"[green]Events written: {events_path} ({len(merged)} documents: "
+            f"{len(records)} from this run, {carried} carried over from earlier runs)[/green]"
+        )
+    else:
+        rprint(f"[green]Events written: {events_path} ({len(merged)} documents)[/green]")
+
+
+def _merge_event_records(
+    events_path: Path,
+    fresh: list[dict],
+    *,
+    image_dir_for: dict[str, Path],
+) -> tuple[list[dict], list[str]]:
+    """Fold this run's records into whatever `events.jsonl` already holds.
+
+    `events.jsonl` must mirror what is on disk in the output directory, and a
+    partial run — `--type`, `--limit`, or both — only ever rewrites part of
+    that directory. Truncating the file to this run's records therefore threw
+    away the events for pages still sitting on disk: a `generate --type
+    bank_statements` followed by `serialise` wrote 55 fresh transcripts beside
+    110 stale ones, with nothing on either side recording that the corpus was
+    now a mixture. Images already survive a partial run — they live in per-type
+    subdirectories and only the regenerated ones are overwritten — so merging
+    brings the event stream in line with how the images have always behaved,
+    rather than inventing a new rule.
+
+    A record is keyed by `(case_id, doc_type)`, the same granularity a partial
+    run rewrites at. Fresh records replace matching ones in place, which keeps
+    file order stable across runs; unmatched fresh records append. Carried-over
+    records whose image has since left the disk are dropped rather than
+    preserved, because a record with no page is precisely the divergence this
+    file exists to prevent.
+
+    Args:
+        events_path: The `events.jsonl` this run is about to write.
+        fresh: The records this run captured, in render order.
+        image_dir_for: Directory holding each doc type's images, keyed by type
+            — the per-type output subdirectory, or the flat override directory.
+
+    Returns:
+        The merged records to write, and the `image_file` of every carried-over
+        record dropped for having no page on disk.
+    """
+    if not events_path.exists():
+        return fresh, []
+
+    existing = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line]
+    by_key = {(r["case_id"], r["doc_type"]): r for r in fresh}
+
+    dropped: list[str] = []
+    merged: list[dict] = []
+    replaced: set[tuple[str, str]] = set()
+    for record in existing:
+        key = (record["case_id"], record["doc_type"])
+        replacement = by_key.get(key)
+        if replacement is not None:
+            merged.append(replacement)
+            replaced.add(key)
+            continue
+        directory = image_dir_for.get(record["doc_type"])
+        if directory is None or not (directory / record["image_file"]).exists():
+            dropped.append(record["image_file"])
+            continue
+        merged.append(record)
+
+    merged.extend(r for r in fresh if (r["case_id"], r["doc_type"]) not in replaced)
+    return merged, dropped
 
 
 def _load_event_records(derived_dir: Path) -> list[dict]:
