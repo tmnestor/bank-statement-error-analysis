@@ -36,8 +36,10 @@ from rich import print as rprint
 
 from runners.common import (
     RunnerError,
+    chunks,
     corpus_images,
     corpus_stems,
+    keep_truncated,
     pending,
     runner_error,
     verify_complete,
@@ -269,11 +271,23 @@ VISION_ATTRIBUTES: tuple[str, ...] = (
 )
 
 
-def check_generation_complete(finish_reason: str | None, stem: str, system: str) -> None:
-    """Refuse a local generation that stopped at the token cap.
+class TruncatedGeneration(RunnerError):
+    """Raised when a generation stopped at the token cap.
+
+    Carries the partial text so the caller can set it aside for inspection
+    rather than destroying the only evidence of what the model repeated.
+    """
+
+    def __init__(self, message: str, text: str) -> None:
+        super().__init__(message)
+        self.text = text
+
+
+def check_generation_complete(finish_reason: str | None, stem: str, system: str, text: str = "") -> None:
+    """Refuse a generation that stopped at the token cap.
 
     The HTTP path refuses `finish_reason == "length"` for the same reason, and
-    the local path must not be laxer: a capped run is usually a repetition loop
+    the local paths must not be laxer: a capped run is usually a repetition loop
     and writes a large non-empty file that satisfies every downstream check
     while scoring as a total reading failure.
 
@@ -281,19 +295,24 @@ def check_generation_complete(finish_reason: str | None, stem: str, system: str)
         finish_reason: The reason generation stopped, if the backend reports one.
         stem: The page being transcribed, for diagnostics.
         system: The system name, for diagnostics.
+        text: The partial generation, carried on the exception for inspection.
 
     Raises:
-        RunnerError: Generation stopped because it ran out of tokens.
+        TruncatedGeneration: Generation stopped because it ran out of tokens.
     """
     if finish_reason != "length":
         return
-    raise runner_error(
-        f"'{system}' hit the token cap transcribing {stem}, so the page is truncated.",
-        where=f"config/vlm_systems.yml -> systems.{system}.max_output_tokens",
-        expected="generation stopping on its own before the cap, e.g.\n"
-        "              max_output_tokens: 16384",
-        recover="raise max_output_tokens and re-run — the runner retries only the pages "
-        "with no prediction. A page that still caps is a repetition loop, not a long page.",
+    raise TruncatedGeneration(
+        "Cannot run the parser.\n"
+        f"  What:     '{system}' hit the token cap transcribing {stem}, so the page "
+        "is truncated.\n"
+        f"  Where:    config/vlm_systems.yml -> systems.{system}.max_output_tokens\n"
+        "  Expected: generation stopping on its own before the cap, e.g.\n"
+        "              max_output_tokens: 16384\n"
+        "  Recover:  the partial text is kept under _truncated/ for inspection. A page "
+        "that caps is a repetition loop, not a long page, so raising the cap usually "
+        "just loops longer.",
+        text,
     )
 
 
@@ -440,41 +459,49 @@ def _load_vllm(spec: dict, system: str):  # noqa: ANN202 - vllm is absent in the
     )
 
 
-def _transcribe_vllm(engine, spec: dict, prompt: str, image: Path, system: str) -> str:
-    """Transcribe one page with an in-process vLLM engine.
+def transcribe_vllm_batch(
+    engine, spec: dict, prompt: str, images: list[Path], system: str
+) -> list[tuple[str, str, bool]]:
+    """Transcribe a batch of pages with one scheduled vLLM call.
+
+    Submitting one page per call leaves `max_num_seqs` unused — the scheduler
+    never has more than one sequence in flight, so the KV cache's concurrency
+    ceiling buys nothing. `engine.chat()` accepts a list of conversations and
+    schedules them together, which is the only way the declared batch size and
+    `max_num_seqs` act on the same run.
 
     Thinking is suppressed explicitly: on `gemma4_unified` it is opt-in via a
     `<|think|>` token, and this sends a bare user message with no system
-    prompt, so it should already be off — `enable_thinking: False` is
-    belt-and-braces, matching what the sandbox does.
+    prompt, so it should already be off.
 
     Args:
         engine: The engine from `_load_vllm`.
         spec: A validated system spec.
         prompt: The prompt text.
-        image: The page image.
+        images: The page images for this batch.
         system: The system name, for diagnostics.
 
     Returns:
-        The model's Markdown.
-
-    Raises:
-        RunnerError: Generation stopped at the token cap.
+        One `(stem, text, truncated)` per page, in submission order.
     """
     from vllm import SamplingParams
 
-    outputs = engine.chat(
-        [{"role": "user", "content": message_content(spec, prompt, image)}],
-        SamplingParams(
-            temperature=spec["temperature"],
-            top_p=spec["top_p"],
-            max_tokens=spec["max_output_tokens"],
-        ),
-        chat_template_kwargs={"enable_thinking": False},
+    sampling = SamplingParams(
+        temperature=spec["temperature"],
+        top_p=spec["top_p"],
+        max_tokens=spec["max_output_tokens"],
+        repetition_penalty=spec["repetition_penalty"],
     )
-    completion = outputs[0].outputs[0]
-    check_generation_complete(completion.finish_reason, image.stem, system)
-    return completion.text
+    conversations = [
+        [{"role": "user", "content": message_content(spec, prompt, image)}] for image in images
+    ]
+    outputs = engine.chat(conversations, sampling, chat_template_kwargs={"enable_thinking": False})
+
+    results: list[tuple[str, str, bool]] = []
+    for image, output in zip(images, outputs, strict=True):
+        completion = output.outputs[0]
+        results.append((image.stem, completion.text, completion.finish_reason == "length"))
+    return results
 
 
 def _load_mlx(spec: dict, system: str):  # noqa: ANN202 - mlx types are absent in the test env
@@ -624,21 +651,56 @@ def main(
 
     started = time.monotonic()
     failures: list[str] = []
-    for index, stem in enumerate(todo, start=1):
-        page_started = time.monotonic()
-        try:
-            if loaded is not None:
-                markdown = _transcribe_mlx(loaded, spec, prompt, images[stem], system)
-            elif vllm_engine is not None:
-                markdown = _transcribe_vllm(vllm_engine, spec, prompt, images[stem], system)
-            else:
-                markdown = _transcribe_http(spec, prompt, images[stem])
-        except Exception as err:  # noqa: BLE001 - one bad page must not end the run
-            failures.append(stem)
-            rprint(f"[red]  {index}/{len(todo)} {stem} FAILED: {type(err).__name__}: {err}[/red]")
-            continue
-        write_prediction(out_dir, stem, markdown)
-        rprint(f"  {index}/{len(todo)} {stem} ({time.monotonic() - page_started:.1f}s)")
+
+    if vllm_engine is not None:
+        # Batched: the scheduler runs a whole chunk concurrently, which is what
+        # max_num_seqs is for. A truncated page is set aside, not written.
+        size = int(spec["vllm_engine"]["max_num_seqs"])
+        done = 0
+        for batch in chunks(todo, size):
+            batch_started = time.monotonic()
+            try:
+                results = transcribe_vllm_batch(
+                    vllm_engine, spec, prompt, [images[stem] for stem in batch], system
+                )
+            except Exception as err:  # noqa: BLE001 - one bad batch must not end the run
+                failures.extend(batch)
+                done += len(batch)
+                rprint(f"[red]  {done}/{len(todo)} batch FAILED: {type(err).__name__}: {err}[/red]")
+                continue
+            for stem, markdown, truncated in results:
+                done += 1
+                if truncated:
+                    failures.append(stem)
+                    kept = keep_truncated(out_dir, stem, markdown)
+                    rprint(
+                        f"[red]  {done}/{len(todo)} {stem} TRUNCATED at the token cap; "
+                        f"kept for inspection at {kept}[/red]"
+                    )
+                    continue
+                write_prediction(out_dir, stem, markdown)
+                rprint(f"  {done}/{len(todo)} {stem}")
+            rprint(f"[dim]    batch of {len(batch)} in {time.monotonic() - batch_started:.0f}s[/dim]")
+    else:
+        for index, stem in enumerate(todo, start=1):
+            page_started = time.monotonic()
+            try:
+                markdown = (
+                    _transcribe_mlx(loaded, spec, prompt, images[stem], system)
+                    if loaded is not None
+                    else _transcribe_http(spec, prompt, images[stem])
+                )
+            except TruncatedGeneration as err:
+                failures.append(stem)
+                kept = keep_truncated(out_dir, stem, err.text)
+                rprint(f"[red]  {index}/{len(todo)} {stem} TRUNCATED; kept at {kept}[/red]")
+                continue
+            except Exception as err:  # noqa: BLE001 - one bad page must not end the run
+                failures.append(stem)
+                rprint(f"[red]  {index}/{len(todo)} {stem} FAILED: {type(err).__name__}: {err}[/red]")
+                continue
+            write_prediction(out_dir, stem, markdown)
+            rprint(f"  {index}/{len(todo)} {stem} ({time.monotonic() - page_started:.1f}s)")
 
     elapsed = time.monotonic() - started
     rprint(f"[bold]{system}[/bold]: {len(todo) - len(failures)} written in {elapsed / 60:.1f} min")

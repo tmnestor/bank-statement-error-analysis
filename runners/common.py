@@ -170,6 +170,51 @@ def mineru_markdown_path(raw_dir: Path, stem: str) -> Path:
     return raw_dir / stem / "vlm" / f"{stem}.md"
 
 
+def chunks(items: list, size: int) -> list[list]:
+    """Split a list into fixed-size chunks, preserving order.
+
+    Shared by the runners that submit work in batches — MinerU pays one model
+    load per chunk, vLLM schedules a chunk concurrently — so the two cannot
+    drift on an off-by-one.
+
+    Args:
+        items: The items to split.
+        size: Maximum chunk length; anything below 1 is treated as 1.
+
+    Returns:
+        The chunks, in order.
+    """
+    step = max(1, size)
+    return [items[start : start + step] for start in range(0, len(items), step)]
+
+
+def keep_truncated(out_dir: Path, stem: str, markdown: str) -> Path:
+    """Set a truncated generation aside for inspection, out of the way of scoring.
+
+    A page that runs to the token cap is refused as a prediction — it is a
+    repetition loop, and scoring it would blame the model's reading for the
+    operator's cap. But discarding it destroys the only evidence of *what* the
+    model was repeating, which is what decides whether the loop is fixable.
+
+    The file lands in a `_truncated/` subdirectory, which `score` never sees:
+    it globs `*.md` one level deep, so a subdirectory cannot masquerade as a
+    prediction.
+
+    Args:
+        out_dir: The system's prediction directory.
+        stem: The transcript stem this generation answers.
+        markdown: The truncated text, kept verbatim.
+
+    Returns:
+        The path written.
+    """
+    kept = out_dir / "_truncated"
+    kept.mkdir(parents=True, exist_ok=True)
+    path = kept / f"{stem}.md"
+    path.write_text(markdown, encoding="utf-8")
+    return path
+
+
 def verify_complete(out_dir: Path, stems: list[str]) -> None:
     """Refuse to report success while any page is missing a prediction.
 

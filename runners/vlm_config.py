@@ -33,6 +33,7 @@ REQUIRED_SYSTEM_KEYS: tuple[str, ...] = (
     "mlx_unused_towers",
     "image_first",
     "vllm_engine",
+    "repetition_penalty",
 )
 
 # Shipped as an unmissable placeholder rather than a plausible-looking host, so

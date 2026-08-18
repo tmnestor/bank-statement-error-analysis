@@ -53,6 +53,12 @@ systems:
     # Leave it [] for any system whose checkpoint matches its library.
     mlx_unused_towers: [audio_tower]
     image_first: true
+    # 1.0 is off. Raising it is tempting for the bank statements that run to the
+    # token cap, but these pages legitimately repeat tokens — dates, EFTPOS,
+    # amounts, column headers — so a penalty degrades exactly the transcription
+    # it is meant to rescue. Change it only against a captured _truncated/ page
+    # showing what is actually being repeated.
+    repetition_penalty: 1.0
     vllm_engine: none
 
   # A local MLX 4-bit QAT conversion of the same base model as the entry below,
@@ -77,6 +83,12 @@ systems:
     timeout_seconds: 900
     mlx_unused_towers: []
     image_first: true
+    # 1.0 is off. Raising it is tempting for the bank statements that run to the
+    # token cap, but these pages legitimately repeat tokens — dates, EFTPOS,
+    # amounts, column headers — so a penalty degrades exactly the transcription
+    # it is meant to rescue. Change it only against a captured _truncated/ page
+    # showing what is actually being repeated.
+    repetition_penalty: 1.0
     vllm_engine: none
 
   # Spec §8.6. 4-bit QAT, so character-level slips here are a quantisation
@@ -119,6 +131,8 @@ systems:
       # hf_overrides.vision_config.num_soft_tokens, which must agree — one
       # value makes disagreement unrepresentable rather than merely tested.
       soft_tokens: 560
+    # See the note above: 1.0 is off, and this corpus is repetitive by nature.
+    repetition_penalty: 1.0
 
   # Spec §8.6. A second VLM family rather than a second Gemma, because the pass
   # is looking for convention disagreement, not a leaderboard.
@@ -134,4 +148,10 @@ systems:
     timeout_seconds: 600
     mlx_unused_towers: []
     image_first: true
+    # 1.0 is off. Raising it is tempting for the bank statements that run to the
+    # token cap, but these pages legitimately repeat tokens — dates, EFTPOS,
+    # amounts, column headers — so a penalty degrades exactly the transcription
+    # it is meant to rescue. Change it only against a captured _truncated/ page
+    # showing what is actually being repeated.
+    repetition_penalty: 1.0
     vllm_engine: none
