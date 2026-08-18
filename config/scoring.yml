@@ -27,6 +27,46 @@ strip_heading_marks: true
 strip_table_marks: true
 strip_blockquote_marks: true
 
+# A table is the one structure competent parsers render in two different
+# dialects: the corpus emits a pipe table, MinerU emits <table><tr><td> — on
+# 110 of 165 pages, including every bank statement. Both state the same cells,
+# so leaving the HTML in place scored a correctly-read table as thousands of
+# character errors and filed pure dialect under "reading error", which is
+# exactly the misdiagnosis the §8.6 calibration pass exists to catch.
+#
+# Stripping stays positional: the pattern matches named elements of the table
+# family only (table/thead/tbody/tfoot/caption/colgroup/col/tr/td/th), opening
+# or closing, with or without attributes. A bare "<" in content has no tag name
+# after it and survives; a non-table tag stays visible rather than being
+# silently swallowed.
+#
+# Set this false to measure dialect adherence rather than reading — the strict
+# metric already does that, since it normalises nothing.
+strip_html_table_marks: true
+
+# `&amp;` is the same character the page prints, spelled the way HTML spells
+# it. Both parsers emit it (55 occurrences), so scoring it as a misread
+# ampersand measures output format, not reading. Applied as decoding, before
+# anything inspects the characters, and symmetric: a page that really prints
+# "&" and a prediction that writes "&amp;" agree after this, while a prediction
+# that drops the character entirely still diverges.
+unescape_html_entities: true
+
+# A colon at a token boundary is a label separator, and both parsers drop it
+# after a table-cell label — "GST:" -> "GST", "SUBTOTAL:" -> "SUBTOTAL",
+# "TOTAL:" -> "TOTAL", 170 occurrences across both. Two independent parsers
+# agreeing is the §8.6 signal that the colon is house style rather than
+# something a reader is failing to see.
+#
+# The boundary is what keeps this safe: a colon with non-space on both sides is
+# content and survives — the time "15:46", the ratio "1:1". Only a colon
+# followed by whitespace or end of text is folded.
+#
+# Consequence to accept knowingly: the normalised metric can no longer tell a
+# prediction that keeps the pair separator from one that drops it. That is the
+# same trade the table keys make, and the strict metric still measures it.
+fold_trailing_colons: true
+
 # All whitespace runs become one space, and both ends are trimmed. This is what
 # makes the primary metric blind to wrapping.
 collapse_whitespace: true

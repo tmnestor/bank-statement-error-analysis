@@ -15,6 +15,7 @@ by a blacklist, and a model reading them correctly would be scored down for it.
 So each strip below is positional and paired.
 """
 
+import html
 import re
 import unicodedata
 from pathlib import Path
@@ -28,6 +29,9 @@ REQUIRED_POLICY_KEYS: tuple[str, ...] = (
     "strip_emphasis",
     "strip_heading_marks",
     "strip_table_marks",
+    "strip_html_table_marks",
+    "unescape_html_entities",
+    "fold_trailing_colons",
     "strip_blockquote_marks",
     "collapse_whitespace",
     "fold_case",
@@ -40,6 +44,9 @@ _EXAMPLES: dict[str, str] = {
     "strip_emphasis": "true",
     "strip_heading_marks": "true",
     "strip_table_marks": "true",
+    "strip_html_table_marks": "true",
+    "unescape_html_entities": "true",
+    "fold_trailing_colons": "true",
     "strip_blockquote_marks": "true",
     "collapse_whitespace": "true",
     "fold_case": "false",
@@ -98,6 +105,22 @@ _EMPHASIS = re.compile(r"(?<![\w*_])([*_])(?=\S)(.+?)(?<=\S)\1(?![\w*_])", re.DO
 # trailing \s is what leaves the receipt number #R-011FDD intact.
 _HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+|$)", re.MULTILINE)
 _BLOCKQUOTE = re.compile(r"^ {0,3}> ?", re.MULTILINE)
+
+# An HTML table tag is a named element from the table family, opening or
+# closing, with or without attributes. Naming the elements is what keeps this
+# positional rather than a blacklist: a bare < in content ("Balance < 0") has
+# no tag name after it and is left alone, and a non-table tag stays visible
+# rather than being silently swallowed.
+_HTML_TABLE = re.compile(
+    r"</?(?:table|thead|tbody|tfoot|caption|colgroup|col|tr|td|th)(?:\s[^<>]*)?/?>",
+    re.IGNORECASE,
+)
+
+# A colon at a token boundary — followed by whitespace or end of text — is the
+# label separator. A colon with a non-space on both sides is content: the time
+# "15:46", the ratio "1:1", the URL in a footer. Anchoring on the boundary is
+# what separates the two without a list of known labels.
+_TRAILING_COLON = re.compile(r":(?=\s|$)")
 
 _SEPARATOR_CHARS = set("|:- \t")
 
@@ -209,6 +232,25 @@ def _strip_table_marks(text: str) -> str:
     return "\n".join(kept)
 
 
+def space_html_table_tags(text: str) -> str:
+    """Pad HTML table tags with spaces so each becomes its own word.
+
+    Whitespace is the tokenisation boundary everywhere in scoring, and HTML
+    carries none: `<td>Date</td><td>Amount</td>` is a single token, so word
+    alignment can never match it against the corpus's separate cells and every
+    correctly-read table is filed as a reading error. The corpus's own pipe
+    dialect already spaces its delimiters (`| Date | Amount |`); this gives the
+    HTML dialect the same shape without altering a character of content.
+
+    Args:
+        text: Raw prediction or transcript text.
+
+    Returns:
+        The text with every table tag surrounded by spaces.
+    """
+    return _HTML_TABLE.sub(lambda m: f" {m.group(0)} ", text)
+
+
 def normalise(text: str, policy: dict) -> str:
     """Apply the normalisation policy, in the order the policy fixes.
 
@@ -224,7 +266,12 @@ def normalise(text: str, policy: dict) -> str:
     Returns:
         The normalised string.
     """
-    text = unicodedata.normalize(policy["unicode_form"], text)  # type: ignore[arg-type]
+    text = unicodedata.normalize(policy["unicode_form"], text)
+
+    # Decoding, so it runs before anything inspects the characters: an escaped
+    # ampersand is the same character the page prints, spelled differently.
+    if policy["unescape_html_entities"]:
+        text = html.unescape(text)
 
     if policy["fold_dashes"]:
         text = text.translate(_DASH_FOLD)
@@ -238,8 +285,16 @@ def normalise(text: str, policy: dict) -> str:
         text = _HEADING.sub("", text)
     if policy["strip_table_marks"]:
         text = _strip_table_marks(text)
+    if policy["strip_html_table_marks"]:
+        text = _HTML_TABLE.sub(" ", text)
     if policy["strip_blockquote_marks"]:
         text = _BLOCKQUOTE.sub("", text)
+
+    # After the structural strips, so a colon exposed by removing a cell pipe
+    # is folded too; before whitespace collapse, so end-of-line counts as a
+    # token boundary.
+    if policy["fold_trailing_colons"]:
+        text = _TRAILING_COLON.sub("", text)
 
     if policy["collapse_whitespace"]:
         text = re.sub(r"\s+", " ", text).strip()

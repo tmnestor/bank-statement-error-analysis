@@ -14,7 +14,7 @@ hunk granularity instead of document granularity.
 import difflib
 from dataclasses import dataclass
 
-from generators.scoring import normalise
+from generators.scoring import normalise, space_html_table_tags
 
 CONVENTION = "convention"
 READING = "reading"
@@ -57,6 +57,10 @@ def hunks(truth: str, prediction: str, policy: dict) -> list[Hunk]:
     Returns:
         One `Hunk` per divergent span, in document order.
     """
+    if policy["strip_html_table_marks"]:
+        truth = space_html_table_tags(truth)
+        prediction = space_html_table_tags(prediction)
+
     truth_words = truth.split()
     prediction_words = prediction.split()
     matcher = difflib.SequenceMatcher(a=truth_words, b=prediction_words, autojunk=False)
