@@ -572,13 +572,20 @@ layouts:
               - - type: block
                   role: sub_description
                   heading: "Rewards Points Balance Summary"
+                  # Authored per case in ground_truth/, not invented here: these
+                  # appear in the transcript and so are scored, which puts them
+                  # under the same rule as every other scored value. validate
+                  # enforces opening + earned + bonus - redeemed = closing.
+                  # Widths are held constant across cases (opening/closing 6
+                  # digits, earned 5) so this block's hand-tuned column spacing
+                  # still lines up.
                   lines:
-                    - "Opening Balance          345,678"
-                    - "Points Earned             12,456"
-                    - "Bonus Points Earned            0"
-                    - "Points Redeemed                0"
-                    - "Closing Balance          358,134"
-                    - "Points Status          Available"
+                    - "Opening Balance          {REWARDS_OPENING_BALANCE}"
+                    - "Points Earned             {REWARDS_POINTS_EARNED}"
+                    - "Bonus Points Earned            {REWARDS_BONUS_POINTS}"
+                    - "Points Redeemed                {REWARDS_POINTS_REDEEMED}"
+                    - "Closing Balance          {REWARDS_CLOSING_BALANCE}"
+                    - "Points Status          {REWARDS_POINTS_STATUS}"
               - - type: block
                   role: sub_description
                   heading: "A message from Rewards"

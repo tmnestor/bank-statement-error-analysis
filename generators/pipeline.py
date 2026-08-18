@@ -36,7 +36,7 @@ from generators.loader import load_generation_config, load_ground_truth, load_la
 from generators.metrics import cer, error_rate, wer
 from generators.overflow_check import build_overflow_error, check_overflow
 from generators.receipt import render_receipt
-from generators.schema import field_names_for, validate_entry
+from generators.schema import field_names_for, layout_field_names_for, validate_entry
 from generators.scoring import ScoringError, load_scoring_policy, normalise
 from generators.serialise import load_serialisation_policy
 from generators.serialise import serialise as serialise_events
@@ -71,8 +71,12 @@ def _validate_layouts(layouts: dict, *, doc_type: str, layout_path: str) -> list
     for layout_id, layout in layouts.items():
         if "body" not in layout:
             continue
+        # A layout may draw a block no other layout has, whose data is authored
+        # per case under `layout_fields` rather than required of every entry of
+        # the type. Those names are legal references for that layout only.
+        allowed = known | set(layout_field_names_for(layout_id))
         try:
-            validate_layout(layout, layout_id=layout_id, layout_path=layout_path, known_fields=known)
+            validate_layout(layout, layout_id=layout_id, layout_path=layout_path, known_fields=allowed)
         except LayoutSchemaError as exc:
             errors.append(str(exc))
     return errors

@@ -237,6 +237,63 @@ def _check_gst(case_id: str, fields: dict) -> list[str]:
     ]
 
 
+def layout_field_names_for(layout_id: str) -> list[str]:
+    """Field names required only by one layout.
+
+    A layout that draws a block no other layout has still needs its data
+    authored rather than invented in the layout file. `layout_fields` in
+    field_definitions.yml declares those names; a layout with no entry has none.
+
+    Args:
+        layout_id: The layout id, e.g. 'westpac_premium'.
+
+    Returns:
+        The extra field names that layout requires, or an empty list.
+    """
+    defs = _load_field_defs()
+    return list((defs.get("layout_fields") or {}).get(layout_id, []))
+
+
+def _check_rewards(case_id: str, fields: dict) -> list[str]:
+    """Check the rewards balance is derived, not asserted.
+
+    Closing is opening + earned + bonus - redeemed. Enforced for the same
+    reason GST is checked as one eleventh: a figure that appears in the
+    transcript is scored, so it must be right, and "right" here is arithmetic
+    rather than taste.
+
+    Args:
+        case_id: The CASE ID, for diagnostics.
+        fields: The entry's fields.
+
+    Returns:
+        One error message if the arithmetic fails, else an empty list.
+    """
+    rule = _required_section("rewards_consistency", "  opening: REWARDS_OPENING_BALANCE")
+    names = [rule[k] for k in ("opening", "earned", "bonus", "redeemed", "closing")]
+    if any(name not in fields for name in names):
+        return []
+
+    try:
+        opening, earned, bonus, redeemed, closing = (
+            int(str(fields[name]).replace(",", "")) for name in names
+        )
+    except ValueError:
+        return [
+            f"{case_id}: rewards figures must be whole numbers, optionally comma-grouped; "
+            f"got {[fields[name] for name in names]}."
+        ]
+
+    expected = opening + earned + bonus - redeemed
+    if expected != closing:
+        return [
+            f"{case_id}: REWARDS_CLOSING_BALANCE is {fields[names[4]]!r}, but "
+            f"opening + earned + bonus - redeemed = {expected:,}. "
+            f"Fix the closing balance, or the figures it is derived from."
+        ]
+    return []
+
+
 def validate_entry(case_id: str, entry: dict) -> list[str]:
     """Validate a single ground truth YAML entry.
 
@@ -276,7 +333,11 @@ def validate_entry(case_id: str, entry: dict) -> list[str]:
         errors.append(str(exc))
         return errors
 
-    for field_name in required:
+    # A layout-specific block's data is required of the layouts that draw it and
+    # of no others, so the requirement is looked up per entry rather than per type.
+    layout_required = layout_field_names_for(str(entry.get("layout", "")))
+
+    for field_name in [*required, *layout_required]:
         if field_name == "DOCUMENT_TYPE":
             continue
         if field_name not in fields:
@@ -284,6 +345,8 @@ def validate_entry(case_id: str, entry: dict) -> list[str]:
                 f"{case_id}: missing required field '{field_name}' for {doc_type}. "
                 f"Add '{field_name}: <value>' under 'fields:'."
             )
+
+    errors.extend(_check_rewards(case_id, fields))
 
     try:
         date_fields = _field_type_group("date")

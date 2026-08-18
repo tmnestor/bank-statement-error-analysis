@@ -1,6 +1,37 @@
 # Field definitions for synthetic business document benchmark.
 # 20 columns across the three document types: bank statements, receipts, invoices.
 
+# Fields required only by particular layouts.
+#
+# A layout that draws a block no other layout has still needs its data
+# AUTHORED, like everything else on the page. The Westpac rewards summary was
+# hardcoded into config/layouts/bank_statements.yml as literal strings —
+# fabricated figures, byte-identical on all seven westpac_premium pages,
+# derived from nothing and validated by nothing, while appearing in the
+# transcript and so being scored. Declaring the fields here puts them back
+# under the same rule as every other scored value.
+#
+# Only the layouts named here carry these; the other 48 bank statements do not
+# and must not.
+layout_fields:
+  westpac_premium:
+    - REWARDS_OPENING_BALANCE
+    - REWARDS_POINTS_EARNED
+    - REWARDS_BONUS_POINTS
+    - REWARDS_POINTS_REDEEMED
+    - REWARDS_CLOSING_BALANCE
+    - REWARDS_POINTS_STATUS
+
+# Rewards arithmetic, enforced by validate the way gst_consistency is: the
+# closing balance is not free, it is opening + earned + bonus - redeemed.
+rewards_consistency:
+  opening: REWARDS_OPENING_BALANCE
+  earned: REWARDS_POINTS_EARNED
+  bonus: REWARDS_BONUS_POINTS
+  redeemed: REWARDS_POINTS_REDEEMED
+  closing: REWARDS_CLOSING_BALANCE
+
+
 document_fields:
   bank_statement:
     - DOCUMENT_TYPE
