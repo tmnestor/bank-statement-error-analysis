@@ -416,6 +416,41 @@ convention is wrong, and §4.4's policy file is where it is fixed, without
 regenerating an image. This is a budgeted calibration pass, not something to
 discover after the corpus ships.
 
+**Decided 2026-08-18 — the four systems.** Two prompted VLMs and two dedicated
+parsers:
+
+| System | Kind | Reads `prompt.md`? |
+|---|---|---|
+| `gemma-4-12B-it-qat-w4a16-ct` | VLM, prompted, 4-bit QAT | Yes |
+| `InternVL3.5-8B` | VLM, prompted | Yes |
+| Docling | Document → Markdown parser | No |
+| MinerU | Document → Markdown parser | No |
+
+The split is the point. A prompted VLM tests whether `prompt.md` **communicates**
+the convention — split-column order, one H1 per page, no emphasis. A dedicated
+parser cannot be told the convention at all: it emits whatever its authors chose,
+so every mismatch it produces is a pure signal about whether §4.4's convention is
+idiomatic Markdown rather than an arbitrary house style. Two VLMs from different
+families, rather than two of one, for the same reason — the pass is looking for
+convention *disagreement*, not a leaderboard.
+
+Three things shape how the results are read:
+
+- The invoices and bank statements render at 1800–1900 × 3508 px. A pipeline
+  that downscales hard produces reading errors that read as convention
+  mismatches; confirm the input resolution before trusting any number.
+- The receipts are thermal slips, 310–440 px wide and as short as 472 px. They
+  behave nothing like the full-page documents on either axis, so sample across
+  all three document types rather than taking the first N cases.
+- The Gemma entry is a 4-bit quantised (QAT W4A16) checkpoint. Quantisation
+  costs character-level fidelity before it costs anything else — transposed
+  digits in an ABN or an amount — which is exactly the failure this pass must
+  not misfile as a convention mismatch. Where that model alone loses points on
+  a string the other three read correctly, suspect the checkpoint, not
+  `serialisation.yml`.
+
+VLM inference runs on the remote GPU host, never locally.
+
 ## 9. Stated limitation
 
 A pristine-only corpus bounds what the benchmark can claim to parsing accuracy
