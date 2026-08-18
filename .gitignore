@@ -7,6 +7,11 @@ derived/
 output/
 parsing_*/
 
+# Calibration-pass predictions, parser scratch, and scoring reports
+runs/
+.mineru_work/
+scores*.json
+
 # Python
 __pycache__/
 *.py[cod]

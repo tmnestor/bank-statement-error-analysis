@@ -1,0 +1,51 @@
+name: docparse-mineru
+# MinerU parser env. Apple Silicon only; the MLX backend requires macOS 13.5+
+# on arm64, and this file will NOT solve on Linux (mlx is macOS-only).
+#
+# Split from docparse-docling because the two parsers pin disjoint mlx-vlm
+# ranges: MinerU needs <0.4, docling needs >=0.4.3. They cannot share an env.
+channels:
+  - conda-forge
+dependencies:
+  # mineru requires >=3.10,<3.14; 3.12 keeps parity with the docling env so
+  # benchmark results are not confounded by the interpreter version.
+  - python=3.12
+  - pillow>=11.0.0          # mineru floor
+  - pyyaml
+  - typer
+  - rich
+  - faker
+  - pytest
+  - pytest-cov
+  - ruff
+  - mypy
+  - pip
+  - pip:
+      # MinerU — Apache-2.0 WITH ADDITIONAL TERMS, not plain Apache-2.0:
+      #   https://github.com/opendatalab/MinerU/blob/master/LICENSE.md
+      #   - separate commercial licence required above 100M MAU or USD 20M/month
+      #   - attribution REQUIRED if MinerU backs an online service to third parties
+      #
+      # Extras chosen explicitly:
+      #   mlx      = Apple Silicon VLM inference (mlx + mlx-vlm). MinerU
+      #              auto-selects the mlx-engine backend whenever mlx_vlm
+      #              imports; there is no CLI flag for it.
+      #   pipeline = OCR/layout baseline, AND the torch that the default
+      #              `hybrid-engine` backend checks for. Drop it and every
+      #              hybrid-* run fails with HybridDependencyError.
+      # Deliberately omitted: [vlm] (torch VLM engine, superseded by mlx here),
+      # [vllm]/[lmdeploy] (Linux/Windows), [gradio] (web UI), [core] (= all three).
+      - mineru[pipeline,mlx]>=3.4,<4
+
+      # Hard ceiling, not a preference: mlx-vlm 0.3.10+ requires transformers
+      # >=5.0, while mineru[pipeline] pins transformers<5.0.0. 0.3.9 is the
+      # last version compatible with both; transformers lands in 4.57.x.
+      - mlx-vlm>=0.3.3,<0.3.10
+
+# VLM weights: opendatalab/MinerU2.5-Pro-2605-1.2B, 1,156,026,624 params, BF16,
+# 2.31 GB. Unlike docling, there is NO separate MLX checkpoint -- mineru-vl-utils
+# mlx_compat patches the stock HF qwen2_vl config and converts at load time.
+# Set MINERU_MODEL_SOURCE=modelscope if the HuggingFace endpoint is unreachable.
+#
+# Apply with:
+#   conda env update -f environment-mineru.yml --prune

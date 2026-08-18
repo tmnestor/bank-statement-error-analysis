@@ -1,0 +1,42 @@
+name: docparse-docling
+# Docling parser env. Apple Silicon only (MLX inference path).
+#
+# Split from docparse-mineru because the two parsers pin disjoint mlx-vlm
+# ranges: docling needs >=0.4.3, MinerU needs <0.4. They cannot share an env.
+channels:
+  - conda-forge
+dependencies:
+  # docling requires >=3.10,<4; 3.12 keeps parity with the mineru env so
+  # benchmark results are not confounded by the interpreter version.
+  - python=3.12
+  - pillow>=10.0.0
+  - pyyaml
+  - typer
+  - rich
+  - faker
+  - pytest
+  - pytest-cov
+  - ruff
+  - mypy
+  - pip
+  - pip:
+      # Docling — MIT (docling-core, docling-ibm-models, docling-parse all MIT).
+      # [vlm] = models-vlm-inline: adds mlx-vlm on darwin/arm64, plus accelerate,
+      # peft and qwen-vl-utils. Without it you get the standard layout +
+      # TableFormer pipeline on torch/MPS but no VLM path.
+      - docling[vlm]>=2.120,<3
+
+      # Hard ceiling, not a preference: docling pins
+      #   transformers !=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,<5.9.0,>=4.42.0
+      # while mlx-vlm 0.6.6+ requires transformers>=5.14.0. 0.6.5 is the last
+      # version compatible with docling; transformers lands in 5.5-5.8.
+      - mlx-vlm>=0.4.3,<0.6.6
+
+# VLM weights: docling ships a PRE-CONVERTED MLX checkpoint,
+# ibm-granite/granite-docling-258M-mlx (Apache-2.0), selected via the
+# GRANITEDOCLING_MLX spec (InferenceFramework.MLX, MPS). 258M-class model,
+# 315M tensor entries BF16 -- roughly a quarter the size of MinerU's VLM.
+# The non-MLX twin is ibm-granite/granite-docling-258M (257,517,120 params).
+#
+# Apply with:
+#   conda env update -f environment-docling.yml --prune
