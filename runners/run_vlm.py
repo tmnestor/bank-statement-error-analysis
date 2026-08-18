@@ -103,6 +103,28 @@ def image_data_uri(image: Path) -> str:
     return f"data:image/png;base64,{encoded}"
 
 
+def message_content(spec: dict, prompt: str, image: Path) -> list[dict]:
+    """Build the user message parts, in the order this system declares.
+
+    Shared by every transport so an ordering or encoding change cannot apply to
+    one and not the other. Some servers and chat templates are order-sensitive;
+    the LMM_POC sandbox registers every gemma4 model with
+    default_image_first=True, so the order is declared per system rather than
+    assumed here.
+
+    Args:
+        spec: A validated system spec.
+        prompt: The prompt text, sent verbatim.
+        image: The page image.
+
+    Returns:
+        The content parts for one user message.
+    """
+    text_part = {"type": "text", "text": prompt}
+    image_part = {"type": "image_url", "image_url": {"url": image_data_uri(image)}}
+    return [image_part, text_part] if spec["image_first"] else [text_part, image_part]
+
+
 def build_request(spec: dict, prompt: str, image: Path) -> tuple[str, dict, dict[str, str]]:
     """Build the chat-completions call for one page.
 
@@ -131,12 +153,7 @@ def build_request(spec: dict, prompt: str, image: Path) -> tuple[str, dict, dict
             )
         headers["Authorization"] = f"Bearer {key}"
 
-    text_part = {"type": "text", "text": prompt}
-    image_part = {"type": "image_url", "image_url": {"url": image_data_uri(image)}}
-    # Some servers and templates are order-sensitive; the sandbox registers every
-    # gemma4 model with default_image_first=True, so the order is declared per
-    # system rather than assumed here.
-    content = [image_part, text_part] if spec["image_first"] else [text_part, image_part]
+    content = message_content(spec, prompt, image)
 
     payload = {
         "model": spec["model"],
@@ -368,6 +385,98 @@ def check_weight_mismatches(mismatched: list[str], unused_towers: list[str], sys
         )
 
 
+def _load_vllm(spec: dict, system: str):  # noqa: ANN202 - vllm is absent in the test env
+    """Build an in-process vLLM engine from the declared engine block.
+
+    The sandbox that hosts these checkpoints drives vLLM through its offline
+    Python API rather than an OpenAI server, so there is no endpoint to call.
+    Engine arguments are declared in YAML rather than inferred: they decide
+    what the model can see, and a wrong one produces a working run with quietly
+    worse results.
+
+    `soft_tokens` is written once and applied to both places vLLM reads it —
+    `mm_processor_kwargs.max_soft_tokens` and
+    `hf_overrides.vision_config.num_soft_tokens`. They must agree, and writing
+    one value makes disagreement unrepresentable rather than merely tested.
+
+    Args:
+        spec: A validated system spec.
+        system: The declared system name, for diagnostics.
+
+    Returns:
+        The constructed engine.
+
+    Raises:
+        RunnerError: vLLM is not installed in this environment.
+    """
+    try:
+        from vllm import LLM
+    except ImportError as err:
+        raise runner_error(
+            f"vllm is not installed in this environment: {err}",
+            where="the active conda environment",
+            expected="an env with vLLM >= 0.23.0, which is the floor for the "
+            "gemma4_unified architecture, e.g.\n"
+            "              conda run -n vllm_env3 python -m runners.run_vlm ...",
+            recover="run this in the env that serves these checkpoints; anything older "
+            "fails at engine load with an unknown-architecture error.",
+        ) from err
+
+    engine = spec["vllm_engine"]
+    soft = engine["soft_tokens"]
+    return LLM(
+        model=str(spec["model"]),
+        tensor_parallel_size=engine["tensor_parallel_size"],
+        max_model_len=engine["max_model_len"],
+        gpu_memory_utilization=engine["gpu_memory_utilization"],
+        max_num_seqs=engine["max_num_seqs"],
+        limit_mm_per_prompt={"image": engine["limit_mm_images"]},
+        enable_prefix_caching=engine["enable_prefix_caching"],
+        enforce_eager=engine["enforce_eager"],
+        trust_remote_code=True,
+        disable_log_stats=True,
+        mm_processor_kwargs={"max_soft_tokens": soft},
+        hf_overrides={"vision_config": {"num_soft_tokens": soft}},
+    )
+
+
+def _transcribe_vllm(engine, spec: dict, prompt: str, image: Path, system: str) -> str:
+    """Transcribe one page with an in-process vLLM engine.
+
+    Thinking is suppressed explicitly: on `gemma4_unified` it is opt-in via a
+    `<|think|>` token, and this sends a bare user message with no system
+    prompt, so it should already be off — `enable_thinking: False` is
+    belt-and-braces, matching what the sandbox does.
+
+    Args:
+        engine: The engine from `_load_vllm`.
+        spec: A validated system spec.
+        prompt: The prompt text.
+        image: The page image.
+        system: The system name, for diagnostics.
+
+    Returns:
+        The model's Markdown.
+
+    Raises:
+        RunnerError: Generation stopped at the token cap.
+    """
+    from vllm import SamplingParams
+
+    outputs = engine.chat(
+        [{"role": "user", "content": message_content(spec, prompt, image)}],
+        SamplingParams(
+            temperature=spec["temperature"],
+            top_p=spec["top_p"],
+            max_tokens=spec["max_output_tokens"],
+        ),
+        chat_template_kwargs={"enable_thinking": False},
+    )
+    completion = outputs[0].outputs[0]
+    check_generation_complete(completion.finish_reason, image.stem, system)
+    return completion.text
+
+
 def _load_mlx(spec: dict, system: str):  # noqa: ANN202 - mlx types are absent in the test env
     """Load an MLX checkpoint and its processor once, for reuse across pages.
 
@@ -503,23 +612,27 @@ def main(
         return
 
     loaded = None
-    if spec["transport"] == "local_mlx":
-        try:
+    vllm_engine = None
+    try:
+        if spec["transport"] == "local_mlx":
             loaded = _load_mlx(spec, system)
-        except RunnerError as err:
-            rprint(f"[red]{err}[/red]")
-            raise typer.Exit(1) from None
+        elif spec["transport"] == "vllm_offline":
+            vllm_engine = _load_vllm(spec, system)
+    except RunnerError as err:
+        rprint(f"[red]{err}[/red]")
+        raise typer.Exit(1) from None
 
     started = time.monotonic()
     failures: list[str] = []
     for index, stem in enumerate(todo, start=1):
         page_started = time.monotonic()
         try:
-            markdown = (
-                _transcribe_mlx(loaded, spec, prompt, images[stem], system)
-                if loaded is not None
-                else _transcribe_http(spec, prompt, images[stem])
-            )
+            if loaded is not None:
+                markdown = _transcribe_mlx(loaded, spec, prompt, images[stem], system)
+            elif vllm_engine is not None:
+                markdown = _transcribe_vllm(vllm_engine, spec, prompt, images[stem], system)
+            else:
+                markdown = _transcribe_http(spec, prompt, images[stem])
         except Exception as err:  # noqa: BLE001 - one bad page must not end the run
             failures.append(stem)
             rprint(f"[red]  {index}/{len(todo)} {stem} FAILED: {type(err).__name__}: {err}[/red]")

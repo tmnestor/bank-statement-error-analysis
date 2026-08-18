@@ -53,6 +53,7 @@ systems:
     # Leave it [] for any system whose checkpoint matches its library.
     mlx_unused_towers: [audio_tower]
     image_first: true
+    vllm_engine: none
 
   # A local MLX 4-bit QAT conversion of the same base model as the entry below,
   # NOT that entry's checkpoint: w4a16-ct is compressed-tensors, a vLLM/GPU
@@ -76,13 +77,18 @@ systems:
     timeout_seconds: 900
     mlx_unused_towers: []
     image_first: true
+    vllm_engine: none
 
   # Spec §8.6. 4-bit QAT, so character-level slips here are a quantisation
   # signal rather than a convention one. Served from the remote GPU host.
   gemma-4-12B-it-qat-w4a16-ct:
-    transport: openai_http
-    model: gemma-4-12B-it-qat-w4a16-ct
-    base_url: http://REPLACE-ME:8000/v1
+    # In-process vLLM engine, not a served endpoint: the sandbox that holds this
+    # checkpoint drives vLLM through its offline Python API, so there is no
+    # OpenAI-compatible URL to call. Run this on the GPU host itself, in an env
+    # with vLLM >= 0.23.0 (the floor for gemma4_unified).
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/gemma-4-12B-it-qat-w4a16-ct
+    base_url: none
     base_url_env: none
     api_key_env: none
     temperature: 0.0
@@ -91,6 +97,28 @@ systems:
     timeout_seconds: 600
     mlx_unused_towers: []
     image_first: true
+    # Measured values from the LMM_POC sandbox, not guesses. Engine tuning
+    # decides what the model can SEE, so a wrong value here produces a run that
+    # completes and is quietly worse.
+    vllm_engine:
+      # 9.56 GiB of weights fits one L4 whole, so tp=1 — which also sidesteps
+      # the tensor-parallel SHM deadlock that host records for PCIe-linked L4s.
+      tensor_parallel_size: 1
+      max_model_len: 16384
+      gpu_memory_utilization: 0.90
+      max_num_seqs: 10
+      # One whole image; Gemma pan-and-scans internally.
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      # The vision budget, and the single most consequential value here. 1120
+      # and 280 were BOTH measured on this checkpoint and both regressed
+      # (median F1 0.953 -> 0.369 at 1120; 0.915 -> 0.882 at 280). 560 is the
+      # value to beat, not a starting point. Written once and applied to both
+      # mm_processor_kwargs.max_soft_tokens and
+      # hf_overrides.vision_config.num_soft_tokens, which must agree — one
+      # value makes disagreement unrepresentable rather than merely tested.
+      soft_tokens: 560
 
   # Spec §8.6. A second VLM family rather than a second Gemma, because the pass
   # is looking for convention disagreement, not a leaderboard.
@@ -106,3 +134,4 @@ systems:
     timeout_seconds: 600
     mlx_unused_towers: []
     image_first: true
+    vllm_engine: none

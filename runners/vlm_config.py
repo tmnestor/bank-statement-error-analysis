@@ -18,7 +18,7 @@ import yaml
 
 from runners.common import RunnerError, runner_error
 
-TRANSPORTS: tuple[str, ...] = ("local_mlx", "openai_http")
+TRANSPORTS: tuple[str, ...] = ("local_mlx", "openai_http", "vllm_offline")
 
 REQUIRED_SYSTEM_KEYS: tuple[str, ...] = (
     "transport",
@@ -32,6 +32,7 @@ REQUIRED_SYSTEM_KEYS: tuple[str, ...] = (
     "timeout_seconds",
     "mlx_unused_towers",
     "image_first",
+    "vllm_engine",
 )
 
 # Shipped as an unmissable placeholder rather than a plausible-looking host, so
@@ -40,6 +41,24 @@ REQUIRED_SYSTEM_KEYS: tuple[str, ...] = (
 _PLACEHOLDER = "REPLACE-ME"
 
 _NONE = "none"
+
+# vLLM engine arguments, required whole for a vllm_offline system. Values are
+# the sandbox's measured ones (LMM_POC config/run_config.yml).
+VLLM_ENGINE_KEYS: tuple[str, ...] = (
+    "tensor_parallel_size",
+    "max_model_len",
+    "gpu_memory_utilization",
+    "max_num_seqs",
+    "limit_mm_images",
+    "enable_prefix_caching",
+    "enforce_eager",
+    "soft_tokens",
+)
+
+# The checkpoint accepts only these vision budgets. 1120 and 280 were both
+# measured and both regressed (LMM_POC run_config.yml), so 560 is the value
+# to beat rather than a starting guess.
+LEGAL_SOFT_TOKENS: tuple[int, ...] = (70, 140, 280, 560, 1120)
 
 
 def load_vlm_systems(path: Path) -> dict[str, dict]:
@@ -136,8 +155,54 @@ def _validate_shape(name: str, spec: object, path: Path) -> None:
             f"system '{name}' declares unknown transport {transport!r}.",
             where=f"{path} -> systems.{name}.transport",
             expected=f"one of {list(TRANSPORTS)}, e.g.\n              transport: local_mlx",
-            recover="set transport to local_mlx for an on-device MLX checkpoint, or "
-            "openai_http for an OpenAI-compatible server.",
+            recover="set transport to local_mlx for an on-device MLX checkpoint, "
+            "openai_http for an OpenAI-compatible server, or vllm_offline for an "
+            "in-process vLLM engine.",
+        )
+
+    if transport == "vllm_offline":
+        _validate_engine(name, spec["vllm_engine"], path)
+
+
+def _validate_engine(name: str, engine: object, path: Path) -> None:
+    """Check a vllm_offline system declares a complete, usable engine block.
+
+    Args:
+        name: The system name.
+        engine: The declared `vllm_engine` value.
+        path: Resolved path of the declaring file, for diagnostics.
+
+    Raises:
+        RunnerError: The block is absent, omits a key, or names an illegal
+            vision budget.
+    """
+    if not isinstance(engine, dict):
+        raise runner_error(
+            f"system '{name}' uses transport vllm_offline but declares vllm_engine: {engine!r}.",
+            where=f"{path} -> systems.{name}.vllm_engine",
+            expected=f"a mapping declaring {list(VLLM_ENGINE_KEYS)}, e.g.\n"
+            "              vllm_engine:\n                max_model_len: 16384",
+            recover="add the engine block, or switch transport to openai_http.",
+        )
+
+    for key in VLLM_ENGINE_KEYS:
+        if key not in engine:
+            raise runner_error(
+                f"system '{name}' does not declare vllm_engine.{key}.",
+                where=f"{path} -> systems.{name}.vllm_engine.{key}",
+                expected=f"every key of {list(VLLM_ENGINE_KEYS)} present — engine "
+                "tuning has no Python default, e.g.\n              soft_tokens: 560",
+                recover=f"add '{key}:' under systems.{name}.vllm_engine in {path}.",
+            )
+
+    if engine["soft_tokens"] not in LEGAL_SOFT_TOKENS:
+        raise runner_error(
+            f"system '{name}' declares soft_tokens {engine['soft_tokens']!r}, which the "
+            "checkpoint does not accept.",
+            where=f"{path} -> systems.{name}.vllm_engine.soft_tokens",
+            expected=f"one of {list(LEGAL_SOFT_TOKENS)}, e.g.\n              soft_tokens: 560",
+            recover="use 560 — 1120 and 280 were both measured on this checkpoint and "
+            "both regressed, so it is the value to beat, not a starting guess.",
         )
 
 
@@ -154,15 +219,17 @@ def _validate_target(name: str, spec: dict, path: Path) -> None:
             still carries the shipped placeholder.
     """
     transport = spec["transport"]
-    if transport == "local_mlx":
+    if transport in ("local_mlx", "vllm_offline"):
+        # Both load from disk on the machine running the transcription, so the
+        # endpoint checks below do not apply; what has to exist is the weights.
         checkpoint = Path(str(spec["model"]))
         if not checkpoint.is_dir():
             raise runner_error(
                 f"system '{name}' names a checkpoint that is not a directory: {checkpoint}.",
                 where=f"{path} -> systems.{name}.model",
-                expected="an absolute path to an MLX checkpoint directory, e.g.\n"
-                "              model: /Users/tod/PretrainedLLM/gemma-4-E4B-it-qat-4bit",
-                recover="correct the path, or download the checkpoint into the model store.",
+                expected="an absolute path to a checkpoint directory on THIS machine, e.g.\n"
+                "              model: /home/jovyan/nfs_share/models/gemma-4-12B-it-qat-w4a16-ct",
+                recover="correct the path, or run this on the host that holds the weights.",
             )
         return
 
