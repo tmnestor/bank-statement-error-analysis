@@ -54,6 +54,16 @@ _cba: &cba
   field_budgets:
     TRANSACTION_DESC: {width: 760, fit: wrap, min_font: 10, max_lines: 2}
     SUPPLIER_NAME: {width: 1600, fit: shrink, min_font: 12, max_lines: 1}
+    # The licence footnote is one sentence that the page happens to break in
+    # two, so it is authored as one string and wrapped here rather than as two
+    # `lines:` — the transcript then records the sentence, not the typography
+    # (design §4.2). The width reproduces the legacy break after "and": at 18px
+    # carlito that first line measures 216px and adding "Australian" reaches
+    # 293px, so anything in [216, 293) draws the identical two lines. 260 sits
+    # mid-band, far enough from either edge that a font-metric nudge cannot
+    # silently reflow the page. `min_font` equals the nominal size because
+    # `fit: wrap` never shrinks; it only ever appears in a FitError.
+    LEGAL_FOOTNOTE: {width: 260, fit: wrap, min_font: 18, max_lines: 2}
 
 _westpac: &westpac
   <<: *bank_base
@@ -404,13 +414,10 @@ layouts:
       # suppress_if_equals below) — mirrors legacy's `_draw_supplier_line`.
       - {type: text, from_layout: logo_text, role: header, color: "#12107D",
          title: true}
-      - type: block
-        role: footer
-        color: "#666666"
-        lines:
-          - Commonwealth Bank of Australia
-          - ABN 48 123 456 789 AFSL and
-          - Australian credit licence 234567
+      - {type: text, role: footer, color: "#666666",
+         content: "Commonwealth Bank of Australia"}
+      - {type: text, role: footer, color: "#666666", budget: LEGAL_FOOTNOTE,
+         content: "ABN 48 123 456 789 AFSL and Australian credit licence 234567"}
       - {type: spacer, height: 40}
       - {type: pair, label: "Account Holder", value: "{PAYER_NAME}", role: body,
          field: PAYER_NAME}
@@ -459,13 +466,10 @@ layouts:
       # dynamically; the supplier line is suppressed when it matches.
       - {type: text, from_layout: logo_text, role: header, color: "#12107D",
          title: true}
-      - type: block
-        role: footer
-        color: "#666666"
-        lines:
-          - Commonwealth Bank of Australia
-          - ABN 48 123 456 789 AFSL and
-          - Australian credit licence 234567
+      - {type: text, role: footer, color: "#666666",
+         content: "Commonwealth Bank of Australia"}
+      - {type: text, role: footer, color: "#666666", budget: LEGAL_FOOTNOTE,
+         content: "ABN 48 123 456 789 AFSL and Australian credit licence 234567"}
       - {type: spacer, height: 40}
       - {type: pair, label: "Account Holder", value: "{PAYER_NAME}", role: body,
          field: PAYER_NAME}
