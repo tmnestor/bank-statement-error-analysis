@@ -1,0 +1,38 @@
+# How a prediction and a transcript are normalised before the primary metric.
+# This file is the whole normalisation policy: reading it should answer what
+# scoring does without consulting Python. Every key is required — the loader
+# fails fast on any omission, including the key whose value is a no-op.
+#
+# Normalisation lives here, and never in the generator: the corpus emits one
+# canonical form and never normalises, so scoring policy can change without
+# regenerating a single image (corpus design §5).
+
+# Unicode normalisation form, applied first.
+unicode_form: NFKC
+
+# En/em/figure dashes and curly quotes fold to their ASCII equivalents. This is
+# folding, not stripping: the characters become ASCII, they do not disappear.
+fold_dashes: true
+fold_quotes: true
+
+# Markdown structure is removed positionally, never as a character blacklist.
+# A blacklist would corrupt real content in this corpus — the hyphen in
+# "01/09/2023 - 23/09/2023" and in "5-7 business days", the Westpac "Credits (-)"
+# column header — and would score a model down for reading them correctly.
+# So: emphasis is a matched pair of delimiters, a heading mark is a hash run
+# followed by whitespace at the start of a line (leaving the receipt number
+# "#R-011FDD" alone), a table mark is a cell pipe or a separator row.
+strip_emphasis: true
+strip_heading_marks: true
+strip_table_marks: true
+strip_blockquote_marks: true
+
+# All whitespace runs become one space, and both ends are trimmed. This is what
+# makes the primary metric blind to wrapping.
+collapse_whitespace: true
+
+# Deliberately false, and present rather than absent so the file states the
+# decision instead of leaving it to be inferred from silence. Reading account
+# names and identifiers with correct case is legitimately part of transcription
+# (corpus design §5).
+fold_case: false
