@@ -41,6 +41,7 @@ _REQUIRED_KEYS: dict[str, list[str]] = {
     "real_name_blocklist_extra": [],
     "receipt_categories": [],
     "service_categories": [],
+    "invoice_terms": ["payment", "delivery"],
 }
 
 

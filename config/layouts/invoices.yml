@@ -34,6 +34,7 @@ _invoice_field_budgets: &invoice_field_budgets
 # field_providers.py's computed_totals, which every receipt already uses.
 _invoice_field_providers: &invoice_field_providers
   - {name: computed_totals, params: {}}
+  - {name: invoice_terms, params: {}}
 
 # Every primitive parameter an invoice layout must supply a default for.
 # Values are the legacy renderer's Python literals, transcribed verbatim.
@@ -207,13 +208,19 @@ _invoice_totals_inclusive: &invoice_totals_inclusive
       - {type: pair, label: "GST included (10%)", value: "{GST_AMOUNT}", value_align: right,
          separator: ":", currency: symbol, field: GST_AMOUNT, min_gap: 24, line_advance: 40}
 
+# Legacy rendered any section it had no branch for as its bare `label:`, which
+# is all these two ever drew — 55 pages carrying "Payment Terms:" with nothing
+# after it. The values come from the `invoice_terms` field provider, which
+# picks from config/data_pools.yml by case id; they are page furniture, not
+# ground truth, so no `field:` links them to a scored column.
 _invoice_payment_terms: &invoice_payment_terms
-  {type: text, content: "Payment Terms:", color: gray, line_advance: 40}
+  {type: pair, label: "Payment Terms", value: "{PAYMENT_TERMS}", color: gray,
+   line_advance: 40}
 
-# tax_invoice_high_value only. Legacy rendered any section it had no branch for
-# as its bare `label:`, which is all these two ever drew.
+# tax_invoice_high_value only.
 _invoice_delivery: &invoice_delivery
-  {type: text, content: "Delivery:", color: gray, line_advance: 40}
+  {type: pair, label: "Delivery", value: "{DELIVERY_TERMS}", color: gray,
+   line_advance: 40}
 
 layouts:
   tax_invoice_standard:

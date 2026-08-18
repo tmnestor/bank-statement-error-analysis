@@ -288,3 +288,32 @@ professional_services:
   - {name: "Brisbane IT Solutions", address: "42 Creek St, Brisbane QLD 4000", category: it_services}
   - {name: "Adelaide Business Consulting", address: "Level 3, 77 King William St, Adelaide SA 5000", category: consulting}
   - {name: "Perth Marketing Group", address: "Level 8, 140 St Georges Tce, Perth WA 6000", category: marketing}
+
+# Trailing sections on a tax invoice. The predecessor drew these two as a bare
+# `Payment Terms:` / `Delivery:` with nothing after them -- it rendered any
+# section it had no branch for as its label alone -- so 55 invoice pages
+# carried a label with no value. The transcripts recorded that faithfully,
+# which is the point: the page, not the transcript, was what needed fixing.
+#
+# Derived rather than authored: these are page furniture, not scored ground
+# truth, and `generators/layout_dsl/field_providers.py`'s `invoice_terms`
+# picks one of each per case by SHA-256 of the case id, the same way
+# `receipt_pos` picks a register and a staff name. Every key is required.
+invoice_terms:
+  # Kept short enough to sit on one line inside the 1700px invoice content
+  # width; `validate`'s overflow check is what enforces that, not this comment.
+  payment:
+    - Net 30 days from invoice date
+    - Net 14 days from invoice date
+    - Payment due on receipt
+    - Net 7 days from invoice date
+    - 50% deposit, balance on completion
+    - Payment due end of month following invoice
+  # Only tax_invoice_high_value draws a delivery line, so these reach 14 of the
+  # 55 invoices.
+  delivery:
+    - Standard delivery, 5-7 business days
+    - Express delivery, 1-2 business days
+    - Pickup from premises by arrangement
+    - Delivered on completion of works
+    - Freight forwarded, charges apply

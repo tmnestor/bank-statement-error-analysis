@@ -24,6 +24,7 @@ from pathlib import Path
 import yaml
 
 from generators.common import fmt_amount
+from generators.content_engine import load_pools
 from generators.payment_block import derive_payment, load_pos_pools
 
 FieldProvider = Callable[[dict, dict], dict[str, str]]
@@ -541,3 +542,40 @@ def computed_totals(entry: dict, params: dict) -> dict[str, str]:
     if not total or not gst or total == "NOT_FOUND" or gst == "NOT_FOUND":
         return {}
     return {"SUBTOTAL_AMOUNT": str(Decimal(total) - Decimal(gst))}
+
+
+@field_provider("invoice_terms", params=frozenset(), emits=("PAYMENT_TERMS", "DELIVERY_TERMS"))
+def invoice_terms(entry: dict, params: dict) -> dict[str, str]:
+    """Derive a tax invoice's payment terms and delivery line.
+
+    The predecessor rendered any trailing section it had no branch for as its
+    bare label, so every invoice drew `Payment Terms:` -- and the high-value
+    layout also `Delivery:` -- with nothing after it. The transcripts recorded
+    the blank faithfully; it was the page that was wrong.
+
+    Derived rather than authored because these are page furniture, not scored
+    ground truth: nothing checks them, and `config/field_definitions.yml` owns
+    no column for either. The pick is a SHA-256 of the case id, so it is stable
+    across runs and independent of the digests `receipt_pos` and
+    `derive_payment` consume -- those are keyed on `"{case_id}:pos:{date}"` and
+    read from a different pool, so the streams cannot collide.
+
+    Args:
+        entry: The ground-truth entry. Reads `entry["case_id"]` only -- the
+            terms are independent of every value on the page, which is why
+            they can be derived at all.
+        params: Unused. This provider accepts no params: it always reads the
+            `invoice_terms` pool, so a `pools_key` naming it would read as a
+            switch and be none (see `receipt_pos`'s identical rationale).
+
+    Returns:
+        `{"PAYMENT_TERMS": ..., "DELIVERY_TERMS": ...}`.
+    """
+    pools = load_pools()["invoice_terms"]
+    digest = hashlib.sha256(f"{entry.get('case_id', '')}:invoice_terms".encode()).hexdigest()
+    payment = pools["payment"]
+    delivery = pools["delivery"]
+    return {
+        "PAYMENT_TERMS": payment[int(digest[0:4], 16) % len(payment)],
+        "DELIVERY_TERMS": delivery[int(digest[4:8], 16) % len(delivery)],
+    }
