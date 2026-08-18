@@ -681,12 +681,13 @@ def score(
             for metric in ("normalised", "strict")
         }
         systems[system]["macro"] = {
-            f"{metric}_cer": (
-                sum(row[f"{metric}_cer"] for row in per_document) / len(per_document)
+            f"{metric}_{stat}": (
+                sum(row[f"{metric}_{stat}"] for row in per_document) / len(per_document)
                 if per_document
                 else 0.0
             )
             for metric in ("normalised", "strict")
+            for stat in ("cer", "wer")
         }
         systems[system]["documents"] = per_document
         hunks_by_system[system] = system_hunks
