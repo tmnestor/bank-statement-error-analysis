@@ -1,6 +1,10 @@
 [tool.ruff]
 line-length = 108
 target-version = "py312"
+# ruff >= 0.16 formats Python code blocks inside Markdown, so a bare
+# `ruff format .` rewrites the specs and plans under docs/ — historical records
+# whose snippets are quoted as they were written, not live source.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ARG", "PTH"]
