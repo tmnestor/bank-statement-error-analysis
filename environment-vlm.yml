@@ -1,0 +1,55 @@
+name: docparse-vlm
+# Prompted-VLM env for the §8.6 calibration pass. Apple Silicon only (MLX).
+#
+# A third env, and not a preference: `docparse-docling` already carries a
+# working mlx-vlm, but docling pins `transformers <5.9.0`, and that ceiling is
+# what makes it useless for newer architectures. `gemma4_unified` — the
+# encoder-free 12B — needs `Gemma4UnifiedProcessor`, which does not exist in
+# 5.8.1. Without it `AutoProcessor` silently returns a bare `GemmaTokenizer`,
+# nothing expands the `<|image|>` token into image tokens or produces pixel
+# values, and the model answers "Please provide the image" while its (correctly
+# loaded) multimodal weights sit unused.
+#
+# So this env exists to hold a transformers new enough for the model, which
+# docling's pin forbids and MinerU's `<5.0.0` pin forbids even harder.
+channels:
+  - conda-forge
+dependencies:
+  # 3.12 across all four envs, so benchmark results are never confounded by the
+  # interpreter version.
+  - python=3.12
+  - pillow>=10.0.0
+  - pyyaml
+  - typer
+  - rich
+  # Required, and not pulled in by mlx-vlm or transformers: the checkpoint's
+  # chat template is a `chat_template.jinja`, so `apply_chat_template` raises
+  # "requires jinja2" on the first page without it. Every page fails
+  # identically, which the runner catches — but the env should not ship in a
+  # state where no page can ever succeed.
+  - jinja2
+  - pip
+  - pip:
+      # mlx-vlm 0.6.6+ requires transformers>=5.14, which is exactly the
+      # combination the parser envs cannot have. 0.6.4 already carries the
+      # `gemma4_unified` model module — the gap was always transformers, not
+      # mlx-vlm — but pairing them is only possible here.
+      - mlx-vlm>=0.6.6
+
+      # Floor, not a pin: `gemma4_unified` (configuration/modeling/processing)
+      # landed after 5.8.1. Verified 2026-08-18 that 5.8.1 exposes no
+      # `Gemma4Unified*` class and no `gemma4_unified` entry in
+      # PROCESSOR_MAPPING_NAMES, while transformers main ships
+      # `processing_gemma4_unified.py`.
+      - transformers>=5.14
+
+# This env deliberately holds NO parser. Docling and MinerU each have their own
+# file, their own env, and mutually unsatisfiable mlx-vlm ranges; adding either
+# here would reintroduce the ceiling this env exists to escape.
+#
+# It also holds no pytest/ruff/mypy: the runner tests run in `docparse`, which
+# is possible precisely because `runners/common.py` imports no parser and
+# `runners/run_vlm.py` defers its mlx imports into the functions that need them.
+#
+# Apply with:
+#   conda env create -f environment-vlm.yml

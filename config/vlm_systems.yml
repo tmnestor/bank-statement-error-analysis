@@ -1,0 +1,108 @@
+# Prompted-VLM systems for the §8.6 calibration pass.
+#
+# The other arm of the pass — Docling and MinerU — cannot be told the
+# convention, so it measures whether the convention is idiomatic Markdown at
+# all. The systems here read config/prompt.md, so they measure whether the
+# convention is *communicable*. Both arms write runs/<system>/<stem>.md and are
+# scored by the same command.
+#
+# Every key is required for every system, including the no-op: a local system
+# still writes `base_url: none`. Reading this file alone must answer what each
+# system is and how it is reached.
+#
+# The system name is the runs/ subdirectory and the label `score` reports, so
+# it must name the checkpoint actually run. Do not run one checkpoint under
+# another's name.
+#
+#   transport: local_mlx    on-device MLX checkpoint via mlx-vlm. Run it in an
+#                           env whose mlx-vlm knows the architecture —
+#                           docparse-docling carries 0.6.4, which has gemma4;
+#                           docparse-mineru's 0.3.9 does not.
+#              openai_http  an OpenAI-compatible server (vLLM, SGLang, ...).
+#
+# temperature 0.0 and top_p 1.0 make a run reproducible. A benchmark that
+# cannot be re-run to the same numbers cannot attribute a change to a policy
+# edit, so raise them only deliberately.
+
+systems:
+  # Runs here, on the M1. NOT the checkpoint spec §8.6 names — this is the E4B
+  # (mlx-community/gemma-4-E4B-it-qat-4bit), a much smaller model than the 12B
+  # below, and it is declared separately so its scores are never read as the
+  # 12B's. It is a local proxy for "can a prompted model follow prompt.md at
+  # all", available without the remote host.
+  gemma-4-E4B-it-qat-4bit:
+    transport: local_mlx
+    model: /Users/tod/PretrainedLLM/gemma-4-E4B-it-qat-4bit
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 600
+    # This checkpoint's audio tower is transposed against mlx-vlm 0.6.4 — 14
+    # weights in the subsample and depthwise convs, e.g. (128, 3, 3, 1) in the
+    # checkpoint against (128, 3, 1, 3) in the library. Verified 2026-08-18
+    # that the mismatch is confined to audio_tower: the vision and language
+    # towers match exactly, and no checkpoint key is absent from the model.
+    # This is image-text-to-text, so that tower is never invoked.
+    #
+    # Naming a tower here loads the checkpoint non-strictly, and the runner
+    # then proves the mismatch stayed inside the named towers — a vision
+    # mismatch aborts rather than transcribing from uninitialised weights.
+    # Leave it [] for any system whose checkpoint matches its library.
+    mlx_unused_towers: [audio_tower]
+    image_first: true
+
+  # A local MLX 4-bit QAT conversion of the same base model as the entry below,
+  # NOT that entry's checkpoint: w4a16-ct is compressed-tensors, a vLLM/GPU
+  # format mlx-vlm cannot load, so running "the 12B" here means a differently
+  # quantised artifact (mlx-community/gemma-4-12B-it-qat-OptiQ-4bit). Same
+  # weights, different quantiser — comparable, not interchangeable, which is
+  # why it carries its own name and its own row in any report.
+  #
+  # 9.0 GB against E4B's 6.8 GB, on a 16 GB machine. Measure before trusting a
+  # full run: memory pressure, not accuracy, is what decides whether this is
+  # usable here.
+  gemma-4-12B-it-qat-OptiQ-4bit:
+    transport: local_mlx
+    model: /Users/tod/PretrainedLLM/gemma-4-12B-it-qat-OptiQ-4bit
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 900
+    mlx_unused_towers: []
+    image_first: true
+
+  # Spec §8.6. 4-bit QAT, so character-level slips here are a quantisation
+  # signal rather than a convention one. Served from the remote GPU host.
+  gemma-4-12B-it-qat-w4a16-ct:
+    transport: openai_http
+    model: gemma-4-12B-it-qat-w4a16-ct
+    base_url: http://REPLACE-ME:8000/v1
+    base_url_env: none
+    api_key_env: none
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 600
+    mlx_unused_towers: []
+    image_first: true
+
+  # Spec §8.6. A second VLM family rather than a second Gemma, because the pass
+  # is looking for convention disagreement, not a leaderboard.
+  InternVL3.5-8B:
+    transport: openai_http
+    model: OpenGVLab/InternVL3_5-8B
+    base_url: http://REPLACE-ME:8000/v1
+    base_url_env: none
+    api_key_env: none
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 600
+    mlx_unused_towers: []
+    image_first: true
