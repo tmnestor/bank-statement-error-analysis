@@ -933,9 +933,7 @@ def _draw_sub_lines(row: dict, columns: list, ctx: RenderContext, y: int) -> int
         # content's advance, and a measurement that disagreed with the renderer
         # by a pixel would move the dots and invalidate the corpus.
         if ctx.transcript is not None:
-            ctx.transcript.emit(
-                "cell_sub_line", strip_decoration_run(text), column_key=str(column["key"])
-            )
+            ctx.transcript.emit("cell_sub_line", strip_decoration_run(text), column_key=str(column["key"]))
         draw_text_left(ctx.draw, text, x, y + offset_y, font, fill=color)
         sub_line_height = int(
             resolve_param(

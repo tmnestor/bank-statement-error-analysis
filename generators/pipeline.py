@@ -41,6 +41,7 @@ from generators.schema import field_names_for, layout_field_names_for, validate_
 from generators.scoring import ScoringError, load_scoring_policy, normalise
 from generators.serialise import load_serialisation_policy
 from generators.serialise import serialise as serialise_events
+from generators.tables import table_report
 from generators.unproduced import read_unproduced
 
 app = typer.Typer(add_completion=False, help="Synthetic document parsing corpus pipeline.")
@@ -677,6 +678,22 @@ def score(
         # filed under the wrong heading -- the one error a bank statement
         # cannot tolerate.
         columns = {"amounts": 0, "misfiled": 0, "documents_mismatched": 0}
+        # Table structure, scored apart from CER and apart from column
+        # assignment: a system can transcribe cells near-perfectly while
+        # shredding row segmentation, and one number would hide the trade.
+        tables = {
+            "truth_rows": 0,
+            "aligned": 0,
+            "fragments": 0,
+            "width_breaks": 0,
+            "cell_matches": 0,
+            "cell_total": 0,
+            # Row-independent, so the merge layouts are not invisible: cell
+            # accuracy is measured only where rows align, which flatters exactly
+            # the system whose rows do not.
+            "recalled_cells": 0,
+            "truth_cells": 0,
+        }
 
         # Declared-unproducible pages are scored as empty predictions, which is
         # a total failure by construction: the edit distance is the length of
@@ -692,6 +709,10 @@ def score(
                 "strict": (truth, prediction),
                 "normalised": (normalise(truth, convention), normalise(prediction, convention)),
             }
+            structure = table_report(truth, prediction)
+            for key in tables:
+                tables[key] += structure[key] or 0
+
             integrity = column_integrity(truth, prediction)
             columns["amounts"] += integrity["amounts"]
             columns["misfiled"] += integrity["misfiled"]
@@ -728,6 +749,7 @@ def score(
             for stat in ("cer", "wer")
         }
         systems[system]["columns"] = columns
+        systems[system]["tables"] = tables
         systems[system]["documents"] = per_document
         hunks_by_system[system] = system_hunks
 
@@ -771,6 +793,7 @@ def _print_score_report(systems: dict, grouped: dict, report: Path) -> None:
     rprint(table)
 
     _print_column_integrity(systems)
+    _print_table_structure(systems)
     _print_divergences(grouped, report)
 
 
@@ -806,6 +829,46 @@ def _print_column_integrity(systems: dict) -> None:
             f"{counts['documents_mismatched']}",
         )
     rprint(integrity)
+
+
+def _print_table_structure(systems: dict) -> None:
+    """Report row segmentation and cell content, apart from each other and CER.
+
+    These pages draw no vertical rules, so a system infers table structure
+    rather than reading it, and CER discards the pipes that carry the
+    inference. Row segmentation and cell content are reported separately
+    because they dissociate: MinerU transcribes cells at 99.5% while producing
+    292 continuation fragments, gemma-4-12B produces none and misses slightly
+    more characters. Averaging them would rank the two arbitrarily.
+
+    Args:
+        systems: Per-system aggregates carrying a `tables` block.
+    """
+    structure = Table(title="Table structure (row segmentation, then cell content)")
+    structure.add_column("system")
+    structure.add_column("rows aligned", justify="right")
+    structure.add_column("fragments", justify="right")
+    structure.add_column("width breaks", justify="right")
+    structure.add_column("cell accuracy", justify="right")
+    structure.add_column("content recall", justify="right")
+
+    for system, scores in sorted(systems.items()):
+        counts = scores.get("tables")
+        if not counts:
+            continue
+        rows = counts["truth_rows"]
+        aligned = f"{counts['aligned']}/{rows}" if rows else "-"
+        accuracy = f"{counts['cell_matches'] / counts['cell_total']:.3f}" if counts["cell_total"] else "-"
+        recall = f"{counts['recalled_cells'] / counts['truth_cells']:.3f}" if counts["truth_cells"] else "-"
+        structure.add_row(
+            system,
+            aligned,
+            f"{counts['fragments']}",
+            f"{counts['width_breaks']}",
+            accuracy,
+            recall,
+        )
+    rprint(structure)
 
 
 def _print_divergences(grouped: dict, report: Path) -> None:

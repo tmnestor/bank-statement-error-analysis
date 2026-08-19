@@ -58,3 +58,17 @@ block_separator: "\n\n"
 # typographic judgement models make inconsistently, and scoring it would
 # measure style recognition rather than reading.
 emphasis: none
+
+# A group header — a shaded date band drawn across the full table width, with
+# that day's transactions listed beneath it — is folded into the rows it heads,
+# so every row carries its own date and stands alone.
+#
+# 'down' DEPARTS from recording only what the page shows: the page prints the
+# date once. It is the single place this corpus infers rather than transcribes,
+# and it is deliberate. Recorded literally the band is a table row containing
+# only a date, and no system reproduced it — gemma-4-12B attached the date to
+# the group's first transaction instead and was scored as dropping a row on
+# 100% of those documents, the count matching the date-only rows exactly.
+#
+# Set 'none' to record the band as its own row again.
+carry_group_key: down

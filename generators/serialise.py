@@ -28,6 +28,7 @@ REQUIRED_POLICY_KEYS: tuple[str, ...] = (
     "cell_newline_join",
     "split_order",
     "headerless_table",
+    "carry_group_key",
     "block_separator",
     "emphasis",
 )
@@ -38,6 +39,7 @@ _ALLOWED: dict[str, tuple[str, ...]] = {
     "title_style": ("atx_h1",),
     "table_style": ("pipe_with_header_rule",),
     "split_order": ("column_major",),
+    "carry_group_key": ("down", "none"),
     "headerless_table": ("empty_header_row",),
     "emphasis": ("none",),
 }
@@ -52,6 +54,7 @@ _EXAMPLES: dict[str, str] = {
     "cell_newline_join": '" "',
     "split_order": "column_major",
     "headerless_table": "empty_header_row",
+    "carry_group_key": "down",
     "block_separator": '"\\n\\n"',
     "emphasis": "none",
 }
@@ -159,6 +162,63 @@ def _join_cell(text: str, policy: dict) -> str:
     return policy["cell_newline_join"].join(part for part in text.split("\n"))
 
 
+def carry_group_key_down(
+    rows: list[tuple[list[str], bool]],
+) -> list[tuple[list[str], bool]]:
+    """Fold a group-header row into the rows it heads, so each row stands alone.
+
+    Three bank layouts draw a date as a shaded full-width band and then list
+    that day's transactions beneath it with an empty date cell. Recorded
+    literally, that is a table row containing only a date — and **no system
+    reproduced it**. gemma-4-12B attached the date to the group's first
+    transaction instead, and was scored as dropping a row on every one of those
+    documents, the count matching the number of date-only rows exactly.
+
+    This carries the key onto every row of its group, which **departs from
+    recording only what the page shows**: the page prints the date once. It is
+    the one place the corpus infers rather than transcribes, taken deliberately
+    so that every row is self-contained.
+
+    A group header is a row whose first cell has content and whose other cells
+    are all empty. A trailing header with nothing beneath it is kept — dropping
+    it would lose the only record that the date was on the page at all.
+
+    Args:
+        rows: (cells, was_header) per captured row, in order.
+
+    Returns:
+        The rows with group headers folded in.
+    """
+    carried: list[tuple[list[str], bool]] = []
+    pending: tuple[list[str], bool] | None = None
+    pending_used = False
+
+    for cells, was_header in rows:
+        if was_header:
+            carried.append((cells, was_header))
+            continue
+
+        is_group_header = (
+            bool(cells) and bool(cells[0].strip()) and not any(cell.strip() for cell in cells[1:])
+        )
+        if is_group_header:
+            # A header that headed nothing is kept rather than lost: it is the
+            # only record that the date was on the page.
+            if pending is not None and not pending_used:
+                carried.append(pending)
+            pending, pending_used = (cells, was_header), False
+            continue
+
+        if pending is not None and cells and not cells[0].strip():
+            cells = [pending[0][0], *cells[1:]]
+            pending_used = True
+        carried.append((cells, was_header))
+
+    if pending is not None and not pending_used:
+        carried.append(pending)
+    return carried
+
+
 def _render_table(columns: list[str], rows: list[tuple[list[str], bool]], policy: dict) -> str:
     """Render captured rows as a pipe table with a header separator row.
 
@@ -177,6 +237,9 @@ def _render_table(columns: list[str], rows: list[tuple[list[str], bool]], policy
     Returns:
         The pipe table as one block.
     """
+    if policy["carry_group_key"] == "down":
+        rows = carry_group_key_down(rows)
+
     width = len(columns)
     blank = policy["empty_cell_token"]
     separator = "| " + " | ".join(["---"] * width) + " |"
