@@ -15,6 +15,7 @@ scores*.json
 # of band rather than versioned.
 runs/
 runs_v*/
+runs_decoration_*/
 runs_excluded/
 
 # Python
