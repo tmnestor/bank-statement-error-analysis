@@ -26,6 +26,7 @@ from rich import print as rprint
 from rich.table import Table
 
 from generators.bank_statement import render_bank_statement
+from generators.columns import column_integrity
 from generators.common import FitError
 from generators.content_engine import load_pools, reachable_blocked_names
 from generators.divergence import CONVENTION, READING, group, hunks
@@ -671,6 +672,11 @@ def score(
         }
         per_document: list[dict] = []
         system_hunks: list = []
+        # Scored separately and never folded into CER: normalisation strips the
+        # pipes that encode column membership, so CER is blind to an amount
+        # filed under the wrong heading -- the one error a bank statement
+        # cannot tolerate.
+        columns = {"amounts": 0, "misfiled": 0, "documents_mismatched": 0}
 
         # Declared-unproducible pages are scored as empty predictions, which is
         # a total failure by construction: the edit distance is the length of
@@ -686,6 +692,11 @@ def score(
                 "strict": (truth, prediction),
                 "normalised": (normalise(truth, convention), normalise(prediction, convention)),
             }
+            integrity = column_integrity(truth, prediction)
+            columns["amounts"] += integrity["amounts"]
+            columns["misfiled"] += integrity["misfiled"]
+            columns["documents_mismatched"] += 0 if integrity["columns_match"] else 1
+
             row: dict[str, str | float] = {"stem": stem}
             for metric, (left, right) in pairs.items():
                 char_distance, char_rate = cer(left, right)
@@ -716,6 +727,7 @@ def score(
             for metric in ("normalised", "strict")
             for stat in ("cer", "wer")
         }
+        systems[system]["columns"] = columns
         systems[system]["documents"] = per_document
         hunks_by_system[system] = system_hunks
 
@@ -758,6 +770,51 @@ def _print_score_report(systems: dict, grouped: dict, report: Path) -> None:
         )
     rprint(table)
 
+    _print_column_integrity(systems)
+    _print_divergences(grouped, report)
+
+
+def _print_column_integrity(systems: dict) -> None:
+    """Report amounts filed under the wrong column heading.
+
+    Reported apart from CER on purpose. The pages draw no vertical rules, so a
+    model infers column membership rather than reading it; normalisation then
+    strips the pipes that carry the inference, leaving CER unable to see it
+    fail. An amount in the wrong column is money in reported as money out.
+
+    Args:
+        systems: Per-system aggregates carrying a `columns` block.
+    """
+    integrity = Table(title="Column integrity (amounts filed under the wrong heading)")
+    integrity.add_column("system")
+    integrity.add_column("amounts", justify="right")
+    integrity.add_column("misfiled", justify="right")
+    integrity.add_column("misfiled %", justify="right")
+    integrity.add_column("docs with wrong column count", justify="right")
+
+    for system, scores in sorted(systems.items()):
+        counts = scores.get("columns")
+        if not counts:
+            continue
+        total = counts["amounts"]
+        rate = (counts["misfiled"] / total * 100) if total else 0.0
+        integrity.add_row(
+            system,
+            f"{total}",
+            f"{counts['misfiled']}",
+            f"{rate:.1f}%",
+            f"{counts['documents_mismatched']}",
+        )
+    rprint(integrity)
+
+
+def _print_divergences(grouped: dict, report: Path) -> None:
+    """Print the grouped convention and reading divergences.
+
+    Args:
+        grouped: Divergences grouped corpus-wide by class.
+        report: Where the full JSON report was written.
+    """
     for kind, heading in ((CONVENTION, "Convention mismatches"), (READING, "Reading errors")):
         entries = grouped[kind]
         if not entries:
