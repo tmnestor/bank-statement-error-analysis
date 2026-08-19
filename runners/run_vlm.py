@@ -452,14 +452,35 @@ def _load_vllm(spec: dict, system: str):  # noqa: ANN202 - vllm is absent in the
     try:
         from vllm import LLM
     except ImportError as err:
+        # An ImportError here has two very different causes and they need
+        # different fixes. "No module named vllm" is the wrong environment; a
+        # missing symbol or shared object is vLLM being present but unloadable,
+        # usually conda's libstdc++ shadowed by an older system one. Reporting
+        # both as "not installed" sends the reader to the wrong repair.
+        message = str(err)
+        unloadable = "No module named" not in message
         raise runner_error(
-            f"vllm is not installed in this environment: {err}",
+            (
+                f"vllm is installed but could not be loaded: {message}"
+                if unloadable
+                else f"vllm is not installed in this environment: {message}"
+            ),
             where="the active conda environment",
-            expected="an env with vLLM >= 0.23.0, which is the floor for the "
-            "gemma4_unified architecture, e.g.\n"
-            "              conda run -n vllm_env3 python -m runners.run_vlm ...",
-            recover="run this in the env that serves these checkpoints; anything older "
-            "fails at engine load with an unknown-architecture error.",
+            expected=(
+                "a loadable vLLM. A missing CXXABI/GLIBCXX symbol means the system "
+                "libstdc++ is being found before the environment's, e.g.\n"
+                '              export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"'
+                if unloadable
+                else "an env with vLLM >= 0.23.0, the floor for the gemma4_unified "
+                "architecture, e.g.\n"
+                "              conda run -n vllm_env3 python -m runners.run_vlm ..."
+            ),
+            recover=(
+                "export the library path above, or activate the environment in a clean "
+                "shell — a doubled activation can leave it pointing at another prefix."
+                if unloadable
+                else "run this in the env that serves these checkpoints."
+            ),
         ) from err
 
     engine = spec["vllm_engine"]
