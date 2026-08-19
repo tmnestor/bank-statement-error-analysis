@@ -12,6 +12,7 @@ prediction is written so that `score` can pair it (scoring spec §6 —
 `runs/<system>/<stem>.md`, one per transcript stem, no extras).
 """
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -178,6 +179,61 @@ def shard_of(stems: list[str], *, index: int, shards: int) -> list[str]:
             recover="number the processes from zero, one per GPU.",
         )
     return stems[index::shards]
+
+
+def check_prompt_provenance(out_dir: Path, prompt_path: Path, prompt: str) -> Path:
+    """Stamp the prompt this directory's predictions were made under, and defend it.
+
+    The runner resumes by skipping stems that already have a prediction, which
+    is right while the prompt is fixed and silently wrong the moment it changes:
+    a directory would end up holding some pages answered under one instruction
+    and some under another, with nothing to say which. Every prompt revision in
+    this project has moved results, so that is a corrupted run reported as a
+    clean one.
+
+    `score` globs `*.md` one level deep, so a JSON sidecar is never mistaken for
+    a prediction.
+
+    Args:
+        out_dir: The system's prediction directory.
+        prompt_path: Where the prompt was read from, recorded for the reader.
+        prompt: The prompt text actually sent, which is what is hashed — the
+            operator preamble above the `---` rule never reaches the model and
+            must not invalidate a run.
+
+    Returns:
+        The path written.
+
+    Raises:
+        RunnerError: The directory holds predictions made under a different
+            prompt.
+    """
+    digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    path = out_dir / "_prompt_provenance.json"
+
+    if path.exists():
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+        if recorded.get("sha256") != digest:
+            written = sorted(p.stem for p in out_dir.glob("*.md"))
+            if written:
+                raise runner_error(
+                    f"{out_dir} holds {len(written)} prediction(s) made under a different "
+                    f"prompt ({recorded.get('sha256', '?')[:12]}, from "
+                    f"{recorded.get('prompt', '?')}); this run sends {digest[:12]}.",
+                    where=str(path.resolve()),
+                    expected="every prediction in one directory to answer the same prompt, "
+                    "since the runner resumes by skipping pages that already exist, e.g.\n"
+                    "              --out runs_v4   (a directory this prompt owns)",
+                    recover="pass --out pointing at a new directory, or delete the existing "
+                    "predictions to re-run them all under this prompt.",
+                )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"prompt": str(prompt_path), "sha256": digest, "words": len(prompt.split())}, indent=2),
+        encoding="utf-8",
+    )
+    return path
 
 
 def write_prediction(out_dir: Path, stem: str, markdown: str) -> Path:

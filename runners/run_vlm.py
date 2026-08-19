@@ -37,6 +37,7 @@ from rich import print as rprint
 from generators.unproduced import declare_unproduced
 from runners.common import (
     RunnerError,
+    check_prompt_provenance,
     chunks,
     corpus_images,
     corpus_stems,
@@ -724,6 +725,11 @@ def main(
     spec, overridden = apply_penalty_override(spec, repetition_penalty)
 
     out_dir = out / system
+    try:
+        check_prompt_provenance(out_dir, prompt_path, prompt)
+    except RunnerError as err:
+        rprint(f"[red]{err}[/red]")
+        raise typer.Exit(1) from None
     todo = pending(out_dir, stems)
     try:
         todo = shard_of(todo, index=shard, shards=shards)
