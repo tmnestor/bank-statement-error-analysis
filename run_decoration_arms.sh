@@ -24,17 +24,55 @@
 set -euo pipefail
 
 CORPUS=${CORPUS:-parsing_20260819d_decoration}
+SOURCE=${SOURCE:-}
 SYSTEMS=(gemma-4-12B-it-qat-w4a16-ct InternVL3.5-8B)
 
+# The 6 nab_classic statements, the only layout that draws dot leaders. The
+# other 55 pages of the subset are every receipt, which draw separator rules.
+NAB=(CASE003 CASE014 CASE024 CASE032 CASE039 CASE047)
+
+# ------------------------------------------------------- build the subset
+# The corpus is gitignored and does not travel with the repo, but it does not
+# need to be copied either: the runner reads images/ and the transcript
+# FILENAMES, nothing else, and every parsing_20260819* vintage holds
+# byte-identical images. So the subset is carved out of whichever vintage is
+# already on this host. Scoring happens on the machine that has the corrected
+# transcripts, against the matching vintage, so the transcript CONTENT here is
+# irrelevant — only the set of stems matters.
 if [[ ! -d $CORPUS/images ]]; then
-    echo "No corpus at $CORPUS/. It is gitignored and does not travel with the"
-    echo "repo — rsync it across; do not rebuild it here, because score verifies"
-    echo "every image against its sha256 and a re-render will not match."
-    exit 1
+    if [[ -z $SOURCE ]]; then
+        for candidate in parsing_20260819d parsing_20260819c parsing_20260819b parsing_20260819; do
+            [[ -d $candidate/images ]] && { SOURCE=$candidate; break; }
+        done
+    fi
+    if [[ -z $SOURCE || ! -d $SOURCE/images ]]; then
+        echo "No corpus found to carve the subset from."
+        echo "Expected one of parsing_20260819{,b,c,d}/ in $(pwd), or SOURCE=<dir>."
+        echo "Do NOT regenerate one: score verifies every image against its"
+        echo "sha256, and a re-render on different Pillow/FreeType will not match."
+        exit 1
+    fi
+
+    echo "Carving $CORPUS/ out of $SOURCE/ ..."
+    mkdir -p "$CORPUS/images" "$CORPUS/transcripts"
+    for t in "$SOURCE"/transcripts/*_receipts.md; do
+        stem=$(basename "$t" .md)
+        cp "$t" "$CORPUS/transcripts/$stem.md"
+        cp "$SOURCE/images/$stem.png" "$CORPUS/images/$stem.png"
+    done
+    for c in "${NAB[@]}"; do
+        stem="${c}_bank_statements"
+        cp "$SOURCE/transcripts/$stem.md" "$CORPUS/transcripts/$stem.md"
+        cp "$SOURCE/images/$stem.png" "$CORPUS/images/$stem.png"
+    done
 fi
 
 pages=$(find "$CORPUS/transcripts" -name '*.md' | wc -l)
 echo "corpus: $CORPUS ($pages pages)"
+if [[ $pages -ne 61 ]]; then
+    echo "!! expected 61 pages (55 receipts + 6 nab_classic), found $pages"
+    exit 1
+fi
 echo
 
 for arm in rule example; do
@@ -89,5 +127,6 @@ for arm in rule example; do
     done
 done
 echo
-echo "  rsync -av runs_decoration_rule runs_decoration_example \\"
-echo "      local:/path/to/doc-parsing-corpus/"
+echo "  tar czf runs_decoration.tgz runs_decoration_rule runs_decoration_example"
+echo
+echo "and move runs_decoration.tgz back the same way the corpus got here."
