@@ -1,21 +1,32 @@
 # Is the transcription convention fair to models?
 
-**Calibration pass, 19 August 2026.** Three document-parsing systems over 165
+**Calibration pass, 19 August 2026.** Four document-parsing systems over 165
 synthetic pages. Written for readers who know machine learning but not this
 project's vocabulary — every term is defined at first use.
 
 ---
 
-## The one-paragraph answer
+## The short answer
 
 We built a benchmark that asks a model to read a whole page of a business
-document and write it out as Markdown. Doing that requires the benchmark to
-pick a *house style* — where headings go, how tables are drawn, how a label and
-its value are joined. The worry was that our house style might be idiosyncratic:
-a model could read a page perfectly and still score badly for formatting it
-differently. **It isn't.** A model that is told the style follows it almost
-exactly, paying a formatting penalty of **0.0007**. A parser that cannot be told
-anything pays **0.39**. The house style is learnable, so it stays as it is.
+document and write it out as Markdown. Doing that forces the benchmark to pick a
+*house style*: where headings go, how tables are drawn, how a label joins its
+value. The worry was that our house style might be idiosyncratic — that a model
+could read a page perfectly and still score badly for formatting it differently.
+
+The house style is largely fine. But the pass found three things that matter
+more than that verdict:
+
+1. **Stating a rule is not the same as communicating it.** One rule was written
+   in the prompt and achieved **2/55** compliance. Rewritten to name the case it
+   applies to — same rule, same model, same pages — it reached **54/55**.
+2. **The corpus was contradicting itself**, treating the same visual device as
+   content in one place and decoration in another, depending on which piece of
+   code drew it. That cost one model insertions equal to **63%** of a page's
+   length, on every receipt.
+3. **The primary metric is blind to the error that matters most.** A page where
+   every row was filed under the wrong column heading scored *better* than that
+   system's average.
 
 ---
 
@@ -23,338 +34,361 @@ anything pays **0.39**. The house style is learnable, so it stays as it is.
 
 ### Full-page transcription
 
-The task is **transcription**: given one image of a document page, output *all*
-of its text, in reading order, as Markdown. Nothing is summarised, nothing is
-skipped, nothing is added.
+Given one image of a document page, output **all** of its text, in reading
+order, as Markdown. Nothing summarised, skipped, or added.
 
-This is deliberately **not** several adjacent tasks it is often confused with:
+This is deliberately not several adjacent tasks it gets confused with:
 
 | Not this | Why it differs |
 |---|---|
-| **Information extraction (IE)** | IE asks for named fields — invoice total, ABN, due date. Output is a short, bounded record. Transcription asks for the entire page. |
-| **OCR** | OCR recovers characters. Transcription also has to decide structure: what is a heading, what is a table, what order to read a two-column layout. |
-| **Layout analysis** | Layout analysis returns boxes and region labels. We score text, not geometry. |
-| **Table structure recognition** | Scored elsewhere with metrics like TEDS. Here a table is judged as text in reading order. |
+| **Information extraction (IE)** | IE asks for named fields — invoice total, ABN, due date — and returns a short bounded record. Transcription asks for the whole page. |
+| **OCR** | OCR recovers characters. Transcription also decides structure: what is a heading, what is a table, what order a two-column layout is read in. |
+| **Layout analysis** | Returns boxes and region labels. We score text, not geometry. |
+| **Table structure recognition** | Scored elsewhere, with metrics like TEDS. Here a table is judged as text in reading order — a decision this pass calls into question. |
 
-The distinction matters for interpreting these results. A model can be excellent
-at IE on a page and still fail to transcribe it, because transcription requires
-a long, unbounded generation and IE does not — a failure mode we hit directly
-(see *The dot-leader runaway*).
+The IE distinction is not academic. A model can be excellent at IE on a page and
+still fail to transcribe it, because transcription requires a long unbounded
+generation and IE does not. We hit exactly that (see *The dot-leader runaway*).
 
 ### The corpus
 
 165 page images: **55 cases × 3 document types** (invoices, receipts, bank
-statements) across **18 layout variants** — different banks, different invoice
-styles, thermal receipt slips. Australian business documents, entirely synthetic.
+statements) across **18 layout variants**. Australian business documents,
+entirely synthetic.
 
-**Ground truth is authored, not annotated.** This is the unusual part. Nobody
-labelled these pages after the fact. The renderer emits the correct answer *at
-the moment it draws the page*: each drawing primitive records what text it is
-about to put on the canvas. The image and its expected transcription are
-produced by the same pass, so they cannot disagree.
+**Ground truth is authored, not annotated.** Nobody labelled these pages
+afterwards. The renderer emits the correct answer *as it draws*: each drawing
+primitive records the text it is about to put on the canvas. Image and expected
+transcription come from the same pass, so they cannot disagree.
 
-A runtime check enforces this. Every call that puts text on the canvas is tagged
+A runtime check enforces it. Every call that puts text on the canvas is tagged
 with the identifier of the record that authorised it, and at page end the
-renderer asserts that no untagged text was drawn. If a new code path draws
-something without recording it, generation fails — it is not a test that can be
-skipped.
+renderer asserts no untagged text was drawn.
 
 ### Terms used throughout
 
-**Transcript** — the correct answer for one page: a Markdown file stating what
-that page shows. 165 of them, one per image.
+**Transcript** — the correct answer for one page. 165 of them.
 
-**Convention** (or **serialisation policy**) — the house style the transcripts
-are written in, declared in a configuration file: `#` for the page title, pipe
-tables with a header separator row, `Label: value` for labelled values, no bold
-or italic ever, read side-by-side columns one column at a time. Every rule is
-written down; none is implicit in code.
+**Convention** (or **serialisation policy**) — the house style transcripts are
+written in, declared in configuration: `#` for the page title, pipe tables with
+a header separator row, `Label: value` for labelled values, never bold or
+italic, side-by-side columns read one column at a time.
 
-**Prompt** — the instructions shipped to models that can accept instructions.
-It states the convention in prose. The prompt and the transcripts are a matched
-pair: change one without the other and the benchmark silently measures something
-else.
+**Prompt** — the instructions shipped to systems that can accept instructions.
+It states the convention in prose. Prompt and transcripts are a matched pair.
 
 **Prediction** — what a system actually produced for a page.
 
 ---
 
-## The metrics, and the one that matters
+## The metrics
 
 ### CER and WER
 
-**Character Error Rate** is the edit distance between prediction and truth,
-divided by the length of the truth. **Word Error Rate** is the same computed
-over whitespace-separated words.
+**Character Error Rate** is the edit distance between prediction and truth
+divided by the truth's length; **Word Error Rate** the same over
+whitespace-separated words. Both are *error* rates: **lower is better**, 0 is
+perfect.
 
-Both are *error* rates, so **lower is better** and 0 is perfect. Two properties
-surprise people:
+Two properties surprise people:
 
 - `0.05` means one character in twenty is wrong.
-- **Values above 1.0 are possible and common here.** CER exceeds 1 when the
-  prediction is *longer* than the truth, because every surplus character counts
-  as an insertion. A model that emits 34,000 characters against 557 of truth
-  scores about 62. This is not a bug in the metric; it is the metric correctly
-  reporting that the output is mostly invented.
+- **Values above 1.0 are common here.** CER exceeds 1 when the prediction is
+  *longer* than the truth, because surplus characters count as insertions. A
+  model emitting 34,000 characters against 557 of truth scores about 62. The
+  metric is correctly reporting that the output is mostly invented.
 
 ### Two ways to score the same prediction
 
-Every prediction is scored twice.
+**Strict** compares raw text — reading *and* formatting compliance together.
 
-**Strict** compares the raw text. It measures reading *and* formatting
-compliance together.
-
-**Normalised** first passes both sides through a declared normalisation policy
-— Unicode normalisation, whitespace collapsed, Markdown syntax removed
-positionally, HTML table tags stripped, entities unescaped, label colons folded
-— and then compares. Because both sides get the same treatment, purely
-*formatting* differences vanish and only genuine misreadings remain.
+**Normalised** first passes both sides through a declared policy (Unicode
+normalisation, whitespace collapsed, Markdown syntax removed positionally, HTML
+table tags stripped, entities unescaped, label colons folded) and then compares.
+Both sides get the same treatment, so purely *formatting* differences vanish and
+only genuine misreadings remain.
 
 Normalisation lives entirely in the scoring tool. The corpus emits one canonical
-form and never normalises, so scoring policy can change without regenerating a
-single image.
+form and never normalises, so scoring policy can change without regenerating an
+image — which is what made most of this pass cheap.
 
-### The gap: the actual experimental measurement
+### The gap
 
 > **gap = strict CER − normalised CER**
 
 Everything normalisation removed is, by construction, formatting rather than
-reading. So the gap is **the cost of the house style** for that system: how much
-of its apparent error was never about reading the page at all.
+reading. So the gap is **the cost of the house style** to that system.
 
-A system with a large gap read the page well and formatted it differently. A
-system with a gap near zero formatted the way the benchmark expects, and
-whatever error remains is real misreading.
+### Convention mismatch vs reading error
 
-### Two classes of divergence
+Every individual difference is classified the same way: if the two spans become
+identical after normalisation it is a **convention mismatch**; if the difference
+survives, it is a **reading error**. There is no pattern list and nothing to
+tune — the classifier *is* the normalisation policy, applied per difference.
 
-Every difference between a prediction and its truth is also classified
-individually, by the same principle:
+### Column integrity — added during this pass
 
-- **Convention mismatch** — the two spans become identical after normalisation.
-  The system read correctly and wrote it differently.
-- **Reading error** — the difference survives normalisation. The system got the
-  text wrong.
+The pages draw row separators but **no vertical rules**. Column membership is
+never delimited; it exists only as horizontal position relative to the headers.
+So a model does not transcribe table structure — it **infers** it, then
+serialises the inference as pipes.
 
-There is no pattern list and nothing to tune. The classifier *is* the
-normalisation policy, applied at the level of a single difference instead of a
-whole document.
+CER cannot see that inference fail. This metric counts, for each amount the page
+shows, whether the system filed it in the same column. It is reported separately
+and never folded into CER, which would inherit the same blindness.
 
 ---
 
 ## Experimental design
 
-The systems are split by one property: **whether the system can be told the
-convention.**
+Systems are split by one property: **whether they can be told the convention.**
 
-| Group | Systems | Reads the prompt? | What it measures |
+| Group | Systems | Reads the prompt? | Measures |
 |---|---|---|---|
-| **Prompted** | `gemma-4-12B-it-qat-w4a16-ct` | yes | Is the convention *communicable*? |
-| **Unprompted** | MinerU, Docling | no — they emit whatever their authors chose | Is the convention *idiomatic Markdown at all*? |
+| **Prompted** | gemma-4-12B-it-qat-w4a16-ct, InternVL3.5-8B | yes | Is the convention *communicable*? |
+| **Unprompted** | MinerU, Docling | no | Is it *idiomatic Markdown at all*? |
 
-The split is the point, and both halves are needed.
-
-A dedicated document parser has no prompt input. You cannot ask MinerU to emit
-pipe tables instead of HTML. So every divergence it produces is uncontaminated
-evidence about whether our house style matches what the Markdown world does by
-default.
-
-A prompted model *is* told — pipe tables, one `#` per page, no bold. If it still
-diverges, the instruction failed to land, and the problem is ours.
-
-The two answer different failure modes:
-
-- **Unidiomatic but teachable** → parsers diverge, prompted models comply.
-  Acceptable; the style just has to be stated.
-- **Unteachable** → prompted models diverge too. Then the convention itself is
-  wrong, and it is fixable in configuration without re-rendering any image.
+A dedicated parser has no prompt input — you cannot ask MinerU to emit pipe
+tables. So its divergences are uncontaminated evidence about whether the house
+style matches what the Markdown world does by default. A prompted model *is*
+told; if it still diverges, the instruction failed.
 
 ---
 
 ## Results
 
-All three systems over the same 165 pages.
+Per-page **medians**, which describe these systems better than means — a few
+catastrophic pages distort the averages badly.
 
-| System | normalised CER | strict CER | **gap** | told? |
+| System | median nCER | median sCER | **median gap** | told? |
 |---|---|---|---|---|
-| **MinerU** | **0.0545** | 0.4476 | **+0.3931** | no |
-| **gemma-4-12B-it-qat-w4a16-ct** | 0.2926 | 0.2933 | **+0.0007** | **yes** |
-| **Docling** | 1.6576 | 2.0611 | +0.4035 | no |
+| **gemma-4-12B-it-qat-w4a16-ct** | **0.0186** | 0.0591 | **+0.0092** | yes |
+| mineru | 0.0368 | 0.4277 | **+0.3917** | no |
+| InternVL3.5-8B | 0.0425 | 0.3492 | **+0.2322** | yes |
+| docling | 0.4145 | 0.6120 | +0.0587 | no |
 
-Per-page **medians**, which are more representative because means here are
-distorted by a handful of catastrophic pages:
+**Reading quality is close between the three real readers** — 0.019 to 0.043
+median CER. Gemma reads best *and* formats closest.
 
-| System | median normalised CER | median strict CER | **median gap** |
+**MinerU loses 0.39 to formatting it cannot be instructed about**, principally
+emitting HTML tables (`<table><tr><td>`) on 110 of 165 pages where the corpus
+uses pipe tables. It reads well and formats differently, which is exactly what
+an unpromptable parser should look like.
+
+**Gemma loses almost nothing (+0.009)** — told the style, it complies.
+
+**InternVL sits between (+0.232), and about two-thirds of that is table
+padding.** It pretty-prints its tables:
+
+```
+| Description             | Qty | Unit Price |
+|-------------------------|-----|------------|
+```
+
+against the corpus's unpadded form. Collapsing whitespace alone drops its strict
+CER from 0.349 to 0.121. It followed the structural rule — pipe table, header
+separator row — and differs on spacing.
+
+Whether that should count is a real question. **It should**, and the padding is
+not excused, because in these documents alignment carries meaning: the pages
+have no vertical rules, so in any space-aligned block the whitespace *is* the
+structure, and `normalised` already discards it. `strict` is the only place
+spacing is measured at all.
+
+**Docling is in a different category.** A median of 0.41 with a mean of 1.35
+means a few pages emit far more text than exists — repetition loops on thermal
+receipts, one at 62× the truth length — plus pages producing nothing. Its gap
+should not be read as evidence about the house style.
+
+### Column integrity
+
+| System | amounts | misfiled | **misfiled %** | docs with wrong column count |
+|---|---|---|---|---|
+| mineru | 2503 | 325 | **13.0%** | 56 |
+| InternVL3.5-8B | 2503 | 408 | 16.3% | 53 |
+| gemma-4-12B-it-qat-w4a16-ct | 2503 | 408 | 16.3% | 56 |
+| docling | 2503 | 1929 | 77.1% | 117 |
+
+Read this **by document type**, because the aggregate misleads badly:
+
+| gemma-4-12B | bank_statements | invoices | receipts |
 |---|---|---|---|
-| MinerU | 0.0386 | 0.4277 | **+0.3917** |
-| **gemma-4-12B-it-qat-w4a16-ct** | **0.0186** | 0.0591 | **+0.0092** |
-| Docling | 0.4267 | 0.6120 | +0.0587 |
+| misfiled | 170/1957 = **8.7%** | 5/308 = 1.6% | 179/184 = 97.3% |
 
-### Reading the table
+The receipt figure is a serialisation difference, not misplacement — the corpus
+serialises receipt items as a headerless two-column table and the models emitted
+plain lines (the subject of finding 1 below). The meaningful number is
+**bank statements: about 1 amount in 12 filed under the wrong heading**, by both
+of the best systems, while those same systems post normalised CERs near 0.02.
 
-**MinerU reads these pages almost perfectly and loses 0.39 CER to formatting.**
-A median normalised CER of 0.039 is a strong reader. Its strict CER of 0.43 is
-almost entirely house style — principally that it emits HTML tables
-(`<table><tr><td>`) on 110 of 165 pages, including every bank statement, where
-the corpus uses pipe tables.
-
-**The prompted model loses essentially nothing to formatting: 0.0007.** Given
-the instruction, it complies.
-
-**That is the result.** The convention is teachable, so it does not need to
-change. A system that is told the style follows it; a system that cannot be told
-diverges in exactly the way you would expect.
-
-### A second finding
-
-The prompted model is also **the better transcriber**. Its median normalised CER
-of **0.0186** beats MinerU's 0.0386 — it reads more accurately *and* formats
-correctly at the same time. Its much worse mean (0.2926) is two total failures
-dragging the average, not typical behaviour. Where mean and median disagree this
-sharply, the median is describing the system and the mean is describing its
-worst days.
+And note **MinerU is the most structurally faithful of the four** — the reverse
+of what the convention metrics suggest.
 
 ---
 
-## Findings worth acting on
+## Findings
 
-### 1. The dot-leader runaway
+### 1. A rule can be stated and still not communicated
 
-One layout, `nab_classic`, prints **dot leaders** — a run of about 40 periods
-padding a transaction reference across to the amount column, the typographic
-device that leads your eye across a table row. Real bank statements do this.
+The prompt has always said:
 
-On 2 of the 6 pages carrying them, the prompted model transcribes the masthead,
-account details and table header correctly — 369 characters — reaches the first
-dot leader, and emits **128,768 consecutive periods**. A 40-character feature on
-the page became a 128,768-character output: roughly **3,200× amplification**. It
-never recovers, and the generation is cut off at the token limit.
+> If the table has no printed column headings, use an empty header row — do not
+> promote the first line of data into the heading, and do not invent column
+> names.
 
-This is deterministic — three attempts at temperature 0 — and neither obvious
-remedy works:
+Receipts have exactly that: an item list with prices, no headings. Compliance:
 
-- **Raising the token limit** buys a longer run of periods. There is no pending
-  content behind the loop.
-- **A repetition penalty** (1.05) completes the page, but only by **deleting all
-  12 dot leaders** — about 480 characters the page genuinely shows. That is
-  worse than failing, because it looks like success.
-
-The pages are therefore recorded as unproducible and scored as total failures.
-
-**Why this is kept rather than fixed.** A real document feature that reduces a
-capable model to emitting nothing is exactly what an evaluation set should
-surface. It is also only visible because the corpus spans layouts: a pass run on
-invoices alone sees none of it, and this affects 2 of 6 `nab_classic` pages and
-0 of the other 159.
-
-**Note for anyone benchmarking VLMs on documents.** This failure is invisible to
-information extraction. IE asks for a few hundred bounded tokens and stops;
-transcription asks for the whole page and gives a degenerate loop room to
-develop. The same checkpoint has high IE accuracy on these very pages.
-
-### 2. A genuine convention mismatch
-
-On the Westpac rewards summary the page prints two visually aligned columns:
-
-```
-Opening Balance          345,678
-```
-
-The corpus records that alignment. The model writes:
-
-```
-Opening Balance: 345,678
-```
-
-The model is **obeying the prompt**, which says labelled values go on one line
-as `Label: value`, "even if the page draws its own colon". But the corpus emits
-this block as plain aligned lines rather than as label/value pairs, so the
-transcript keeps the spacing.
-
-A model reads correctly, follows the shipped instruction, and diverges anyway.
-This is the one case found where the benchmark, not the model, is at fault.
-**Undecided:** either narrow the `Label: value` rule in the prompt to genuine
-pairs, or capture these blocks as pairs. Either is a configuration change; no
-image needs re-rendering.
-
-### 3. Character-level errors are the real remaining cost
-
-The evaluated checkpoint is **4-bit QAT** — quantisation-aware training at four
-bits per weight, a compression that trades numeric precision for memory. Theory
-says this costs character fidelity before it costs anything else. It does.
-
-On one field across seven pages:
-
-| Truth | Predicted | Error |
+| System | receipts emitting a table | told the rule? |
 |---|---|---|
-| `487,205` | `497,205` | 8 → 9 |
-| `604,517` | `804.517` | 6 → 8, and comma → period |
-| `159,733` | `159,753` | 3 → 5 |
-| `345,678` | `345.678` | comma → period |
-| `271,309` | `271.309` | comma → period |
+| gemma-4-12B-it-qat-w4a16-ct | **2 of 55** | yes |
+| InternVL3.5-8B | 6 of 55 | yes |
+| mineru | 0 of 55 | no |
+| docling | 0 of 55 | no |
 
-Five of seven wrong. Three are the same substitution — a comma read as a period
-— which is systematic glyph confusion rather than noise, and consequential:
-`345,678` and `345.678` differ by three orders of magnitude.
+Near-zero everywhere. The rule was a clause inside a paragraph about tables, and
+a receipt's item list evidently does not register as "a table" in the first
+place.
 
-This was only measurable because those figures were made **per-page authored
-data** shortly before the run. They had been hardcoded literals in the layout,
-identical on all seven pages; under that arrangement one number repeated seven
-times would have produced one error repeated seven times, and a model could have
-scored well by memorising it.
+Rewriting it to name the case — *"A list of items with amounts beside them is a
+table, even when it has no column headings and no lines drawn between the
+columns"*, with a worked headerless example — moved gemma-4-12B from **2/55 to
+54/55**, producing the correct empty header row rather than invented column
+names. Same rule, same model, same pages; only the wording changed.
 
-### 4. Docling's numbers are not a convention signal
+**The prompt is a component to be tested, not documentation to be written once.**
+A rule can be technically present and effectively absent.
 
-Docling's mean CER of 1.66 against a median of 0.43 says a small number of pages
-emit far more text than exists — repetition loops on thermal receipts, one at
-62× the truth length — plus 2 pages that produced nothing. Its gap of +0.40
-should not be read as evidence about the house style; it is a parser failing.
+### 2. The corpus was contradicting itself on repeated glyphs
+
+The corpus had two treatments of the same visual device, decided by which
+drawing primitive produced it:
+
+| Device | Corpus treatment | What systems did |
+|---|---|---|
+| dashed separator rule | **excluded** as decoration | 3 of 4 transcribed it |
+| dot leader inside a table cell | **captured** as content | omitted it, or ran away |
+
+Both halves cost accuracy. Gemma inserted characters equal to **63% of the whole
+transcript's length** on every one of 55 receipts, transcribing separator rules
+the corpus had decided not to record; docling 124%. Meanwhile the dot leaders the
+corpus *did* record were skipped by InternVL and caused Gemma to fail outright.
+
+Resolved 19 August: **repeated glyphs are decoration wherever they are drawn.** A
+run of four or more repeated punctuation glyphs is no longer captured. Three is
+punctuation, so an ellipsis and a decimal point survive, as do `5-7 business
+days` and a statement's date range.
+
+The glyphs are still **drawn** — 0 of 165 images changed — so every existing
+prediction stayed valid and nothing was re-run. Only the truth moved. Every real
+reader improved: MinerU 0.0698 → 0.0526, InternVL 0.1131 → 0.0978, Gemma 0.1860
+→ 0.1710.
+
+### 3. CER is blind to the error that matters most on a statement
+
+On `CASE005_bank_statements`, InternVL read a header cell that wraps across two
+lines — `Date of / Transaction` — as **two columns**. Every data row inherited
+the extra cell, so every amount sat one column right of the heading naming it. On
+a bank statement that is money out reported as money in.
+
+That page scored a normalised CER of **0.0128** — three times *better* than that
+system's corpus median of 0.0425 — because normalisation strips pipes as table
+marks, discarding exactly the delimiters that encode the answer. The entire
+structural failure cost a couple of characters.
+
+Hence the column-integrity metric above. Without it the harness could not
+distinguish "read the statement correctly" from "read every character correctly
+and filed every amount under the wrong heading".
+
+### 4. The dot-leader runaway
+
+One layout prints **dot leaders** — ~40 periods padding a transaction reference
+across to the amount column. Real statements do this.
+
+On 2 of the 6 pages carrying them, gemma-4-12B transcribes the masthead, account
+details and table header correctly (369 characters), reaches the first leader,
+and emits **128,768 consecutive periods** — roughly 3,200× amplification — until
+cut off at the token limit. Deterministic across three attempts at temperature 0.
+
+Neither remedy works. Raising the token limit buys a longer run of periods, as
+there is no pending content behind the loop. A repetition penalty completes the
+page only by **deleting all 12 leaders** — about 480 characters the page shows —
+which is worse than failing, because it looks like success. The pages are
+recorded as unproducible and scored as total failures.
+
+InternVL does not loop; it omits the leaders entirely. So the runaway is
+Gemma-specific, not a property of the page.
+
+**This failure is invisible to information extraction**, which asks for a few
+hundred bounded tokens and stops. The same checkpoint has high IE accuracy on
+these very pages.
+
+### 5. Character-level errors are the remaining real cost
+
+The evaluated Gemma checkpoint is **4-bit QAT** — quantisation-aware training at
+four bits per weight. Theory says this costs character fidelity first. It does.
+
+On one field across seven pages, gemma-4-12B got 5 of 7 wrong: three reading a
+comma as a period, three substituting a digit (`487,205` → `497,205`). InternVL,
+with a corrected tokenizer, got **every digit right** but made the same
+comma-for-period substitution on 3 of 7.
+
+Two independent models misreading the same comma glyph is worth noting. The
+pages were checked at magnification: they render unambiguous commas. The
+substitution is real, and `345,678` versus `345.678` differ by three orders of
+magnitude.
+
+This was only measurable because those figures had just been changed from
+hardcoded layout literals — identical on all seven pages — to per-page authored
+data. Under the old arrangement one number repeated seven times would have
+produced one error repeated seven times, and a model could have scored well by
+memorising it.
 
 ---
 
-## Limits of this result
+## Limits
 
-**One prompted system, not two.** The design called for two VLM families so that
-compliance could be shown as a property of prompted models generally rather than
-of one checkpoint. `InternVL3.5-8B` has not been run. The central conclusion
-rests on one model, and that is the main thing that would strengthen it.
+**One prompt variant is proven but not yet shipped.** The headerless-table
+rewrite reached 54/55 in a scoped experiment. The scores above predate it, so
+they understate what the prompted systems achieve.
 
-Two locally quantised stand-in models were run earlier and excluded from these
-figures — different quantisation and decoding made them incomparable. They did
-independently show the same near-zero gap (+0.04 and −0.01), which is
-corroboration but not a substitute.
+**Scoring conflates two things in the column metric.** `misfiled` counts an
+amount as misplaced if it is absent from its column for *any* reason, including a
+misread digit. It is not purely structural.
 
-**Coverage.** The prompted model produced 163 of 165 pages; the 2 dot-leader
-failures are scored as total failures rather than dropped, so all three systems
-are averaged over the same 165 transcripts and the numbers stay comparable.
-Docling produced 2 empty pages, scored the same way.
+**Synthetic and pristine.** Clean renders, not photographs or scans. The
+benchmark measures parsing accuracy on clean input and does not claim to predict
+performance on degraded documents.
 
-**Synthetic and pristine.** These are clean renders, not photographs or scans.
-The benchmark measures parsing accuracy on clean input; it does not claim to
-predict performance on degraded documents.
+**Coverage.** gemma-4-12B produced 163 of 165 pages; the 2 dot-leader failures
+are scored as total failures rather than dropped, so all systems are averaged
+over the same 165 transcripts. Docling produced 2 empty pages, scored the same
+way.
 
-**Character-level errors are not separated by cause.** A misread digit could be
-quantisation, resolution, or the model. The design intended to isolate this by
-comparing quantised and unquantised checkpoints, which has not been done.
+**Character errors are not separated by cause.** A misread digit could be
+quantisation, resolution, or the model. Comparing quantised and unquantised
+checkpoints would isolate it; that has not been done.
 
 ---
 
-## What changes as a result
+## What changed as a result
 
-**The convention stays.** This was the question the pass existed to answer, and
-the answer is that the house style is learnable. No change to the serialisation
-policy.
+**The convention mostly stands.** A capable prompted model follows it at a cost
+of 0.009 CER. It is not an arbitrary house style.
 
-**Three normalisation fixes were made during the pass**, each closing a case
-where a formatting difference was being scored as a misreading: HTML tables,
-HTML entities, and trailing label colons. Their combined effect on MinerU was to
-drop its normalised CER from 0.495 to 0.055 — a nine-fold correction, and a
-measure of how badly a formatting-blind metric can misrepresent a competent
-reader. Corpus-wide, differences classified as reading errors fell by 53%.
+**Four scoring fixes**, each closing a case where formatting was scored as
+misreading: HTML tables, HTML entities, trailing label colons, and repeated-glyph
+decoration. The first three dropped MinerU's normalised CER from 0.495 to 0.055 —
+a nine-fold correction, and a measure of how badly a formatting-blind metric can
+misrepresent a competent reader.
 
-**One corpus defect was fixed:** fabricated figures hardcoded in a layout are
-now authored per page with their arithmetic enforced at validation time.
+**One new metric**: column integrity, because CER could not see the error that
+matters most on a bank statement.
 
-**One open decision:** the `Label: value` mismatch above.
+**One corpus defect fixed**: fabricated figures hardcoded in a layout are now
+authored per page with their arithmetic enforced at validation.
 
-**One open task:** run the second VLM family.
+**One prompt rewrite proven** and awaiting promotion.
+
+**Still open**: whether table structure deserves scoring in its own right. The
+corpus scope explicitly excludes it, but that exclusion assumed columns were
+delimited on the page. They are not.
