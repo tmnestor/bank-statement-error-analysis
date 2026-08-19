@@ -17,6 +17,7 @@ from generators.common import (
     fmt_amount,
     load_font,
 )
+from generators.decoration import strip_decoration_run
 from generators.layout_budgets import field_budget
 from generators.layout_dsl.context import RenderContext
 from generators.layout_dsl.defaults import resolve_param
@@ -922,8 +923,19 @@ def _draw_sub_lines(row: dict, columns: list, ctx: RenderContext, y: int) -> int
         # list. It gets one, tagged with its cell's column so the serialiser can
         # fold it back into that cell — a pipe table cannot hold two lines in a
         # cell, and dropping it would omit ink that is on the page.
+        # Repeated glyphs are decoration wherever they are drawn (2026-08-19):
+        # NAB's reference pads to 40 dots to lead the eye across to the amount
+        # column, and a `rule` with a `fill_char` already emits nothing for the
+        # identical device. What is captured is the content; what is DRAWN is
+        # unchanged, so the page — and every prediction made against it — is
+        # untouched. One draw call rather than two deliberately: splitting it to
+        # route the glyphs through `decoration()` would require measuring the
+        # content's advance, and a measurement that disagreed with the renderer
+        # by a pixel would move the dots and invalidate the corpus.
         if ctx.transcript is not None:
-            ctx.transcript.emit("cell_sub_line", text, column_key=str(column["key"]))
+            ctx.transcript.emit(
+                "cell_sub_line", strip_decoration_run(text), column_key=str(column["key"])
+            )
         draw_text_left(ctx.draw, text, x, y + offset_y, font, fill=color)
         sub_line_height = int(
             resolve_param(
