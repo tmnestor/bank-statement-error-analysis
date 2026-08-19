@@ -65,10 +65,11 @@ names such as "Item" or "Price". Do not write these lines as ordinary
 paragraphs — the way they line up down the page is what makes them a table.
 
 **Where a date heads a group of rows, repeat it on every row of that group.**
-A statement often prints a date once — sometimes on a shaded band across the
-table — and then lists that day's entries beneath it with the date column left
-blank. Put the date in the date cell of **every** one of those rows, and do not
-give the date a row of its own:
+A statement prints a date once and then lists that day's entries beneath it with
+the date column left blank. It does this in two ways, and both are the same
+thing: the date may sit on a band of its own across the table, or it may sit in
+the date cell of the group's first entry. Either way, put the date in the date
+cell of **every** row of that group, and do not give the date a row of its own:
 
 ```
 | 14/03/2018 | Ratchet Spanner 8mm | 19.67 |
@@ -77,6 +78,10 @@ give the date a row of its own:
 
 not a row containing only `14/03/2018` followed by rows with an empty date.
 Every row should stand on its own.
+
+Carry a date **downwards only**. Where a row's date cell is blank and no date
+appears above it in the table — an opening-balance line is the usual case —
+leave that cell blank rather than borrowing the date from below.
 
 **Where a page is laid out in side-by-side columns, read one column fully before
 starting the next, working left to right.** Do not read across the page in

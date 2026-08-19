@@ -165,33 +165,45 @@ def _join_cell(text: str, policy: dict) -> str:
 def carry_group_key_down(
     rows: list[tuple[list[str], bool]],
 ) -> list[tuple[list[str], bool]]:
-    """Fold a group-header row into the rows it heads, so each row stands alone.
+    """Carry a grouped date onto every row of its group, so each row stands alone.
 
-    Three bank layouts draw a date as a shaded full-width band and then list
-    that day's transactions beneath it with an empty date cell. Recorded
-    literally, that is a table row containing only a date — and **no system
-    reproduced it**. gemma-4-12B attached the date to the group's first
-    transaction instead, and was scored as dropping a row on every one of those
-    documents, the count matching the number of date-only rows exactly.
+    The corpus draws a date group two ways, and which one a page gets is a
+    layout detail no reader of the page can see:
 
-    This carries the key onto every row of its group, which **departs from
-    recording only what the page shows**: the page prints the date once. It is
-    the one place the corpus infers rather than transcribes, taken deliberately
-    so that every row is self-contained.
+    * **as a band** — a row containing only the date, then that day's
+      transactions with an empty date cell (`nab_dense`, `cba_date_grouped`,
+      `nab_classic`);
+    * **on the first row** — the date in the first transaction's own date cell,
+      with the rest of the group left blank (`Date of Transaction` layouts).
+
+    Both mean "these rows belong to the date above". Carrying only the first
+    left the corpus contradicting itself: measured 2026-08-19, 123 transaction
+    rows across 7 statements kept a blank date while 329 rows on 27 other
+    statements had theirs filled in. `prompt.md` states one rule, so a model
+    obeying it was right on one layout family and wrong on the other —
+    gemma-4-12B replicated dates onto 97.8% of grouped rows against a truth of
+    79.8%, and every over-dated row failed to align.
+
+    This **departs from recording only what the page shows**: the page prints
+    the date once. It is the one place the corpus infers rather than
+    transcribes, taken deliberately so that every row is self-contained.
 
     A group header is a row whose first cell has content and whose other cells
     are all empty. A trailing header with nothing beneath it is kept — dropping
-    it would lose the only record that the date was on the page at all.
+    it would lose the only record that the date was on the page at all. A blank
+    first cell with no date anywhere above it stays blank: an opening-balance
+    row genuinely predates the first group, and there is nothing to carry.
 
     Args:
         rows: (cells, was_header) per captured row, in order.
 
     Returns:
-        The rows with group headers folded in.
+        The rows with the group key carried onto every row of its group.
     """
     carried: list[tuple[list[str], bool]] = []
     pending: tuple[list[str], bool] | None = None
     pending_used = False
+    last_key = ""
 
     for cells, was_header in rows:
         if was_header:
@@ -207,11 +219,16 @@ def carry_group_key_down(
             if pending is not None and not pending_used:
                 carried.append(pending)
             pending, pending_used = (cells, was_header), False
+            last_key = cells[0]
             continue
 
-        if pending is not None and cells and not cells[0].strip():
-            cells = [pending[0][0], *cells[1:]]
-            pending_used = True
+        if cells and not cells[0].strip():
+            if last_key.strip():
+                cells = [last_key, *cells[1:]]
+                if pending is not None:
+                    pending_used = True
+        elif cells:
+            last_key = cells[0]
         carried.append((cells, was_header))
 
     if pending is not None and not pending_used:
