@@ -730,6 +730,13 @@ def main(
     except RunnerError as err:
         rprint(f"[red]{err}[/red]")
         raise typer.Exit(1) from None
+    # What this process is answerable for. With one process that is the whole
+    # corpus, and finishing means every page exists. With several, it is only
+    # this slice: the other shards' pages belong to other processes and are
+    # still being written, so checking them would fail whichever process
+    # happens to finish first — and, worse, `--declare-unproducible` would
+    # write off pages another process is in the middle of transcribing.
+    owned = todo if shards > 1 else stems
     if shards > 1:
         rprint(f"[dim]shard {shard} of {shards}: {len(todo)} page(s) of this process[/dim]")
     if overridden:
@@ -814,7 +821,7 @@ def main(
     elapsed = time.monotonic() - started
     rprint(f"[bold]{system}[/bold]: {len(todo) - len(failures)} written in {elapsed / 60:.1f} min")
 
-    still_missing = pending(out_dir, stems)
+    still_missing = pending(out_dir, owned)
     if still_missing and declare_unproducible:
         declared = declare_unproduced(
             out_dir,
@@ -829,7 +836,7 @@ def main(
         return
 
     try:
-        verify_complete(out_dir, stems)
+        verify_complete(out_dir, owned)
     except RunnerError as err:
         rprint(f"[red]{err}[/red]")
         raise typer.Exit(1) from None
