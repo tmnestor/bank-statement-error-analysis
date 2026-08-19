@@ -19,7 +19,7 @@ more than that verdict:
 
 1. **Stating a rule is not the same as communicating it.** One rule was written
    in the prompt and achieved **2/55** compliance. Rewritten to name the case it
-   applies to — same rule, same model, same pages — it reached **54/55**.
+   applies to — same rule, same model, same pages — it reached **53/55**.
 2. **The corpus was contradicting itself**, treating the same visual device as
    content in one place and decoration in another, depending on which piece of
    code drew it. That cost one model insertions equal to **63%** of a page's
@@ -27,6 +27,9 @@ more than that verdict:
 3. **The primary metric is blind to the error that matters most.** A page where
    every row was filed under the wrong column heading scored *better* than that
    system's average.
+
+And one process finding, learned the hard way: **a prompt is part of the
+evaluation set**, and putting real data in its examples silently leaks answers.
 
 ---
 
@@ -252,8 +255,13 @@ place.
 Rewriting it to name the case — *"A list of items with amounts beside them is a
 table, even when it has no column headings and no lines drawn between the
 columns"*, with a worked headerless example — moved gemma-4-12B from **2/55 to
-54/55**, producing the correct empty header row rather than invented column
+53/55**, producing the correct empty header row rather than invented column
 names. Same rule, same model, same pages; only the wording changed.
+
+The worked example is built from invented content, verified to appear in none of
+the 165 transcripts, and no prediction echoed any of it. An earlier version of
+this experiment used real line items from a scored page — see *A prompt is part
+of the eval set* below — and the 53/55 figure is the clean re-run.
 
 **The prompt is a component to be tested, not documentation to be written once.**
 A rule can be technically present and effectively absent.
@@ -322,7 +330,41 @@ Gemma-specific, not a property of the page.
 hundred bounded tokens and stops. The same checkpoint has high IE accuracy on
 these very pages.
 
-### 5. Character-level errors are the remaining real cost
+### 5. A prompt is part of the eval set
+
+The first version of the rewritten rule used a worked example built from **real
+line items on a scored page** — `Potting Mix 25L | 9.30` and `Panadol 24pk |
+7.77`, taken from a receipt in the corpus. Those strings appear in 5 and 9 of
+the 165 transcripts.
+
+The prompt ships **with** the corpus and is read by the systems being scored, so
+that handed the model part of an answer it was supposed to read off the page. A
+model could reproduce those lines without seeing them, and nothing in the
+results would show it. Checking the pre-existing examples found the same problem
+already present, at smaller scale: an amount from the original table example
+appears in one transcript.
+
+Both examples are now invented content, verified absent from all 165
+transcripts, with a test that greps every example cell against every transcript
+so a future edit cannot reintroduce it.
+
+Two details worth carrying to any similar benchmark:
+
+- **Header words are fine, values are not.** "Date" and "Description" appear on
+  real pages by necessity; they are vocabulary, not answers. The test exempts
+  the header row and checks data rows only.
+- **Verify the guard fails on a deliberate leak.** The first version of that
+  test passed immediately — because a quoting error had left it with an empty
+  regex matching nothing. A vacuously-passing guard is worse than no guard: it
+  manufactures confidence. It was caught only because it *should* have flagged a
+  word appearing in all 165 transcripts and didn't.
+
+The compliance result survived decontamination: 2/55 → **53/55** with clean
+examples, against 54/55 with the leaked ones, and **no prediction echoed any
+example string**. The gain was the rewording, not the model copying values it
+had been shown.
+
+### 6. Character-level errors are the remaining real cost
 
 The evaluated Gemma checkpoint is **4-bit QAT** — quantisation-aware training at
 four bits per weight. Theory says this costs character fidelity first. It does.
@@ -347,9 +389,10 @@ memorising it.
 
 ## Limits
 
-**One prompt variant is proven but not yet shipped.** The headerless-table
-rewrite reached 54/55 in a scoped experiment. The scores above predate it, so
-they understate what the prompted systems achieve.
+**The prompt rewrite is shipped but the scores predate it.** The headerless-table
+wording is now in ; the predictions scored above were produced under
+the old wording, so they understate what the prompted systems achieve on
+receipts.
 
 **Scoring conflates two things in the column metric.** `misfiled` counts an
 amount as misplaced if it is absent from its column for *any* reason, including a
