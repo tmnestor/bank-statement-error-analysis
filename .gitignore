@@ -11,16 +11,10 @@ parsing_*/
 .mineru_work/
 scores*.json
 
-# runs/ is deliberately NOT ignored, unlike every other generated directory.
-# output/, derived/ and parsing_*/ all regenerate from this repo in seconds and
-# deterministically. Predictions do not: they need the model, and the 12B's
-# 165 pages cost 5.5 hours of L4 time. They are also produced on a different
-# machine from the one that scores them, so versioning them is how they travel.
-# ~750 KB per system.
-#
-# Parser scratch stays out: .mineru_work/ holds copies of the corpus images and
-# MinerU's own multi-file output tree, both regenerable and far larger.
-runs/_mineru_work/
+# Predictions and excluded runs: large, machine-specific, and transferred out
+# of band rather than versioned.
+runs/
+runs_excluded/
 
 # Python
 __pycache__/

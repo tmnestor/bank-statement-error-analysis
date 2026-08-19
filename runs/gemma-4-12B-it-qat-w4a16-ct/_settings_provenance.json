@@ -1,9 +1,0 @@
-{
-  "overridden": "repetition_penalty",
-  "value": 1.05,
-  "reason": "retrying pages that ran to the token cap",
-  "pages": [
-    "CASE003_bank_statements",
-    "CASE024_bank_statements"
-  ]
-}
