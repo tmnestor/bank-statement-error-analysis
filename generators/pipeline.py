@@ -40,6 +40,7 @@ from generators.schema import field_names_for, layout_field_names_for, validate_
 from generators.scoring import ScoringError, load_scoring_policy, normalise
 from generators.serialise import load_serialisation_policy
 from generators.serialise import serialise as serialise_events
+from generators.unproduced import read_unproduced
 
 app = typer.Typer(add_completion=False, help="Synthetic document parsing corpus pipeline.")
 
@@ -468,15 +469,30 @@ def _pair_predictions(corpus: Path, predictions: Path) -> dict[str, dict[str, Pa
     paired: dict[str, dict[str, Path]] = {}
     for system in systems:
         found = {p.stem: p for p in system.glob("*.md")}
-        missing = sorted(expected_stems - set(found))
+        # A page the system declares it cannot produce is scored as a total
+        # failure, not excused and not silently dropped: every system stays
+        # averaged over the same transcripts, so the numbers remain comparable.
+        # An UNdeclared gap is still refused — silence is indistinguishable from
+        # a run that died half-way.
+        declared = read_unproduced(system)
+        missing = sorted(expected_stems - set(found) - declared)
         if missing:
             raise _score_input_err(
                 f"system '{system.name}' has no prediction for {len(missing)} transcript(s): "
                 f"{missing[:5]}{' ...' if len(missing) > 5 else ''}.",
                 where=str(system.resolve()),
                 expected=f"one .md per transcript stem, {len(expected_stems)} in total.",
-                recover="re-run inference for the missing cases, or score a corpus subset "
-                "by exporting one.",
+                recover="re-run inference for the missing cases, declare them unproducible "
+                f"in {system.name}/_unproduced.json, or score a corpus subset by exporting one.",
+            )
+        undeclared_but_present = sorted(declared & set(found))
+        if undeclared_but_present:
+            raise _score_input_err(
+                f"system '{system.name}' declares {len(undeclared_but_present)} page(s) "
+                f"unproducible but also has predictions for them: {undeclared_but_present[:5]}.",
+                where=str(system / "_unproduced.json"),
+                expected="a page is either produced or declared unproducible, never both.",
+                recover="remove the stale declaration, or remove the prediction.",
             )
         extra = sorted(set(found) - expected_stems)
         if extra:
@@ -656,9 +672,16 @@ def score(
         per_document: list[dict] = []
         system_hunks: list = []
 
-        for stem in sorted(files):
+        # Declared-unproducible pages are scored as empty predictions, which is
+        # a total failure by construction: the edit distance is the length of
+        # the truth, so CER and WER are 1.0. That keeps every system averaged
+        # over the same transcripts rather than quietly shrinking one's
+        # denominator.
+        unproduced = read_unproduced(predictions / system)
+
+        for stem in sorted(set(files) | unproduced):
             truth = transcripts[stem].read_text(encoding="utf-8")
-            prediction = files[stem].read_text(encoding="utf-8")
+            prediction = "" if stem in unproduced else files[stem].read_text(encoding="utf-8")
             pairs = {
                 "strict": (truth, prediction),
                 "normalised": (normalise(truth, convention), normalise(prediction, convention)),

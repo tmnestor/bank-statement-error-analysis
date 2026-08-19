@@ -34,6 +34,7 @@ from typing import Annotated
 import typer
 from rich import print as rprint
 
+from generators.unproduced import declare_unproduced
 from runners.common import (
     RunnerError,
     chunks,
@@ -626,6 +627,15 @@ def main(
     prompt_path: Annotated[
         Path, typer.Option("--prompt", help="The prompt shipped with the corpus.")
     ] = _DEFAULT_PROMPT,
+    declare_unproducible: Annotated[
+        bool,
+        typer.Option(
+            "--declare-unproducible",
+            help="After the run, record any page still without a prediction as one this "
+            "system cannot produce. score then counts it as a total failure rather than "
+            "refusing the system. Deliberate: never inferred from a failure.",
+        ),
+    ] = False,
     repetition_penalty: Annotated[
         float | None,
         typer.Option(
@@ -741,6 +751,20 @@ def main(
 
     elapsed = time.monotonic() - started
     rprint(f"[bold]{system}[/bold]: {len(todo) - len(failures)} written in {elapsed / 60:.1f} min")
+
+    still_missing = pending(out_dir, stems)
+    if still_missing and declare_unproducible:
+        declared = declare_unproduced(
+            out_dir,
+            still_missing,
+            f"generation ran to max_output_tokens ({spec['max_output_tokens']}) at the "
+            f"declared settings; no usable transcription was produced",
+        )
+        rprint(
+            f"[yellow]declared {len(still_missing)} page(s) unproducible in {declared} — "
+            f"score will count them as total failures, not skip them[/yellow]"
+        )
+        return
 
     try:
         verify_complete(out_dir, stems)
