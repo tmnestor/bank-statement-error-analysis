@@ -14,8 +14,8 @@ document and write it out as Markdown. Doing that forces the benchmark to pick a
 value. The worry was that our house style might be idiosyncratic — that a model
 could read a page perfectly and still score badly for formatting it differently.
 
-The house style is largely fine. But the pass found five things that matter more
-than that verdict, and the last three came from measuring the prompt itself as
+The house style is largely fine. But the pass found seven things that matter more
+than that verdict, and the last four came from measuring the prompt itself as
 if it were a component under test:
 
 1. **Stating a rule is not the same as communicating it.** One rule was written
@@ -38,6 +38,20 @@ if it were a component under test:
    phrased three ways across three runs. One model went from 62% to 97%
    compliance; the other stayed at 57%, 56%, 57%. Rewording is not always the
    remedy — sometimes the capability is simply absent.
+6. **A worked example does something a stated rule cannot.** Held to a
+   controlled A/B — two prompts differing by one example and nothing else — the
+   rule alone stopped a model emitting the offending characters but not
+   *running away* on them: it substituted a run of zeros. The example supplied
+   the replacement behaviour a prohibition leaves undefined.
+7. **The smaller model is steered less reliably and destabilised more easily.**
+   Every intervention in this pass lands cleanly on the 12B and weakly, or
+   backwards, on the 8B — the same example that rescued a page for one gave the
+   other a fresh runaway. A prompt improvement is not a property of the prompt;
+   it is a property of the pair.
+
+One finding was **overturned**. A page-level failure recorded here as a real
+document feature defeating a capable model turned out to be the prompt
+instructing the model to do the opposite of what the ground truth records.
 
 And one process finding, learned the hard way: **a prompt is part of the
 evaluation set**, and putting real data in its examples silently leaks answers.
@@ -425,14 +439,25 @@ and table header correctly (369 characters), reaches the first leader, and emits
 **128,768 consecutive periods** — roughly 3,200× amplification — until cut off at
 the token limit.
 
-Neither remedy works. Raising the token limit buys a longer run of periods, as
-there is no pending content behind the loop. A repetition penalty completes the
-page only by **deleting all 12 leaders** — about 480 characters the page shows —
-which is worse than failing, because it looks like success. The pages are
-recorded as unproducible and scored as total failures.
+Neither *decoding* remedy works. Raising the token limit buys a longer run of
+periods, as there is no pending content behind the loop. A repetition penalty
+completes the page only by **deleting all 12 leaders** — about 480 characters
+the page shows — which is worse than failing, because it looks like success.
 
 InternVL does not loop; it omits the leaders entirely. So the runaway is
 Gemma-specific, not a property of the page.
+
+> **Superseded on 2026-08-20, and the correction is the interesting part.**
+> This finding originally concluded that a real document feature had defeated a
+> capable model, and the pages were written off as unproducible and scored 1.0.
+> That was wrong. The runaway was an **instruction-following artefact**: the
+> prompt said "do not skip repeated or boilerplate text" while the corpus strips
+> repeated glyphs, so the model was doing as it was told. Told the actual
+> convention, it does not loop — all three pages complete. See finding 10.
+>
+> Both decoding remedies failed because both treated a symptom. That is the
+> lesson worth keeping: **a pathology that resists every generation parameter is
+> evidence to re-read the prompt, not evidence of a model limit.**
 
 **Which pages loop is not stable.** It is deterministic for a fixed prompt —
 three attempts at temperature 0 reproduce it exactly — but the *set* of afflicted
@@ -603,6 +628,94 @@ stable across two prompt revisions that were aimed at other things, so it is not
 a wording artefact — and it is invisible to every metric except column
 integrity, which is the argument for that metric restated as a live case.
 
+### 10. What a worked example does that a stated rule cannot
+
+Every earlier prompt change altered wording and added an example at once, so
+none of them could say which half worked. This one was run as a controlled
+A/B: two prompt files, **identical below the operator preamble except for one
+worked example**, over 61 pages — the 55 receipts, which draw separator rules,
+and the 6 statements that draw dot leaders.
+
+It began by fixing a contradiction. The corpus strips runs of four or more
+repeated punctuation glyphs at capture, while the prompt said *"do not skip
+repeated or boilerplate text"* — instructing the model to transcribe precisely
+what the ground truth omits. Nothing in the prompt mentioned separator rules or
+dot leaders at all. Both arms scope that sentence and state the rule; only arm B
+adds the example.
+
+| gemma-4-12B | baseline | arm A: rule | **arm B: rule + example** |
+|---|---|---|---|
+| statement pages completed | 3/6 | 6/6 | 6/6 |
+| separator lines emitted | 275 | **0** | **0** |
+| decoration characters | 21,650 | **0** | **0** |
+| median receipt CER | 0.8164 | 0.0044 | 0.0043 |
+| **mean** CER | — | 0.1108 | **0.0214** |
+| amounts misfiled | 24.0% | 7.6% | **0.3%** |
+
+**On medians the two arms are indistinguishable. On the mean they differ five
+times over, and the entire difference is one page.**
+
+That page is the one the benchmark had already written off. Under the original
+prompt it ran to the token cap and was recorded as unproducible — a real
+document feature defeating a capable model, or so finding 4 concluded. Truth is
+1,507 characters:
+
+| | output | CER |
+|---|---|---|
+| baseline | hit the token cap | scored 1.0 |
+| arm A | 7,334 characters | **5.52** |
+| arm B | 1,491 characters | **0.076** |
+
+Arm A's output ends like this:
+
+```
+000000000000000000000000000000000000000000000000000000000000
+```
+
+**The stated rule did not stop the runaway. It changed its shape.** Told not to
+write repeated dots, the model wrote repeated zeros instead — and because that
+generation happened to finish under the token cap, nothing flagged it. It was
+reported as a clean 6/6 completion for an hour before the mean gave it away.
+
+The example is what fixed it, and the mechanism is legible: a prohibition says
+what not to emit and leaves the substitute unspecified, while an example shows
+what to write *instead*. The shipped rule now carries both, including an
+explicit "do not replace an omitted run with anything else".
+
+So the sharper claim is not that examples help. It is that **an example
+disambiguates the replacement behaviour a prohibition leaves open**, and that
+matters exactly where a model would otherwise improvise.
+
+Two costs, and they fall unevenly.
+
+The example perturbs generation everywhere — **52 of 61 pages differ between the
+arms** — and mildly degrades about five receipts the rule alone had nearly
+perfect (0.002 → 0.05): a duplicated business name here, a line split in two
+there. Net still strongly positive for gemma.
+
+For the smaller model it is a net loss:
+
+| InternVL3.5-8B | baseline | arm A | arm B |
+|---|---|---|---|
+| separator lines | 69 | **6** | 10 |
+| mean CER | — | **0.0785** | 0.1009 |
+| pages produced | 61/61 | **61/61** | 60/61 |
+
+Arm B gave it a **new** runaway — 53,547 characters of empty table rows,
+`|      |` repeated to the token cap, on a page both other arms handled.
+
+That is the pattern the whole pass has been drawing, now in its clearest form.
+**The smaller model is steered less reliably and destabilised more easily.**
+Every intervention tried here — the headerless rewrite, the date rule, the
+decoration rule, the worked example — lands cleanly on the 12B and lands
+weakly, or backwards, on the 8B. A prompt improvement is not a property of the
+prompt; it is a property of the pair.
+
+One control worth recording: InternVL's CER on those six statements was 0.3034,
+0.3028, 0.3045 across the three arms. Three interventions, no movement. That is
+the wrapped-header column split of finding 9, exactly as predicted before the
+run — which is the closest this pass came to a pre-registered hypothesis.
+
 ---
 
 ## Limits
@@ -623,7 +736,16 @@ performance on degraded documents.
 **Coverage.** gemma-4-12B produced 162 of 165 pages; the 3 dot-leader failures
 are scored as total failures rather than dropped, so all systems are averaged
 over the same 165 transcripts. InternVL produced all 165. Docling produced 2
-empty pages, scored the same way.
+empty pages, scored the same way. Finding 10 has since shown those 3 pages are
+producible under the corrected prompt, so every gemma figure in this document
+**understates** it — the pages are still scored 1.0 here because the full-corpus
+run predates the fix.
+
+**The main results predate the decoration rule.** Finding 10 was measured on a
+61-page subset and the rule has since been promoted into the shipped prompt, but
+the 165-page figures throughout this document were produced without it. Gemma's
+receipt CER in particular is 0.8164 here and 0.0043 under the current prompt.
+Re-running the full corpus is the outstanding work.
 
 **One convention mismatch is known and unresolved.** On one layout the corpus
 records a block's visual alignment (`Opening Balance          345,678`) while a
@@ -683,6 +805,21 @@ fixes above changed **zero images**, so every existing prediction stayed valid a
 the hypotheses were tested by re-scoring rather than re-running. That is what
 made it affordable to find out that a regression was the corpus's fault.
 
+**A fourth prompt revision, and the first controlled one.** The decoration rule
+and its worked example are now in the shipped prompt, along with a fix to the
+sentence that had been instructing models to transcribe what the corpus omits.
+On the 61 pages it was measured over, gemma's receipt CER fell from 0.8164 to
+0.0043, its misfiled amounts from 24.0% to 0.3%, and three pages previously
+written off as unproducible now transcribe correctly.
+
+**A finding retracted.** The dot-leader runaway was recorded as a real document
+feature defeating a capable model. It was the prompt contradicting the ground
+truth. Both remedies that failed — a larger token budget, a repetition penalty —
+failed because both treated the symptom.
+
 **Still open**: the `Label: value` mismatch in Limits; the misclassification of
-rules and code fences as reading errors; and the wrapped-header column split of
-finding 9, which no prompt revision has moved.
+rules and code fences as reading errors; the wrapped-header column split of
+finding 9, which four prompt revisions have now failed to move; and the
+receipt-totals block, which the decoration rule turned into a spurious second
+table on 26 of 55 pages by removing the separator rules that had been fencing it
+off — two individually correct instructions, jointly wrong.
