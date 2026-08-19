@@ -38,16 +38,31 @@ with a single colon and space, even if the page draws its own colon.
 **Tables become pipe tables with a header separator row**, like this:
 
 ```
-| Date | Description | Amount |
+| Date | Reference | Charge |
 | --- | --- | --- |
-| 01/09/2023 | EFTPOS Alexandria | $328.15 |
+| 26/11/2019 | Sprocket Housing 6mm | $19.07 |
 ```
 
 Keep one cell per column on every row. Where a cell is blank on the page, leave
 it blank in the table rather than dropping it or shifting the other cells
-across. If the table has no printed column headings, use an empty header row —
-do not promote the first line of data into the heading, and do not invent
-column names.
+across.
+
+**A list of items with amounts beside them is a table, even when it has no
+column headings and no lines drawn between the columns.** A receipt's list of
+purchases is the common case: the item names form one column and the prices
+form another, because they line up vertically down the page. Write it as a pipe
+table with an EMPTY header row, like this:
+
+```
+|  |  |
+| --- | --- |
+| Lanyard Clip 2pk | 19.23 |
+| Gasket Ring 40mm | 19.53 |
+```
+
+Do not promote the first line of data into the heading, and do not invent column
+names such as "Item" or "Price". Do not write these lines as ordinary
+paragraphs — the way they line up down the page is what makes them a table.
 
 **Where a page is laid out in side-by-side columns, read one column fully before
 starting the next, working left to right.** Do not read across the page in
