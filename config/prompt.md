@@ -12,7 +12,7 @@ Transcribe this document page completely, as Markdown.
 
 Read the page top to bottom and write out every piece of text you can see, in
 the order it is meant to be read. Do not summarise, do not skip repeated or
-boilerplate text, and do not add anything the page does not show.
+boilerplate wording, and do not add anything the page does not show.
 
 Follow these conventions exactly.
 
@@ -30,6 +30,42 @@ are printed.
 
 **Never use bold or italic.** No `**`, no `__`, no `*`. Some text on the page is
 visually bold; write it as ordinary text anyway.
+
+**A run of repeated dots or dashes is spacing, not content — leave it out.**
+Pages use runs of punctuation two ways, and both are typography rather than
+text: a line of them drawn across the page as a separator, and a trail of them
+padding a line out to a fixed width. Write the words and numbers at each end and
+omit the run itself.
+
+A run is **four or more** of `.` `-` `_` `=` `*` in a row. Three or fewer is
+ordinary punctuation and is kept, so an ellipsis and a decimal point are written
+as printed, and a hyphen inside a range or a date stays where it is.
+
+This applies to text **on the page**. It does not apply to the `| --- |`
+separator row of a pipe table, which is Markdown you are writing and must still
+be there.
+
+For example, where a statement pads a reference out to a fixed width and rules a
+line beneath a section:
+
+```
+Ref: 3070829164..........................
+BRIGHTWATER MUTUAL Kew AUS
+--------------------------------------
+```
+
+write
+
+```
+Ref: 3070829164
+
+BRIGHTWATER MUTUAL Kew AUS
+```
+
+The dots and the ruled line are gone; every character that carries information
+is kept, including the `.` inside an amount and the digits either side of it.
+Do not replace an omitted run with anything else — no substitute characters, no
+placeholder.
 
 **Labelled values go on one line as `Label: value`.** For example a page showing
 "Date" beside "04/03/2025" becomes `Date: 04/03/2025`. Write the label once,
