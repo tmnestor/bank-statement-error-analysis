@@ -1,0 +1,26 @@
+# NAB Classic Banking
+
+Account Details
+Account Holder: Jonathan Yates
+BSB Number: 082-456
+Account Number: 98-765-4221
+
+National Australia Bank
+Transaction Details (continued)
+
+| Date | Particulars | Debits | Credits | Balance |
+| --- | --- | --- | --- | --- |
+| 02/04/2024 | Balance Brought Forward | | | $19,221.94 Cr |
+| | BPAY D'NUMORE DIGITAL SERVICES CRN 173574218 Ref: 680124911 | $14,056.61 | | $5,165.33 Cr |
+| 04/04/2024 | VISA DEBIT PURCHASE CARD 3436 ELLERY TECIN Subiaco AU Ref: 97710174 | $246.76 | | $4,918.57 Cr |
+| 08/04/2024 | BPAY BRAMWELL DIG CRN 558565952 Ref: 4007394479 | $189.53 | | $4,729.04 Cr |
+| | DD FARFARI DIST REF15359 MHF 1008 Ref: 3007394724 | $40.76 | | $4,688.28 Cr |
+| 09/04/2024 | BPAY UNDERHILL EM CRN 56268433 Ref: 3760120110 | $569.51 | | $4,118.77 Cr |
+| | DD CAPITAL GROC REF57260 MHF 6920 Ref: 2521072088 | $448.33 | | $3,670.44 Cr |
+| 17/04/2024 | Transfer To Jonathan NetBank Ref: 9494626140 | $34.21 | | $3,636.23 Cr |
+| 19/04/2024 | EFTPOS ASHCROFT GROCER Sydney AUS Ref: 6470109536 | $76.64 | | $3,559.59 Cr |
+| 22/04/2024 | BPAY NATIONAL AV CRN 764657323 Ref: 4659604872 | | $3,654.22 | $7,213.81 Cr |
+| 23/04/2024 | BPAY GOSWELL AUTO CRN 69190034 Ref: 7438315322 | | $4,485.07 | $11,698.88 Cr |
+| 25/04/2024 | MASTERCARD DEBIT METRO DEPART Subiaco AU Ref: 6966156417 | $413.97 | | $11,284.91 Cr |
+| 28/04/2024 | VISA DEBIT PURCHASE CARD 7393 WESTERN PRIN Subiaco AU Ref: 2302250001 | | $1,113.93 | $12,398.84 Cr |
+| | Carried forward | | | $12,398.84 Cr |

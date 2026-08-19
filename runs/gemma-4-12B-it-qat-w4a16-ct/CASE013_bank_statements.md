@@ -1,0 +1,38 @@
+# Commonwealth Bank
+
+Commonwealth Bank of Australia
+ABN 01 125 108 485 ABN
+Australian credit licence 245007
+
+Account Holder: Louis Norris
+Statement Period: 01/08/2024 - 31/08/2024
+
+| Date | Description | Withdrawal | Deposit | Balance |
+| --- | --- | --- | --- | --- |
+| | Opening Balance | | | $32,256.02 |
+| 01/08/2024 | EFTPOS CAPITAL & AS Prospect AUS | $272.15 | | $31,983.87 |
+| 01/08/2024 | DD WAKELING SER REF65164 MHF 2654 | $400.86 | | $31,583.01 |
+| 02/08/2024 | MASTERCARD DEBIT PRIME CELLAR Prospect AU | $303.67 | | $31,279.34 |
+| 04/08/2024 | DD OCKENDON CRE REF15164 MHF 9980 | $302.85 | | $30,976.49 |
+| 06/08/2024 | VISA DEBIT PURCHASE CARD 4787 CAPITAL IT S Prospect AU | $283.92 | | $30,692.57 |
+| 06/08/2024 | MASTERCARD DEBIT SOUTHERN MAR Prospect AU | $512.24 | | $30,180.33 |
+| 07/08/2024 | EFTPOS CENTRAL CREA Prospect AUS | | $4,404.33 | $34,584.86 |
+| 08/08/2024 | Transfer To louis NetBank | $481.94 | | $34,102.92 |
+| 08/08/2024 | MASTERCARD DEBIT METRO FRESH Prospect AU | $483.34 | | $33,619.58 |
+| 12/08/2024 | MASTERCARD DEBIT PRIME ACCOUN Prospect AU | $553.03 | | $33,066.55 |
+| 13/08/2024 | Salary PAYROLL REF89975 | $462.84 | | $32,603.71 |
+| 13/08/2024 | BPAY REGIONAL SOL CRN 564766900 | $294.34 | | $32,309.37 |
+| 17/08/2024 | Salary PAYROLL REF71510 | $522.96 | | $31,786.41 |
+| 19/08/2024 | ATM WITHDRAWAL Prospect | $247.93 | | $31,538.48 |
+| 21/08/2024 | ATM WITHDRAWAL Prospect | $449.69 | | $31,088.79 |
+| 22/08/2024 | EFT PAYMENT FARRANT REF31643 | $23,421.13 | | $7,667.66 |
+| 23/08/2024 | Salary PAYROLL REF89194 | $535.17 | | $7,132.49 |
+| 24/08/2024 | ATM WITHDRAWAL Prospect | $333.14 | | $6,799.35 |
+| 25/08/2024 | EFTPOS SQ *HARBOURSID Prospect AUS | $122.34 | | $6,677.01 |
+| 26/08/2024 | VISA DEBIT PURCHASE CARD 7704 DUNMORE TRAD Prospect AU | $120.65 | | $6,556.36 |
+| 26/08/2024 | Salary PAYROLL REF64325 | | $4,640.47 | $11,196.83 |
+| 30/08/2024 | VISA DEBIT PURCHASE CARD 9260 TREMAYNE CON Prospect AU | | $2,698.79 | $13,895.62 |
+| 30/08/2024 | Salary PAYROLL REF85832 | $440.99 | | $13,454.63 |
+| 31/08/2024 | Salary PAYROLL REF42537 | $244.74 | | $13,209.89 |
+
+Transaction types: EFTPOS, ATM, Direct Debit, Direct Credit, Transfer

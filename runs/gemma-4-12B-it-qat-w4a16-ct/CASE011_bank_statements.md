@@ -1,0 +1,41 @@
+# ANZ
+
+Account Holder: Jeffrey Harrison
+Statement Period: 01/10/2024 - 31/10/2024
+Account number: 0000-00000
+
+Transaction Details
+
+| Date | Transaction Description | Debits | Credits | Balance |
+| --- | --- | --- | --- | --- |
+| | BALANCE BROUGHT FORWARD | | | $21,929.84 CR |
+| 01/10/2024 | EFTPOS CALLOWAY DIS Fortitude Valley AUS | $302.73 | | $21,627.11 CR |
+| 04/10/2024 | EFTPOS QUENNELL MAR Fortitude Valley AUS | $559.38 | | $21,067.73 CR |
+| 04/10/2024 | VISA DEBIT PURCHASE QUENNELL DIGITAL SUPPLIES Fortitude Valley AU | $16.92 | | $21,050.81 CR |
+| 05/10/2024 | Salary PAYROLL REF20208 | | $685.06 | $21,735.87 CR |
+| 05/10/2024 | EFTPOS METRO STATIO Fortitude Valley AUS | $466.38 | | $21,269.49 CR |
+| 06/10/2024 | VISA DEBIT PURCHASE CARD 5777 GOSWELL TYRE Fortitude Valley AU | $283.72 | | $20,985.77 CR |
+| 06/10/2024 | ATM WITHDRAWAL Fortitude Valley | $24.11 | | $20,961.66 CR |
+| 06/10/2024 | EFTPOS WESTERN PARK Fortitude Valley AUS | $590.04 | | $20,371.62 CR |
+| 08/10/2024 | BPAY COASTAL ACCOUNTING GROUP CRN 709194872 | $10,690.99 | | $9,681.53 CR |
+| 09/10/2024 | EFTPOS GREENHALGH B Fortitude Valley AUS | $280.49 | | $9,401.04 CR |
+| 09/10/2024 | VISA DEBIT PURCHASE CARD 2226 WESTERN AUTO Fortitude Valley AU | $266.64 | | $9,134.40 CR |
+| 10/10/2024 | BPAY HARBOURSIDE CRN 852398388 | | $2,318.51 | $11,452.91 CR |
+| 12/10/2024 | BPAY FEWINK OFFI CRN 600422896 | $81.23 | | $11,371.68 CR |
+| 12/10/2024 | BPAY ELLERY PETRO CRN 708806698 | $497.57 | | $10,874.11 CR |
+| 17/10/2024 | MASTERCARD DEBIT GREATER TIMB Fortitude Valley AU | $484.30 | | $10,389.81 CR |
+| 17/10/2024 | EFTPOS DUNMORE TRAD Fortitude Valley AUS | $353.57 | | $10,036.24 CR |
+| 22/10/2024 | VISA DEBIT PURCHASE CARD 8265 VERRALL HARD Fortitude Valley AU | $544.00 | | $9,492.24 CR |
+| 22/10/2024 | Transfer To Jeffrey NetBank | | $2,531.02 | $12,023.26 CR |
+| 23/10/2024 | Salary PAYROLL REF68459 | $30.44 | | $11,992.82 CR |
+| 23/10/2024 | BPAY FARRANT SOLI CRN 165475776 | $235.98 | | $11,756.84 CR |
+| 24/10/2024 | BPAY STATEWIDE LE CRN 615057244 | $212.98 | | $11,543.86 CR |
+| 24/10/2024 | Transfer To Jeffrey NetBank | $487.11 | | $11,056.75 CR |
+| 24/10/2024 | Transfer To Jeffrey NetBank | $244.88 | | $10,771.87 CR |
+| 24/10/2024 | EFTPOS STATEWIDE ST Fortitude Valley AUS | $149.57 | | $10,582.30 CR |
+| 25/10/2024 | Transfer To Jeffrey NetBank | $329.85 | | $10,252.45 CR |
+| 26/10/2024 | EFTPOS HARROWGATE G Fortitude Valley AUS | $205.72 | | $10,046.73 CR |
+| 27/10/2024 | MASTERCARD DEBIT RIVERSIDE CH Fortitude Valley AU | $556.10 | | $9,690.63 CR |
+| 28/10/2024 | VISA DEBIT PURCHASE CARD 7481 SOUTHERN BRA Fortitude Valley AU | | $1,578.65 | $11,269.28 CR |
+| 31/10/2024 | MASTERCARD DEBIT EASTERN IT C Fortitude Valley AU | $141.71 | | $11,127.57 CR |
+| | Totals at end of period | $17,915.51 | $7,113.24 | |

@@ -1,0 +1,7 @@
+{
+  "reason": "generation ran to max_output_tokens (8192) at the declared settings; no usable transcription was produced",
+  "pages": [
+    "CASE003_bank_statements",
+    "CASE024_bank_statements"
+  ]
+}

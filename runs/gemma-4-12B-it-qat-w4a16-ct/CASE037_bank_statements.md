@@ -1,0 +1,38 @@
+# ANZ
+
+Account Holder: Jeremy Zimmerman
+Account number: 0000-00000
+Statement Period: 01/01/2024 - 29/01/2024
+
+Transaction Details
+
+| Date | Transaction Description | Debits | Credits | Balance |
+| --- | --- | --- | --- | --- |
+| | BALANCE BROUGHT FORWARD | | | $33,953.73 CR |
+| 01/01/2024 | EFT PAYMENT PENWICK MARKETING CO | $13,826.89 | | $20,126.84 CR |
+| 03/01/2024 | Salary PAYROLL REF76450 | $162.94 | | $19,963.90 CR |
+| 05/01/2024 | Transfer To Jeremy NetBank | $304.67 | | $19,659.23 CR |
+| 05/01/2024 | Transfer To Jeremy NetBank | $455.93 | | $19,203.30 CR |
+| 06/01/2024 | VISA DEBIT PURCHASE CARD 2194 BRAMWELL HOM Hawthorn East AU | $554.89 | | $18,648.41 CR |
+| 07/01/2024 | ATM WITHDRAWAL Hawthorn East | $268.13 | | $18,380.28 CR |
+| 09/01/2024 | BPAY RAVENSDALE T CRN 192361447 | $381.18 | | $17,999.10 CR |
+| 11/01/2024 | BPAY SOUTHERN TRA CRN 710202137 | $211.02 | | $17,788.08 CR |
+| 12/01/2024 | ATM WITHDRAWAL Hawthorn East | $482.94 | | $17,305.14 CR |
+| 12/01/2024 | Salary PAYROLL REF76451 | $304.24 | | $17,000.90 CR |
+| 13/01/2024 | Transfer To Jeremy NetBank | $524.74 | | $16,476.16 CR |
+| 15/01/2024 | EFTPOS SQ *BRAMWELL Hawthorn East AUS | $233.22 | | $16,252.94 CR |
+| 17/01/2024 | VISA DEBIT PURCHASE CARD 1491 NORTHERN ACC Hawthorn East AU | $163.92 | | $16,089.02 CR |
+| 17/01/2024 | EFTPOS REGIONAL STA Hawthorn East AUS | $149.01 | | $15,940.01 CR |
+| 17/01/2024 | EFTPOS PRIME PHARMA Hawthorn East AUS | $169.60 | | $15,770.41 CR |
+| 17/01/2024 | EFTPOS WESTERN SERV Hawthorn East AUS | $559.44 | | $15,210.97 CR |
+| 21/01/2024 | MASTERCARD DEBIT NATIONAL WIN Hawthorn East AU | $217.56 | | $14,993.41 CR |
+| 21/01/2024 | EFTPOS ASHCROFT TEC Hawthorn East AUS | $594.65 | | $14,398.76 CR |
+| 23/01/2024 | BPAY EASTWICK MAR CRN 293910773 | $195.33 | | $14,203.43 CR |
+| 23/01/2024 | BPAY EASTERN GENE CRN 805008454 | $157.62 | | $14,045.81 CR |
+| 24/01/2024 | ATM WITHDRAWAL Hawthorn East | $470.32 | | $13,575.49 CR |
+| 26/01/2024 | BPAY SOUTHCOTT MO CRN 212075212 | $541.25 | | $13,034.24 CR |
+| 28/01/2024 | ATM WITHDRAWAL Hawthorn East | $82.42 | | $12,951.82 CR |
+| 28/01/2024 | MASTERCARD DEBIT CAPITAL TRAD Hawthorn East AU | $503.43 | | $12,448.39 CR |
+| 28/01/2024 | Salary PAYROLL REF12470 | $236.95 | | $12,211.44 CR |
+| 29/01/2024 | BPAY GREATER LIQU CRN 809101742 | $329.51 | | $11,881.93 CR |
+| | Totals at end of period | $22,071.80 | $0.00 | |
