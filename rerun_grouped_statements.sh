@@ -86,16 +86,24 @@ for s in "${SYSTEMS[@]}"; do
     fi
 done
 
-cat <<'NOTE'
+cat <<NOTE
 
-CASE024_bank_statements is the dot-leader runaway. If it hits the token cap it
-lands in _truncated/ rather than as a prediction, which is the runner refusing
-to score a repetition loop as a misreading. Re-declare it with:
+A page in _truncated/ hit the token cap and was refused as a prediction rather
+than written — a repetition loop scored as a misreading would blame the model's
+eyes for the operator's cap. The dot-leader runaway is the known cause, and it
+MOVES between prompt versions, so do not assume the same pages as last time.
 
-  python -u -m runners.run_vlm --corpus CORPUS --system SYSTEM \
-      --out OUT --declare-unproducible
+Declare them unproducible, once per affected system:
+
+NOTE
+for s in "${SYSTEMS[@]}"; do
+    [[ -d $OUT/$s/_truncated ]] || continue
+    echo "  python -u -m runners.run_vlm --corpus $CORPUS \\"
+    echo "      --system $s --out $OUT --declare-unproducible"
+done
+cat <<NOTE
 
 Then send the directory back:
 
-  rsync -av OUT/ local:/path/to/doc-parsing-corpus/OUT/
+  rsync -av $OUT/ local:/path/to/doc-parsing-corpus/$OUT/
 NOTE
