@@ -463,7 +463,29 @@ def _load_vllm(spec: dict, system: str):  # noqa: ANN202 - vllm is absent in the
         ) from err
 
     engine = spec["vllm_engine"]
+
+    # soft_tokens is a gemma4_unified knob: one value applied to both places
+    # vLLM reads it, so the two cannot disagree. Other architectures declare
+    # `none` and get neither kwarg.
     soft = engine["soft_tokens"]
+    vision_kwargs: dict = {}
+    if soft != "none":
+        vision_kwargs = {
+            "mm_processor_kwargs": {"max_soft_tokens": soft},
+            "hf_overrides": {"vision_config": {"num_soft_tokens": soft}},
+        }
+
+    # InternVL3.5 ships a Mistral tokenizer whose pre-tokenizer regex mis-splits
+    # runs of whitespace and digits — exactly what a whitespace-aligned,
+    # digit-heavy bank statement is made of, so it corrupts amount tokenization.
+    # vLLM exposes no flag for it and loads its tokenizer in the front-end AND
+    # in every spawned EngineCore child, so the correction has to arrive as a
+    # tokenizer directory on disk. Declare the corrected copy here; `none` uses
+    # the checkpoint's own.
+    tokenizer = engine["tokenizer"]
+    if tokenizer != "none":
+        vision_kwargs["tokenizer"] = str(tokenizer)
+
     return LLM(
         model=str(spec["model"]),
         tensor_parallel_size=engine["tensor_parallel_size"],
@@ -475,8 +497,7 @@ def _load_vllm(spec: dict, system: str):  # noqa: ANN202 - vllm is absent in the
         enforce_eager=engine["enforce_eager"],
         trust_remote_code=True,
         disable_log_stats=True,
-        mm_processor_kwargs={"max_soft_tokens": soft},
-        hf_overrides={"vision_config": {"num_soft_tokens": soft}},
+        **vision_kwargs,
     )
 
 

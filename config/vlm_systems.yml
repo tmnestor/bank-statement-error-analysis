@@ -131,15 +131,18 @@ systems:
       # hf_overrides.vision_config.num_soft_tokens, which must agree — one
       # value makes disagreement unrepresentable rather than merely tested.
       soft_tokens: 560
+      # This checkpoint's own tokenizer is correct; see InternVL below for the
+      # case where it is not.
+      tokenizer: none
     # See the note above: 1.0 is off, and this corpus is repetitive by nature.
     repetition_penalty: 1.0
 
   # Spec §8.6. A second VLM family rather than a second Gemma, because the pass
   # is looking for convention disagreement, not a leaderboard.
   InternVL3.5-8B:
-    transport: openai_http
-    model: OpenGVLab/InternVL3_5-8B
-    base_url: http://REPLACE-ME:8000/v1
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/InternVL3_5-8B
+    base_url: none
     base_url_env: none
     api_key_env: none
     temperature: 0.0
@@ -148,10 +151,34 @@ systems:
     timeout_seconds: 600
     mlx_unused_towers: []
     image_first: true
-    # 1.0 is off. Raising it is tempting for the bank statements that run to the
-    # token cap, but these pages legitimately repeat tokens — dates, EFTPOS,
-    # amounts, column headers — so a penalty degrades exactly the transcription
-    # it is meant to rescue. Change it only against a captured _truncated/ page
-    # showing what is actually being repeated.
     repetition_penalty: 1.0
-    vllm_engine: none
+    vllm_engine:
+      tensor_parallel_size: 1
+      max_model_len: 16384
+      gpu_memory_utilization: 0.90
+      max_num_seqs: 10
+      # One whole image. The LMM_POC sandbox sets 19 because its pipeline
+      # PRE-TILES: it crops the page into 18 tiles plus a thumbnail and hands
+      # vLLM each as a separate image, so the limit must admit them all. This
+      # runner sends the page whole and lets InternVL tile it internally, which
+      # vLLM counts as one image. If dense statements read poorly, pre-tiling is
+      # the first thing to try — it is why that sandbox does it.
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      # A gemma4_unified knob; this architecture has no equivalent.
+      soft_tokens: none
+      # REQUIRED for this checkpoint, and not a tuning choice. InternVL3.5 ships
+      # a Mistral tokenizer whose pre-tokenizer regex mis-splits runs of
+      # whitespace and digits — which is exactly what a whitespace-aligned,
+      # digit-heavy bank statement is made of, so it corrupts amount
+      # tokenization. vLLM exposes no flag for it and loads the tokenizer in the
+      # front-end AND in every spawned EngineCore child, so a load-time patch
+      # cannot reach the children; the fix has to be a corrected copy on disk.
+      #
+      # Produce it with LMM_POC's ensure_corrected_tokenizer(), which writes a
+      # fix_mistral_regex-corrected copy to
+      # ~/.cache/lmm_poc_tokenizers/<model-name>, then point this at it.
+      # Running without it scores a tokenizer bug as the model misreading, on
+      # the amount columns this corpus is largely made of.
+      tokenizer: /home/jovyan/.cache/lmm_poc_tokenizers/InternVL3_5-8B

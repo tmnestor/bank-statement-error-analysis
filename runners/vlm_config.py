@@ -54,6 +54,7 @@ VLLM_ENGINE_KEYS: tuple[str, ...] = (
     "enable_prefix_caching",
     "enforce_eager",
     "soft_tokens",
+    "tokenizer",
 )
 
 # The checkpoint accepts only these vision budgets. 1120 and 280 were both
@@ -196,7 +197,7 @@ def _validate_engine(name: str, engine: object, path: Path) -> None:
                 recover=f"add '{key}:' under systems.{name}.vllm_engine in {path}.",
             )
 
-    if engine["soft_tokens"] not in LEGAL_SOFT_TOKENS:
+    if engine["soft_tokens"] != _NONE and engine["soft_tokens"] not in LEGAL_SOFT_TOKENS:
         raise runner_error(
             f"system '{name}' declares soft_tokens {engine['soft_tokens']!r}, which the "
             "checkpoint does not accept.",
