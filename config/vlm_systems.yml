@@ -113,8 +113,17 @@ systems:
     # decides what the model can SEE, so a wrong value here produces a run that
     # completes and is quietly worse.
     vllm_engine:
-      # 9.56 GiB of weights fits one L4 whole, so tp=1 — which also sidesteps
-      # the tensor-parallel SHM deadlock that host records for PCIe-linked L4s.
+      # tp=1 means ONE WHOLE ENGINE PER GPU, not one GPU. 9.56 GiB fits a card
+      # whole, so the sandbox runs 2xL4 as two engines (tp=1 each) rather than
+      # sharding one engine tp=2 across PCIe — the L4s have no NVLink, and the
+      # data-parallel path uses no NCCL and no /dev/shm, sidestepping the
+      # tensor-parallel SHM deadlock that host records.
+      #
+      # Use both cards by running one process per GPU over disjoint pages:
+      #   CUDA_VISIBLE_DEVICES=0 python -m runners.run_vlm ... --shard 0 --shards 2 &
+      #   CUDA_VISIBLE_DEVICES=1 python -m runners.run_vlm ... --shard 1 --shards 2 &
+      # Both write to the same --out; the resume logic keeps them disjoint.
+      # Running with --shards 1 uses ONE card and leaves the other idle.
       tensor_parallel_size: 1
       max_model_len: 16384
       gpu_memory_utilization: 0.90

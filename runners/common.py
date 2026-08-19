@@ -137,6 +137,49 @@ def pending(out_dir: Path, stems: list[str]) -> list[str]:
     ]
 
 
+def shard_of(stems: list[str], *, index: int, shards: int) -> list[str]:
+    """Take one data-parallel process's disjoint slice of the pages.
+
+    Data parallelism here is one whole engine per GPU — the arrangement the
+    LMM_POC sandbox uses for its 2xL4, because a card fits a whole engine and
+    sharding one engine tp=2 across PCIe hits a documented SHM deadlock on
+    NVLink-less L4s. Each process loads its own engine, takes a disjoint slice,
+    and writes to the same output directory; the resume logic already skips
+    whatever another process has finished, so nothing has to coordinate.
+
+    The slice is **strided, not contiguous**. Page cost varies by an order of
+    magnitude — a bank statement takes minutes, a receipt seconds — and the
+    stems are sorted, so a contiguous split would hand one card a block of
+    statements and the other a block of receipts, finishing far apart.
+
+    Args:
+        stems: Every stem this run would otherwise attempt, in order.
+        index: This process's shard, from 0.
+        shards: How many processes are sharing the work.
+
+    Returns:
+        This shard's stems, in order.
+
+    Raises:
+        RunnerError: `shards` is below 1, or `index` is outside it.
+    """
+    if shards < 1:
+        raise runner_error(
+            f"shards is {shards}, which is not a number of processes.",
+            where="--shards",
+            expected="one or more, e.g.\n              --shards 2 (one per GPU)",
+            recover="pass --shards 1 to run the whole corpus in this process.",
+        )
+    if not 0 <= index < shards:
+        raise runner_error(
+            f"shard index {index} is outside --shards {shards}.",
+            where="--shard",
+            expected=f"an index from 0 to {shards - 1}, e.g.\n              --shard 0 --shards {shards}",
+            recover="number the processes from zero, one per GPU.",
+        )
+    return stems[index::shards]
+
+
 def write_prediction(out_dir: Path, stem: str, markdown: str) -> Path:
     """Write one prediction where `score` will look for it.
 

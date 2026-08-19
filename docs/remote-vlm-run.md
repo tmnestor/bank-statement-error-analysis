@@ -73,9 +73,25 @@ starting guess. It is written once and applied to both places vLLM reads it
 (`mm_processor_kwargs.max_soft_tokens` and
 `hf_overrides.vision_config.num_soft_tokens`), so the two cannot disagree.
 
-`tensor_parallel_size: 1` is deliberate: 9.56 GiB of weights fits one L4 whole,
-which also sidesteps the tensor-parallel SHM deadlock recorded for PCIe-linked
-L4s.
+`tensor_parallel_size: 1` means **one whole engine per GPU**, not one GPU. A
+card fits a whole engine, so a 2xL4 host runs two engines rather than sharding
+one engine tp=2 across PCIe — the L4s have no NVLink, and the data-parallel path
+uses no NCCL and no /dev/shm, sidestepping the tensor-parallel SHM deadlock.
+
+**Use both cards.** Run one process per GPU over disjoint pages:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -u -m runners.run_vlm --corpus parsing_20260819c \
+    --system gemma-4-12B-it-qat-w4a16-ct --out runs --shard 0 --shards 2 &
+CUDA_VISIBLE_DEVICES=1 python -u -m runners.run_vlm --corpus parsing_20260819c \
+    --system gemma-4-12B-it-qat-w4a16-ct --out runs --shard 1 --shards 2 &
+wait
+```
+
+Both write to the same `--out`; the slices are disjoint and the resume logic
+keeps them so. The split is strided, not contiguous, because a bank statement
+takes minutes and a receipt seconds — a contiguous split would finish far apart.
+Omitting `--shards` uses ONE card and leaves the other idle.
 
 ## Pointing an `openai_http` system at a server
 

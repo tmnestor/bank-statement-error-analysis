@@ -43,6 +43,7 @@ from runners.common import (
     keep_truncated,
     pending,
     runner_error,
+    shard_of,
     verify_complete,
     write_prediction,
     write_settings_provenance,
@@ -669,6 +670,18 @@ def main(
     prompt_path: Annotated[
         Path, typer.Option("--prompt", help="The prompt shipped with the corpus.")
     ] = _DEFAULT_PROMPT,
+    shard: Annotated[
+        int,
+        typer.Option(
+            "--shard",
+            help="This process's shard index, from 0. With --shards, runs one whole "
+            "engine per GPU over a disjoint slice of the pages.",
+        ),
+    ] = 0,
+    shards: Annotated[
+        int,
+        typer.Option("--shards", help="How many processes share the work; one per GPU."),
+    ] = 1,
     declare_unproducible: Annotated[
         bool,
         typer.Option(
@@ -712,6 +725,13 @@ def main(
 
     out_dir = out / system
     todo = pending(out_dir, stems)
+    try:
+        todo = shard_of(todo, index=shard, shards=shards)
+    except RunnerError as err:
+        rprint(f"[red]{err}[/red]")
+        raise typer.Exit(1) from None
+    if shards > 1:
+        rprint(f"[dim]shard {shard} of {shards}: {len(todo)} page(s) of this process[/dim]")
     if overridden:
         rprint(
             f"[yellow]repetition_penalty overridden to {spec['repetition_penalty']} for this "
