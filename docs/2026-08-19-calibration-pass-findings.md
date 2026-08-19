@@ -14,8 +14,9 @@ document and write it out as Markdown. Doing that forces the benchmark to pick a
 value. The worry was that our house style might be idiosyncratic — that a model
 could read a page perfectly and still score badly for formatting it differently.
 
-The house style is largely fine. But the pass found three things that matter
-more than that verdict:
+The house style is largely fine. But the pass found five things that matter more
+than that verdict, and the last three came from measuring the prompt itself as
+if it were a component under test:
 
 1. **Stating a rule is not the same as communicating it.** One rule was written
    in the prompt and achieved **2/55** compliance. Rewritten to name the case it
@@ -23,10 +24,20 @@ more than that verdict:
 2. **The corpus was contradicting itself**, treating the same visual device as
    content in one place and decoration in another, depending on which piece of
    code drew it. That cost one model insertions equal to **63%** of a page's
-   length, on every receipt.
+   length, on every receipt. A second, independent instance of the same fault
+   was found later and is finding 7.
 3. **The primary metric is blind to the error that matters most.** A page where
    every row was filed under the wrong column heading scored *better* than that
    system's average.
+4. **A rule can be stated, communicated, obeyed — and still make things worse.**
+   A new instruction appeared to cost 5.5 points of table accuracy. It was
+   actually correct, and the corpus was wrong on 7 of 55 pages. Fixing the
+   corpus flipped the sign to a 6.6-point *gain*. Nothing distinguishes those
+   two situations except going and looking.
+5. **Some instructions never land, however they are worded.** The same rule was
+   phrased three ways across three runs. One model went from 62% to 97%
+   compliance; the other stayed at 57%, 56%, 57%. Rewording is not always the
+   remedy — sometimes the capability is simply absent.
 
 And one process finding, learned the hard way: **a prompt is part of the
 evaluation set**, and putting real data in its examples silently leaks answers.
@@ -140,6 +151,29 @@ CER cannot see that inference fail. This metric counts, for each amount the page
 shows, whether the system filed it in the same column. It is reported separately
 and never folded into CER, which would inherit the same blindness.
 
+### Table structure — also added during this pass
+
+Column integrity assumes the rows were segmented correctly to begin with. Often
+they are not, so rows are scored in their own right. Truth rows are matched to
+prediction rows by signature — a dropped or invented row therefore shifts
+nothing after it — and five numbers are reported:
+
+- **rows aligned** — how many truth rows found a counterpart at all;
+- **fragments** — continuation rows, where one logical row was split in two
+  (usually a description that wrapped on the page);
+- **width breaks** — rows with the wrong number of cells;
+- **cell accuracy** — of the cells in *aligned* rows, how many match exactly.
+  Restricting to aligned rows is essential: comparing cells across rows that do
+  not correspond would compare unrelated values and produce a meaningless
+  number;
+- **content recall** — of every cell in the truth, how many appear anywhere in
+  the prediction. This catches the opposite failure, a system that aligns few
+  rows but did read the content.
+
+Reported per document type, never only in aggregate. Bank statements are the
+only genuinely difficult tables in this corpus, and averaging them with
+near-saturated invoices hides everything interesting.
+
 ---
 
 ## Experimental design
@@ -160,18 +194,25 @@ told; if it still diverges, the instruction failed.
 
 ## Results
 
-Per-page **medians**, which describe these systems better than means — a few
-catastrophic pages distort the averages badly.
+Final figures, against corpus vintage `parsing_20260819d` and the corrected
+prompt. Per-page **medians**, which describe these systems better than means — a
+few catastrophic pages distort the averages badly.
 
-| System | median nCER | median sCER | **median gap** | told? |
-|---|---|---|---|---|
-| **gemma-4-12B-it-qat-w4a16-ct** | **0.0186** | 0.0591 | **+0.0092** | yes |
-| mineru | 0.0368 | 0.4277 | **+0.3917** | no |
-| InternVL3.5-8B | 0.0425 | 0.3492 | **+0.2322** | yes |
-| docling | 0.4145 | 0.6120 | +0.0587 | no |
+| System | median nCER | median sCER | **median gap** | mean nCER | told? |
+|---|---|---|---|---|---|
+| **gemma-4-12B-it-qat-w4a16-ct** | **0.0201** | 0.0476 | **+0.0084** | 0.3011 | yes |
+| mineru | 0.0404 | 0.4277 | **+0.3917** | 0.0520 | no |
+| InternVL3.5-8B | 0.0432 | 0.2299 | **+0.1552** | 0.0970 | yes |
+| docling | 0.4145 | 0.6120 | +0.0581 | 1.6457 | no |
 
-**Reading quality is close between the three real readers** — 0.019 to 0.043
+**Reading quality is close between the three real readers** — 0.020 to 0.043
 median CER. Gemma reads best *and* formats closest.
+
+Gemma's mean of 0.30 against a median of 0.020 is worth pausing on, because it
+is not a reading failure: it is the 55 receipts, where the model transcribes the
+page's horizontal rules and the corpus excludes them as decoration. Delete those
+rule lines from its output and its receipt CER falls from **0.8164 to 0.0083**.
+Almost the whole mean is one convention disagreement, quantified in finding 2.
 
 **MinerU loses 0.39 to formatting it cannot be instructed about**, principally
 emitting HTML tables (`<table><tr><td>`) on 110 of 165 pages where the corpus
@@ -180,7 +221,7 @@ an unpromptable parser should look like.
 
 **Gemma loses almost nothing (+0.009)** — told the style, it complies.
 
-**InternVL sits between (+0.232), and about two-thirds of that is table
+**InternVL sits between (+0.155), and about two-thirds of that is table
 padding.** It pretty-prints its tables:
 
 ```
@@ -207,25 +248,66 @@ should not be read as evidence about the house style.
 
 | System | amounts | misfiled | **misfiled %** | docs with wrong column count |
 |---|---|---|---|---|
-| mineru | 2503 | 325 | **13.0%** | 56 |
-| InternVL3.5-8B | 2503 | 408 | 16.3% | 53 |
-| gemma-4-12B-it-qat-w4a16-ct | 2503 | 408 | 16.3% | 56 |
+| gemma-4-12B-it-qat-w4a16-ct | 2503 | 319 | **12.7%** | 4 |
+| mineru | 2503 | 325 | 13.0% | 56 |
+| InternVL3.5-8B | 2503 | 361 | 14.4% | 14 |
 | docling | 2503 | 1929 | 77.1% | 117 |
 
-Read this **by document type**, because the aggregate misleads badly:
+Read this **by document type**, because the aggregate misleads badly. Bank
+statements are the only genuinely hard table here; invoices are near-saturated
+and receipts are a two-column list.
 
-| gemma-4-12B | bank_statements | invoices | receipts |
+| misfiled | bank statements | invoices | receipts |
 |---|---|---|---|
-| misfiled | 170/1957 = **8.7%** | 5/308 = 1.6% | 179/184 = 97.3% |
+| **mineru** | **141/2011 = 7.0%** | 0/308 = 0.0% | 184/184 = 100% |
+| gemma-4-12B | 313/2011 = 15.6% | 5/308 = 1.6% | 1/184 = 0.5% |
+| InternVL3.5-8B | 326/2011 = 16.2% | 3/308 = 1.0% | 32/184 = 17.4% |
+| docling | 1671/2011 = 83.1% | 74/308 = 24.0% | 184/184 = 100% |
 
-The receipt figure is a serialisation difference, not misplacement — the corpus
-serialises receipt items as a headerless two-column table and the models emitted
-plain lines (the subject of finding 1 below). The meaningful number is
-**bank statements: about 1 amount in 12 filed under the wrong heading**, by both
-of the best systems, while those same systems post normalised CERs near 0.02.
+The 100% for the two parsers on receipts is not misplacement: neither emits a
+table there at all, so every amount is trivially absent from a column. Gemma's
+bank-statement figure includes 3 pages declared unproducible and scored as total
+failures; on the pages it produced, it is 12.1%.
 
-And note **MinerU is the most structurally faithful of the four** — the reverse
-of what the convention metrics suggest.
+The meaningful number is **bank statements: about 1 amount in 7 filed under the
+wrong heading** by the two prompted models, while those same models post
+normalised CERs near 0.02.
+
+And note **MinerU is the most structurally faithful of the four** on the hard
+tables — the reverse of what the convention metrics suggest.
+
+### Table structure
+
+Column integrity asks whether an amount landed under the right heading. This
+asks the prior question: did the system reproduce the table's *rows* at all?
+Truth rows are matched to prediction rows by signature, so a dropped or invented
+row shifts nothing after it, and cell accuracy is measured only over rows that
+matched — comparing cells across rows that do not correspond would compare
+unrelated values.
+
+| System | rows aligned | fragments | width breaks | cell accuracy | content recall |
+|---|---|---|---|---|---|
+| gemma-4-12B-it-qat-w4a16-ct | **1409/2005 (70.3%)** | **0** | **0** | 0.992 | 0.879 |
+| InternVL3.5-8B | 1390/2005 (69.3%) | 17 | 9 | 0.922 | 0.902 |
+| mineru | 1234/2005 (61.5%) | 292 | 156 | **1.000** | 0.888 |
+| docling | 283/2005 (14.1%) | 120 | 13 | 0.850 | 0.273 |
+
+A **fragment** is a continuation row: the system split one logical row across
+two, usually because the description wrapped on the page. A **width break** is a
+row with the wrong number of cells.
+
+**No system wins outright, and the two candidates fail in opposite ways.** Gemma
+never breaks structure — zero fragments, zero width breaks across 165 pages —
+and when it commits to a cell it is right 99.2% of the time; but it recalls the
+fewest cells. MinerU has perfect cell accuracy on the rows it aligns and the
+best amount placement, but produces 292 fragments and 156 width breaks, and does
+not recognise a receipt item list as a table at all.
+
+If you had to pick one for a bank statement, the answer is **MinerU**, on the
+strength of 7.0% misfiled amounts against 15.6% and 16.2%. That directly
+contradicts the CER leaderboard, where MinerU sits second and pays the largest
+convention penalty of any system. Reading tables and matching a house style are
+close to independent skills.
 
 ---
 
@@ -263,6 +345,18 @@ the 165 transcripts, and no prediction echoed any of it. An earlier version of
 this experiment used real line items from a scored page — see *A prompt is part
 of the eval set* below — and the 53/55 figure is the clean re-run.
 
+Re-running both prompted systems confirmed it on the structural metric, and
+**both models moved** — which is what separates this rule from the one in
+finding 8:
+
+| Receipt rows correctly segmented | before | after |
+|---|---|---|
+| gemma-4-12B-it-qat-w4a16-ct | 9/184 (4.9%) | **183/184 (99.5%)** |
+| InternVL3.5-8B | 17/184 (9.2%) | **149/184 (81.0%)** |
+
+Misfiled amounts on receipts fell with it: gemma 97.3% → 0.5%, InternVL 90.2% →
+17.4%.
+
 **The prompt is a component to be tested, not documentation to be written once.**
 A rule can be technically present and effectively absent.
 
@@ -293,15 +387,29 @@ reader improved: MinerU 0.0698 → 0.0526, InternVL 0.1131 → 0.0978, Gemma 0.1
 
 ### 3. CER is blind to the error that matters most on a statement
 
-On `CASE005_bank_statements`, InternVL read a header cell that wraps across two
-lines — `Date of / Transaction` — as **two columns**. Every data row inherited
-the extra cell, so every amount sat one column right of the heading naming it. On
-a bank statement that is money out reported as money in.
+Four statements print a header cell that wraps across two lines — `Date of /
+Transaction`. InternVL reads it as **two columns**. Every data row inherits the
+extra cell, so every amount sits one column right of the heading naming it. On a
+bank statement that is money out reported as money in.
 
-That page scored a normalised CER of **0.0128** — three times *better* than that
-system's corpus median of 0.0425 — because normalisation strips pipes as table
-marks, discarding exactly the delimiters that encode the answer. The entire
-structural failure cost a couple of characters.
+| Page | amounts misfiled | normalised CER |
+|---|---|---|
+| CASE033 | **38 of 38** | 0.0829 |
+| CASE005 | 36 of 39 | 0.0902 |
+| CASE012 | **39 of 39** | 0.0915 |
+| CASE025 | **38 of 38** | 0.1070 |
+
+Three of those pages have **every single amount** under the wrong heading, and
+pay about 8–11% character error for it — twice the system's median of 0.043, for
+a result that is entirely worthless. Normalisation strips pipes as table marks,
+discarding exactly the delimiters that encode the answer, so a total structural
+failure registers as a mild reading day.
+
+It was starker still before the corpus was corrected: `CASE005` then scored
+**0.0128**, three times *better* than that system's median, for the same
+catastrophe. The point survives the change in magnitude — CER prices this error
+somewhere between "cheap" and "free", and nothing about the number tells you
+which page is unusable.
 
 Hence the column-integrity metric above. Without it the harness could not
 distinguish "read the statement correctly" from "read every character correctly
@@ -312,10 +420,10 @@ and filed every amount under the wrong heading".
 One layout prints **dot leaders** — ~40 periods padding a transaction reference
 across to the amount column. Real statements do this.
 
-On 2 of the 6 pages carrying them, gemma-4-12B transcribes the masthead, account
-details and table header correctly (369 characters), reaches the first leader,
-and emits **128,768 consecutive periods** — roughly 3,200× amplification — until
-cut off at the token limit. Deterministic across three attempts at temperature 0.
+On the pages carrying them, gemma-4-12B transcribes the masthead, account details
+and table header correctly (369 characters), reaches the first leader, and emits
+**128,768 consecutive periods** — roughly 3,200× amplification — until cut off at
+the token limit.
 
 Neither remedy works. Raising the token limit buys a longer run of periods, as
 there is no pending content behind the loop. A repetition penalty completes the
@@ -325,6 +433,25 @@ recorded as unproducible and scored as total failures.
 
 InternVL does not loop; it omits the leaders entirely. So the runaway is
 Gemma-specific, not a property of the page.
+
+**Which pages loop is not stable.** It is deterministic for a fixed prompt —
+three attempts at temperature 0 reproduce it exactly — but the *set* of afflicted
+pages moves when the prompt is edited, on byte-identical images:
+
+| Prompt version | pages that ran away |
+|---|---|
+| v1 | CASE003, CASE024 |
+| v2 | CASE024 |
+| v3 | CASE003, CASE024, **CASE047** |
+
+`CASE003` recovered and then relapsed; `CASE047` had never failed before. The
+prompt is not a neutral wrapper around a fixed capability — it perturbs decoding
+enough to move a pathological attractor on and off individual pages.
+
+The operational consequence: **a record of unproducible pages is scoped to a
+prompt version, not to a page.** Carrying one forward across a prompt change
+would score 1.0 for a page the model can now read, and would have concealed
+`CASE003`'s recovery entirely.
 
 **This failure is invisible to information extraction**, which asks for a few
 hundred bounded tokens and stops. The same checkpoint has high IE accuracy on
@@ -385,14 +512,105 @@ data. Under the old arrangement one number repeated seven times would have
 produced one error repeated seven times, and a model could have scored well by
 memorising it.
 
+### 7. A rule can be obeyed and still make things worse
+
+A bank statement often prints a date once and lists that day's transactions
+beneath it with the date column blank. The corpus fills the date in on every
+row, so each row stands alone, and the prompt says to do the same.
+
+Adding that rule appeared to be a mistake. Gemma's table row accuracy fell from
+**64.3% to 58.8%**, and misfiled amounts rose. The obvious reading — the
+instruction confused the model — was wrong.
+
+The corpus draws a date group **two ways**: as a band across the table with the
+date alone on it, or with the date in the first transaction's own date cell.
+Both mean the same thing, and which one a page gets is an implementation detail
+invisible to any reader. The code that fills the date in handled only the first.
+So **123 rows across 7 statements kept a blank date while 329 rows on 27 others
+had theirs filled in** — and a model following the shipped instruction was
+correct on one layout family and wrong on the other.
+
+Gemma had gone from replicating the date on 62% of grouped rows to **97.8%**,
+against a corpus that was itself only 79.8% consistent. Every extra date it
+supplied correctly was scored as an error.
+
+Fixing the corpus flipped the sign:
+
+| | against the inconsistent corpus | against the corrected corpus |
+|---|---|---|
+| without the rule | 64.3% rows aligned | 58.6% |
+| with the rule | 58.8% | **63.8%** |
+
+A 5.5-point loss became a 5.2-point gain, from the same predictions — no model
+was re-run to produce that table. The rule was right all along.
+
+Two things generalise. **A metric regression is evidence about the pair
+(system, ground truth), never about the system alone**; here the natural
+inference was exactly backwards. And **internal consistency of ground truth is
+a testable property** that nothing in a whole-page CER will surface: both
+behaviours produce plausible transcripts, and only asking "does the corpus treat
+this device the same way everywhere?" finds it. That is the second time this
+pass that a single question caught a defect — the first was finding 2.
+
+### 8. Some instructions never land
+
+Finding 1 showed a rule going from 2/55 to 53/55 on rewording, which invites the
+conclusion that non-compliance is a wording problem. It is not always.
+
+The date rule of finding 7 was phrased three ways over three runs: stated
+plainly, then naming the banded case, then naming both cases with a worked
+example and an explicit exception. Compliance, measured as the share of grouped
+rows carrying their date:
+
+| Prompt version | gemma-4-12B | InternVL3.5-8B |
+|---|---|---|
+| v1 | 61.6% | 57.1% |
+| v2 | 97.8% | 56.5% |
+| v3 | 97.2% | 57.4% |
+| *corpus* | *98.9%* | *98.9%* |
+
+One model heard it on the first rewrite and has tracked the corpus ever since.
+The other has not moved at all — three phrasings, a 0.9-point spread, no trend.
+It also kept emitting the date band as a table row of its own, 17 then 25 then
+17 times, never approaching zero.
+
+So a prompt is worth testing as a component, and rewording is worth trying — but
+a flat response across several genuine attempts is a capability signal, not an
+invitation to write a fourth version. **Distinguishing the two requires more
+than one model**, which is precisely why the pass was specified with two
+families rather than one.
+
+That also qualifies the headline result. The claim "the convention is
+communicable" rests mainly on one model: gemma pays 0.008 to follow it, InternVL
+pays 0.155 — still far better than MinerU's 0.392, but eighteen times gemma's.
+How well a house style lands is a property of the model as much as of the style.
+
+### 9. A structural failure that three prompt revisions did not touch
+
+Two statements carry a header cell that wraps: `Date of / Transaction`. Under
+the original prompt InternVL read it correctly as one column. Under both later
+prompts it splits into three, and merges two transactions into one row:
+
+```
+truth   | Date of Transaction | Description | Debits | Credits (-) |
+v1      | Date | Transaction Description | Debits | Credits ($) |    4 columns, 0 misfiled
+v2, v3  | Date | Transaction | Description | Debits | Credits ($) |  5 columns, 38 misfiled
+```
+
+Every character survives, so CER barely registers it. The row structure is
+destroyed and 38 amounts per page are filed under the wrong heading. It is
+stable across two prompt revisions that were aimed at other things, so it is not
+a wording artefact — and it is invisible to every metric except column
+integrity, which is the argument for that metric restated as a live case.
+
 ---
 
 ## Limits
 
-**The prompt rewrite is shipped but the scores predate it.** The headerless-table
-wording is now in ; the predictions scored above were produced under
-the old wording, so they understate what the prompted systems achieve on
-receipts.
+**The two parsers were not re-run under the final prompt, and did not need to
+be.** MinerU and Docling read no prompt, so their figures come from the earlier
+run, re-scored against the final corpus. The prompted systems' figures come from
+the final run. Every number in this document is against `parsing_20260819d`.
 
 **Scoring conflates two things in the column metric.** `misfiled` counts an
 amount as misplaced if it is absent from its column for *any* reason, including a
@@ -402,10 +620,23 @@ misread digit. It is not purely structural.
 benchmark measures parsing accuracy on clean input and does not claim to predict
 performance on degraded documents.
 
-**Coverage.** gemma-4-12B produced 163 of 165 pages; the 2 dot-leader failures
+**Coverage.** gemma-4-12B produced 162 of 165 pages; the 3 dot-leader failures
 are scored as total failures rather than dropped, so all systems are averaged
-over the same 165 transcripts. Docling produced 2 empty pages, scored the same
-way.
+over the same 165 transcripts. InternVL produced all 165. Docling produced 2
+empty pages, scored the same way.
+
+**One convention mismatch is known and unresolved.** On one layout the corpus
+records a block's visual alignment (`Opening Balance          345,678`) while a
+model writes `Opening Balance: 345,678`, obeying the prompt's instruction to put
+labelled values on one line. The block is drawn as plain lines rather than
+label/value pairs, so the transcript keeps the spacing. A model reads correctly,
+follows the shipped rule, and still diverges. Either the rule should be scoped to
+real pairs or the block should be captured as pairs; neither has been done.
+
+**Some divergences are classified wrongly.** Of the divergences the report calls
+reading errors, 21% are format artefacts — transcribed horizontal rules and a
+wrapping ` ```markdown ` fence — which are convention, not misreading. The
+classification understates how well these systems read.
 
 **Character errors are not separated by cause.** A misread digit could be
 quantisation, resolution, or the model. Comparing quantised and unquantised
@@ -424,14 +655,34 @@ decoration. The first three dropped MinerU's normalised CER from 0.495 to 0.055 
 a nine-fold correction, and a measure of how badly a formatting-blind metric can
 misrepresent a competent reader.
 
-**One new metric**: column integrity, because CER could not see the error that
-matters most on a bank statement.
+**Two new metrics.** Column integrity, because CER could not see the error that
+matters most on a bank statement. Then table structure — row alignment,
+fragments, width breaks, cell accuracy, content recall — because column
+integrity presupposes the rows were segmented correctly, and on the hard tables
+they often are not. Together they produced the pass's most counter-intuitive
+result: the system with the worst convention score reads bank-statement tables
+best.
 
-**One corpus defect fixed**: fabricated figures hardcoded in a layout are now
-authored per page with their arithmetic enforced at validation.
+**Two corpus defects fixed**, both the same fault — the corpus treating one
+visual device two ways depending on which code path drew it. Repeated glyphs are
+now decoration wherever they appear; a grouped date is now carried down whichever
+way the layout draws it. A third defect, fabricated figures hardcoded in a
+layout, is now authored per page with its arithmetic enforced at validation.
 
-**One prompt rewrite proven** and awaiting promotion.
+**Three prompt revisions, individually measured.** The headerless-table rewrite
+was a large win (receipt row accuracy 4.9% → 99.5% for gemma, 9.2% → 81.0% for
+InternVL). The date rule looked like a loss and was actually a win once the
+corpus stopped contradicting itself. Both shipped in the same revision, and the
+aggregate CER concealed that they had opposite signs — which is the argument for
+changing one instruction at a time.
 
-**Still open**: whether table structure deserves scoring in its own right. The
-corpus scope explicitly excludes it, but that exclusion assumed columns were
-delimited on the page. They are not.
+**A working practice, not just a result.** Because ground truth is written at
+render time and serialisation is a separate step, a convention can be changed and
+every transcript re-emitted in seconds without re-rendering an image. Both corpus
+fixes above changed **zero images**, so every existing prediction stayed valid and
+the hypotheses were tested by re-scoring rather than re-running. That is what
+made it affordable to find out that a regression was the corpus's fault.
+
+**Still open**: the `Label: value` mismatch in Limits; the misclassification of
+rules and code fences as reading errors; and the wrapped-header column split of
+finding 9, which no prompt revision has moved.
