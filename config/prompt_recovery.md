@@ -50,7 +50,7 @@ with a single colon and space, even if the page draws its own colon.
 ```
 | Date | Description | Amount |
 | --- | --- | --- |
-| 01/09/2023 | EFTPOS Alexandria | $328.15 |
+| 26/11/2019 | Sprocket Housing 6mm | $19.07 |
 ```
 
 Keep one cell per column on every row. Where a cell is blank on the page, leave
