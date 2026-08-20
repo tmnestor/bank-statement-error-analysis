@@ -698,11 +698,9 @@ def score(
             "aligned": 0,
             "fragments": 0,
             "width_breaks": 0,
-            "cell_matches": 0,
-            "cell_total": 0,
-            # Row-independent, so the merge layouts are not invisible: cell
-            # accuracy is measured only where rows align, which flatters exactly
-            # the system whose rows do not.
+            # Row-independent, so the merge layouts are not invisible: anything
+            # measured over aligned rows flatters exactly the system whose rows
+            # do not align.
             "recalled_cells": 0,
             "truth_cells": 0,
         }
@@ -938,7 +936,6 @@ def _print_table_structure(systems: dict) -> None:
     structure.add_column("rows aligned", justify="right")
     structure.add_column("fragments", justify="right")
     structure.add_column("width breaks", justify="right")
-    structure.add_column("cell accuracy", justify="right")
     structure.add_column("content recall", justify="right")
 
     for system, scores in sorted(systems.items()):
@@ -947,14 +944,12 @@ def _print_table_structure(systems: dict) -> None:
             continue
         rows = counts["truth_rows"]
         aligned = f"{counts['aligned']}/{rows}" if rows else "-"
-        accuracy = f"{counts['cell_matches'] / counts['cell_total']:.3f}" if counts["cell_total"] else "-"
         recall = f"{counts['recalled_cells'] / counts['truth_cells']:.3f}" if counts["truth_cells"] else "-"
         structure.add_row(
             system,
             aligned,
             f"{counts['fragments']}",
             f"{counts['width_breaks']}",
-            accuracy,
             recall,
         )
     rprint(structure)

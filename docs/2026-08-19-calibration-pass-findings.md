@@ -149,12 +149,18 @@ rows by signature, so a dropped or invented row shifts nothing after it:
 - **fragments** — continuation rows, one logical row split in two, usually
   because a description wrapped;
 - **width breaks** — rows with the wrong number of cells;
-- **cell accuracy** — of the cells in *aligned* rows, how many match exactly.
-  Restricting to aligned rows is essential: comparing cells across rows that do
-  not correspond compares unrelated values;
 - **content recall** — of every truth cell, how many appear anywhere in the
   prediction. Catches the opposite failure, a system that aligns few rows but
   did read the text.
+
+There is deliberately **no per-cell accuracy** among these. An earlier draft
+reported one — cells matching within aligned rows — and it was withdrawn as
+near-tautological. Rows are matched by their content, so every aligned pair has
+matching cells by construction: a misread digit does not lower the accuracy, it
+drops the row out of the alignment. The figure sat at 0.95–1.00 for every system
+regardless of how well it read, and MinerU's 1.000 was read as "transcribes
+cells perfectly" when it meant "the rows it got right, it got right". **rows
+aligned** is where a misread cell actually registers.
 
 Always read per document type. Bank statements are the only genuinely difficult
 tables here; averaging them with near-saturated invoices hides everything.
@@ -316,14 +322,14 @@ spacing is measured at all.
 
 Across all 165 pages:
 
-| System | rows aligned | fragments | width breaks | cell accuracy | content recall |
-|---|---|---|---|---|---|
-| **gemma 31B 4-bit** | **1919/2005 (95.7%)** | **0** | 6 | 0.997 | **0.987** |
-| gemma 12B BF16 | 1528/2005 (76.2%) | 4 | 66 | 0.996 | 0.925 |
-| gemma 12B BF16 QAT | 1486/2005 (74.1%) | **0** | **3** | 0.999 | 0.917 |
-| gemma 12B 4-bit | 1359/2005 (67.8%) | 9 | 15 | 0.995 | 0.888 |
-| InternVL3.5-8B | 1343/2005 (67.0%) | **0** | 8 | 0.957 | 0.867 |
-| MinerU | 1251/2005 (62.4%) | 276 | 152 | 1.000 | 0.881 |
+| System | rows aligned | fragments | width breaks | content recall |
+|---|---|---|---|---|
+| **gemma 31B 4-bit** | **1919/2005 (95.7%)** | **0** | 6 | **0.987** |
+| gemma 12B BF16 | 1528/2005 (76.2%) | 4 | 66 | 0.925 |
+| gemma 12B BF16 QAT | 1486/2005 (74.1%) | **0** | **3** | 0.917 |
+| gemma 12B 4-bit | 1359/2005 (67.8%) | 9 | 15 | 0.888 |
+| InternVL3.5-8B | 1343/2005 (67.0%) | **0** | 8 | 0.867 |
+| MinerU | 1251/2005 (62.4%) | 276 | 152 | 0.881 |
 
 Amounts filed under the correct heading:
 
@@ -360,14 +366,14 @@ receipt amounts.
 
 The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.
 
-| System | rows aligned | fragments | width breaks | cell acc | misfiled | **width ok** |
-|---|---|---|---|---|---|---|
-| **gemma 31B 4-bit** | **1527/1612 (94.7%)** | **0** | **0** | 0.997 | **1.0%** | **55/55** |
-| gemma 12B BF16 | 1137/1612 (70.5%) | **0** | **0** | 0.996 | 5.6% | **55/55** |
-| gemma 12B BF16 QAT | 1095/1612 (67.9%) | **0** | **0** | 0.999 | 6.4% | **55/55** |
-| MinerU | 1041/1612 (64.6%) | 276 | 152 | 1.000 | 9.7% | 54/55 |
-| InternVL3.5-8B | 987/1612 (61.2%) | **0** | 8 | 0.947 | 14.7% | 51/55 |
-| gemma 12B 4-bit | 971/1612 (60.2%) | **0** | **0** | 0.994 | 11.7% | **55/55** |
+| System | rows aligned | fragments | width breaks | misfiled | **width ok** |
+|---|---|---|---|---|---|
+| **gemma 31B 4-bit** | **1527/1612 (94.7%)** | **0** | **0** | **1.0%** | **55/55** |
+| gemma 12B BF16 | 1137/1612 (70.5%) | **0** | **0** | 5.6% | **55/55** |
+| gemma 12B BF16 QAT | 1095/1612 (67.9%) | **0** | **0** | 6.4% | **55/55** |
+| MinerU | 1041/1612 (64.6%) | 276 | 152 | 9.7% | 54/55 |
+| InternVL3.5-8B | 987/1612 (61.2%) | **0** | 8 | 14.7% | 51/55 |
+| gemma 12B 4-bit | 971/1612 (60.2%) | **0** | **0** | 11.7% | **55/55** |
 
 **The 31B is the first system to read these tables properly** — 94.7% of rows
 recovered against everyone else's 60–70%, zero structure broken, and 1.0% of
@@ -642,20 +648,19 @@ misplaced when it is absent from its column for *any* reason.
 
 Ranking by it reverses two systems:
 
-| System | digit recall | cell accuracy | width correct | **usable** |
+| System | digit recall | rows aligned | width correct | **usable** |
 |---|---|---|---|---|
-| gemma 31B 4-bit | 99.8% | 0.996 | 55/55 | **99.0%** |
-| MinerU | **99.4%** | 1.000 | 54/55 | 90.3% |
-| gemma 12B 4-bit | 90.3% | 0.994 | **55/55** | **88.3%** |
-| InternVL3.5-8B | **96.9%** | 0.947 | 51/55 | **85.3%** |
+| gemma 31B 4-bit | 99.8% | **94.7%** | 55/55 | **99.0%** |
+| MinerU | **99.4%** | 64.6% | 54/55 | 90.3% |
+| gemma 12B 4-bit | 90.3% | 60.2% | **55/55** | **88.3%** |
+| InternVL3.5-8B | **96.9%** | 61.2% | 51/55 | **85.3%** |
 
 *Bank statements, 2,507 amounts.*
 
 **InternVL reads 6.6 points more digits correctly than the 12B gemma and
 delivers 3 points fewer usable amounts.** It gets the numbers right and puts
 them in the wrong place — 4 statements with the wrong column count against
-gemma's none, and cell accuracy 0.947 against 0.994. MinerU loses 9 points the
-same way.
+gemma's none. MinerU loses 9 points the same way, from 152 width breaks.
 
 So the three skills dissociate cleanly, and quoting any one of them alone
 misdescribes a system:
