@@ -311,7 +311,7 @@ and quoting means alone misdescribes every system here.
 | gemma 12B BF16 | 0.0026 | 0.0317 | +0.0139 | 0.0082 | yes |
 | gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0138 | 0.0101 | yes |
 | gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0136 | 0.0178 | yes |
-| MinerU | 0.0403 | 0.4277 | **+0.3917** | 0.0520 | no |
+| MinerU | 0.0403 | 0.4277 | **+0.3917** | 0.0495 | no |
 | InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1630** | 0.0743 | yes |
 
 **The gap column is the median of each page's own gap — deliberately not the
@@ -374,7 +374,7 @@ Amounts filed under the correct heading:
 | gemma 12B BF16 | 116/2503 | 4.6% | 8 | 157/165 |
 | gemma 12B BF16 QAT | 131/2503 | 5.2% | **0** | **165/165** |
 | gemma 12B 4-bit | 242/2503 | 9.7% | 2 | 163/165 |
-| MinerU | 378/2503 | 15.1% | 56 | 109/165 |
+| MinerU | 379/2503 | 15.1% | 56 | 109/165 |
 | InternVL3.5-8B | 330/2503 | 13.2% | 13 | 152/165 |
 
 **Column-count stability separates the families.** Every gemma checkpoint gets
@@ -406,7 +406,7 @@ The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.
 | **gemma 31B 4-bit** | **1527/1612 (94.7%)** | **0** | **0** | **1.0%** | **55/55** |
 | gemma 12B BF16 | 1137/1612 (70.5%) | **0** | **0** | 5.6% | **55/55** |
 | gemma 12B BF16 QAT | 1095/1612 (67.9%) | **0** | **0** | 6.4% | **55/55** |
-| MinerU | 1041/1612 (64.6%) | 276 | 152 | 9.7% | 54/55 |
+| MinerU | 1042/1612 (64.6%) | 276 | 152 | 9.7% | 54/55 |
 | InternVL3.5-8B | 987/1612 (61.2%) | **0** | 8 | 14.7% | 51/55 |
 | gemma 12B 4-bit | 971/1612 (60.2%) | **0** | **0** | 11.7% | **55/55** |
 
@@ -414,11 +414,24 @@ The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.
 recovered against everyone else's 60–70%, zero structure broken, and 1.0% of
 amounts misfiled, an order of magnitude below the next best.
 
-**MinerU aligns rows by breaking them.** It recovers more content than any 12B —
-content recall 0.928 — but does it by splitting 292 rows in two and emitting 156
-of the wrong width. Every gemma checkpoint breaks structure **zero times in
-1,612 rows**. Those are different things to want: MinerU recovers more of the
-text, gemma's output is trustworthy row by row.
+**MinerU breaks structure without being paid for it.** It splits 276 rows in two
+and emits 152 of the wrong width, while every gemma checkpoint breaks structure
+**zero times in 1,612 rows** — and it does not recover more text for the damage.
+Its content recall is 0.881, below all three 12B checkpoints (0.888, 0.917,
+0.925), and its 64.6% of statement rows aligned sits between them rather than
+above.
+
+That is a **correction to an earlier reading of this table**, and the cause is
+worth stating: the run that supported it was MinerU on Apple Silicon via MLX,
+where content recall was 0.928 and it did lead every 12B. This study now quotes
+the vLLM run on the L4s throughout, because that is the hardware production has.
+Same weights, different inference stack, 41 of 165 pages different — and the
+conclusion about MinerU's structural trade-off reverses. **Do not carry a
+finding across a runtime change on the grounds that the checkpoint is the
+same.**
+
+What survives is narrower and still notable: MinerU **misreads** none of the
+3,371 amounts. Every figure it misses is one it never emitted.
 
 **The alignment ceiling was a digit ceiling in disguise.** For every system
 except the 31B, row recovery sits near 60–70%, and the cause is not

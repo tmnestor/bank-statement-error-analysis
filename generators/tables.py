@@ -13,12 +13,13 @@ arbitrarily depending on weighting. Measured on 55 bank statements:
 | | gemma-4-12B | MinerU |
 |---|---|---|
 | row segmentation | 0 fragments | **276 fragments**, 152 width breaks |
-| content recall | 60.2% | **64.6%** |
+| rows aligned | 60.2% | **64.6%** |
+| content recall (all 165) | **0.888** | 0.881 |
 
-MinerU recovers slightly more cell content and shreds the structure doing it;
-gemma preserves the structure. Neither ordering is wrong — they answer different
-questions, so the metric reports both rather than averaging them into a ranking
-that hides the trade.
+MinerU aligns more statement rows and shreds the structure doing it, while
+recovering slightly *less* of the text overall. Neither ordering is wrong — they
+answer different questions, so the metric reports both rather than averaging
+them into a ranking that hides the trade.
 
 Column assignment, the third question, lives in `generators.columns`.
 
