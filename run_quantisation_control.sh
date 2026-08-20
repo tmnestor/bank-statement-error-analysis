@@ -20,6 +20,11 @@
 #
 # One L40S, one engine each, no sharding, sequentially: ~24 GB of BF16 weights
 # need the 48 GB card and will not fit an L4. Roughly 35 minutes per system.
+#
+# ACCURACY ONLY. The L40S is a sandbox card and PROD has none, so nothing here
+# says anything about throughput -- a rate measured on hardware you cannot
+# deploy predicts nothing. For that see measure_throughput.sh, which runs the
+# three deployable configurations on the 2xL4.
 
 set -euo pipefail
 

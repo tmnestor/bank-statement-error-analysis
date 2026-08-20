@@ -36,3 +36,4 @@ docs/figures/
 # Deployment probe: a 3-page corpus and its predictions.
 parsing_probe/
 runs_probe/
+runs_throughput/
