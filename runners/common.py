@@ -486,7 +486,7 @@ def read_timing(system_dir: Path) -> dict | None:
     cards = sum(part["cards"] for part in parts)
     return {
         "system": parts[0]["system"],
-        "deployment": "tp" if parts[0]["shards"] == 1 and cards > 1 else f"dp={len(parts)}",
+        "deployment": (f"tp={cards}" if parts[0]["shards"] == 1 and cards > 1 else f"dp={len(parts)}"),
         "cards": cards,
         "images": images,
         "inference_seconds": round(seconds, 1),

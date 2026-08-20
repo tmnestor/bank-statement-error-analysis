@@ -330,7 +330,148 @@ def by_document_type(documents: pd.DataFrame, out_dir: Path) -> list[Path]:
     return _save(fig, "04-by-document-type", out_dir)
 
 
-def all_figures(documents: pd.DataFrame, out_dir: Path = Path("docs/figures")) -> list[Path]:
+# The timing artifacts name the deployed configuration; the score reports name
+# the checkpoint. One system, two names, and nothing else joins them.
+TIMED_AS = {
+    "gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2": "gemma 31B 4-bit",
+    "gemma-4-12B-it-qat-w4a16-ct": "gemma 12B 4-bit",
+    "InternVL3.5-8B": "InternVL3.5-8B",
+}
+
+
+def throughput(timing_dir: Path) -> dict:
+    """Read what each configuration delivered, from the runs' own timing files.
+
+    Args:
+        timing_dir: A predictions directory holding one subdirectory per system.
+
+    Returns:
+        Short system name -> its aggregate timing.
+    """
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from runners.common import read_timing
+
+    measured = {}
+    for system_dir in sorted(p for p in timing_dir.iterdir() if p.is_dir()):
+        timing = read_timing(system_dir)
+        if timing:
+            measured[TIMED_AS.get(timing["system"], timing["system"])] = timing
+    return measured
+
+
+def pareto(
+    documents: pd.DataFrame, timing_dir: Path, out_dir: Path, doc_type: str = "bank_statements"
+) -> list[Path]:
+    """Throughput against usable amounts, with the frontier drawn.
+
+    The deployment decision, and the one place a frontier is honest here: the
+    12B and the 31B each beat the other on one axis, so both are live and
+    choosing between them is a judgement about what a wrong amount costs. A
+    system inside the frontier is beaten on BOTH and can be discarded without
+    further thought — which is a claim a chart makes immediately and a table
+    makes only after arithmetic.
+
+    Not drawn for read-against-placed, where a frontier would overclaim: the
+    31B dominates every system on both dimensions, so the frontier is a single
+    point and the interesting content is the dissociation, not a trade-off.
+
+    Args:
+        documents: The tidy frame from `load`.
+        timing_dir: Where the runs wrote their `_timing.json`.
+        out_dir: Where to write.
+        doc_type: Which document type's usable rate to plot against.
+
+    Returns:
+        The paths written.
+    """
+    measured = throughput(timing_dir)
+    selected = documents[documents.doc_type == doc_type]
+    grouped = selected.groupby("system", observed=True)[["misfiled", "amounts"]].sum()
+    grouped["usable"] = 1 - grouped.misfiled / grouped.amounts
+
+    points = [
+        (name, timing["images_per_minute_per_card"], grouped.loc[name, "usable"], timing["deployment"])
+        for name, timing in measured.items()
+        if name in grouped.index
+    ]
+    if not points:
+        return []
+
+    # Pareto-optimal: nothing else is at least as fast AND at least as usable,
+    # and strictly better on one.
+    frontier = [
+        p
+        for p in points
+        if not any(
+            q is not p and q[1] >= p[1] and q[2] >= p[2] and (q[1] > p[1] or q[2] > p[2]) for q in points
+        )
+    ]
+    frontier.sort(key=lambda p: p[1])
+
+    fig, ax = plt.subplots(figsize=(7.6, 5.4))
+    if len(frontier) > 1:
+        ax.plot(
+            [p[1] for p in frontier],
+            [p[2] for p in frontier],
+            color=MUTED,
+            linewidth=1.4,
+            linestyle="--",
+            zorder=1,
+        )
+
+    on_frontier = {p[0] for p in frontier}
+    ceiling = max(p[2] for p in points)
+    for name, rate, usable, mode in points:
+        colour = PALETTE.get(name, MUTED)
+        ax.scatter(
+            rate,
+            usable,
+            s=260 if name in on_frontier else 150,
+            color=colour,
+            zorder=3,
+            edgecolor="white",
+            linewidth=1.5,
+            alpha=1.0 if name in on_frontier else 0.55,
+        )
+        label = f"{name}\n{mode}" + ("" if name in on_frontier else "\ndominated")
+        # The y axis is capped at 100% because a share cannot exceed it, so a
+        # point near the ceiling has no room above for its label and would
+        # print over the title.
+        below = usable >= ceiling - 0.01 or name not in on_frontier
+        ax.annotate(
+            label,
+            (rate, usable),
+            textcoords="offset points",
+            xytext=(0, -40 if below else 20),
+            ha="center",
+            fontsize=9,
+            color=INK,
+            fontweight="bold" if name in on_frontier else "normal",
+        )
+
+    ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1, decimals=0))
+    ax.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(0.05))
+    ax.set_xlabel("images per minute per card  →  cheaper")
+    ax.set_ylabel("amounts usable: right value, right heading  →  better")
+    ax.margins(0.28)
+    # A share cannot exceed 1. The default margin pushed the axis to 103%, which
+    # invites the reader to think there is headroom above the best system.
+    ax.set_ylim(top=1.0)
+    _title(
+        ax,
+        f"What accuracy costs — {doc_type.replace('_', ' ')}",
+        "dashed line is the frontier; anything below it is beaten on both axes",
+    )
+    return _save(fig, "05-pareto-cost-of-accuracy", out_dir)
+
+
+def all_figures(
+    documents: pd.DataFrame,
+    out_dir: Path = Path("docs/figures"),
+    timing_dir: Path | None = None,
+) -> list[Path]:
     """Render every figure.
 
     Args:
@@ -346,4 +487,6 @@ def all_figures(documents: pd.DataFrame, out_dir: Path = Path("docs/figures")) -
     written += numeric_fidelity(documents, out_dir)
     written += structure_tradeoff(documents, out_dir)
     written += by_document_type(documents, out_dir)
+    if timing_dir is not None and timing_dir.is_dir():
+        written += pareto(documents, timing_dir, out_dir)
     return written
