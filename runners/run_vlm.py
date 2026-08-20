@@ -840,7 +840,9 @@ def main(
             cards=cards,
         )
         rprint(
-            f"[dim]{elapsed / len(todo):.1f}s per page on {cards} card(s); timing written to {timing}[/dim]"
+            f"[dim]{60 * len(todo) / elapsed:.1f} images/min "
+            f"({60 * len(todo) / elapsed / cards:.1f} per card across {cards}); "
+            f"timing written to {timing}[/dim]"
         )
     rprint(f"[bold]{system}[/bold]: {len(todo) - len(failures)} written in {elapsed / 60:.1f} min")
 

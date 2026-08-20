@@ -356,9 +356,9 @@ def write_timing(
     pages: int,
     cards: int,
 ) -> Path:
-    """Record what this run cost per page, so throughput can be compared.
+    """Record throughput as images per minute, so configurations can be compared.
 
-    Deployment decisions here turn on pages per minute PER CARD: a model needing
+    Deployment decisions here turn on images per minute PER CARD: a model needing
     two cards for one request buys its accuracy at half the throughput of one
     that fits a card whole, and comparing the two from console output means
     reading a stopwatch off scrollback.
@@ -388,11 +388,12 @@ def write_timing(
             {
                 "system": system,
                 "cards": cards,
-                "pages": pages,
+                "images": pages,
                 "inference_seconds": round(inference_seconds, 1),
-                "seconds_per_page": round(inference_seconds / pages, 2) if pages else None,
-                "pages_per_minute": round(60 * pages / inference_seconds, 2) if inference_seconds else None,
-                "pages_per_minute_per_card": (
+                "images_per_minute": (
+                    round(60 * pages / inference_seconds, 2) if inference_seconds else None
+                ),
+                "images_per_minute_per_card": (
                     round(60 * pages / inference_seconds / cards, 2)
                     if inference_seconds and cards
                     else None
