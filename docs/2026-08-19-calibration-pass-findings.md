@@ -48,8 +48,9 @@ Four things qualify that, and they are the substance of this document:
    bad page.** Across the six systems it tracks usable-amount rate closely
    (Spearman ρ = 0.943). *Within* a system it is uncorrelated with whether a
    page's numbers survive — ρ = 0.01 for two of them, and **−0.17** for the best,
-   whose worst page loses 11% of its amounts at a CER of 0.0000. Three pages in
-   this corpus lose **every** amount to the wrong column while scoring 0.08–0.10.
+   whose worst page loses 11% of its amounts at a CER of 0.0000. **Fourteen
+   pages lose every amount to the wrong column, and ten of them score below
+   0.11** — the worst being 50 amounts on one statement at 0.075.
    Ranking systems is something you do once; deciding which pages a human must
    check is something you do on every batch.
 4. **Ground truth and prompt are a matched pair, and both are components under
@@ -567,22 +568,28 @@ component to be tested, not documentation to be written once.
 ### 4. Normalised CER is blind to the error that matters most on a statement
 
 Four statements print a header cell that wraps across two lines — `Date of /
-Transaction`. InternVL reads it as **two columns**. Every data row inherits the
-extra cell, so every amount sits one column right of the heading naming it. On a
-bank statement that is money out reported as money in.
+Transaction`. InternVL reads it as **two columns** on three of them. Every data
+row inherits the extra cell, so every amount sits one column right of the
+heading naming it. On a bank statement that is money out reported as money in.
 
-| Page | amounts misfiled | normalised CER |
-|---|---|---|
-| CASE033 | **38 of 38** | 0.0829 |
-| CASE005 | 36 of 39 | 0.0902 |
-| CASE012 | **39 of 39** | 0.0915 |
-| CASE025 | **38 of 38** | 0.1070 |
+| Page | amounts misfiled | normalised CER | column count |
+|---|---|---|---|
+| CASE033 | **38 of 38** | 0.0810 | wrong |
+| CASE012 | **39 of 39** | 0.0924 | wrong |
+| CASE005 | **39 of 39** | 0.1016 | wrong |
+| CASE025 | 1 of 38 | 0.0977 | **right** |
 
 Three of those pages have **every single amount** under the wrong heading and
-pay 8–11% character error for it — for output that is entirely worthless.
+pay 8–10% character error for it — for output that is entirely worthless.
 Normalisation strips pipes as table marks, discarding exactly the delimiters
 that encode the answer, so a total structural failure registers as a mild
 reading day.
+
+**CASE025 is the control the corpus supplied by accident.** Same wrapped header,
+same model, same prompt — and it gets the column count right and loses one
+amount instead of all of them. Its CER, 0.0977, sits *between* the three
+catastrophes. So the metric cannot separate a page where the structure held from
+one where it collapsed, on pages that differ in nothing else.
 
 This failure is also **immune to prompting**: it is unchanged across four
 successive prompt revisions, at 0.3034, 0.3028 and 0.3045 on the affected
@@ -793,22 +800,32 @@ against it should not be overstated.
 | gemma 12B BF16 | **0.01** | 43% lost at CER 0.0653 |
 | gemma 12B BF16 QAT | **0.01** | 46% lost at CER 0.0332 |
 | gemma 12B 4-bit | 0.22 | 59% lost at CER 0.0472 |
-| InternVL3.5-8B | 0.21 | 100% lost at CER 1.0000 |
-| MinerU | 0.36 | 46% lost at CER 0.1039 |
+| InternVL3.5-8B | 0.21 | **100% lost at CER 0.0810** |
+| MinerU | 0.36 | **100% lost at CER 0.0755** |
+
+*Worst page = the largest share of a page's amounts filed under the wrong
+heading. Where several pages lose everything, the one with the lowest CER is
+shown, because that is the case the metric is being asked about.*
 
 ρ = 0.01 is noise. The best system's is **negative**: its worst page, losing 11%
 of its amounts, scored a perfect 0.0000.
 
-The three most damaged pages in the corpus:
+The most damaged pages in the corpus, by amounts lost:
 
 | page | amounts lost | CER |
 |---|---|---|
-| InternVL CASE033 | **38 of 38** | 0.0810 |
-| InternVL CASE012 | **39 of 39** | 0.0924 |
+| MinerU CASE028 | **50 of 50** | 0.0755 |
 | InternVL CASE005 | **39 of 39** | 0.1016 |
+| InternVL CASE012 | **39 of 39** | 0.0924 |
+| InternVL CASE033 | **38 of 38** | 0.0810 |
 
 Every amount on the page in the wrong column, at a character error rate that
-reads as a mildly imperfect transcription.
+reads as a mildly imperfect transcription. Fourteen pages across the corpus lose
+every amount this way; ten of them score below 0.11.
+
+MinerU's 55 receipts also lose every amount, but for a different reason — it
+emits no table there at all, so there is no column to be wrong about. Those are
+excluded from the counts above, which would otherwise report 69.
 
 **That split is the practical conclusion of this whole document.** Ranking
 systems is something you do once. Deciding which pages a human must check is
