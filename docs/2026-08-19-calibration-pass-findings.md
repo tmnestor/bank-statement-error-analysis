@@ -29,9 +29,9 @@ now transcribe at 0.05.
 
 **The 31B at the same 4-bit quantisation goes further than steering alone
 could.** Median normalised CER **0.0000** — more than half its pages are
-character-perfect once formatting is set aside — with **99.8%** of
-bank-statement amounts reproduced exactly, **94.7%** of statement rows
-recovered, and **1.0%** of amounts filed under the wrong heading. It is the
+character-perfect once formatting is set aside — with **99.0%** of
+bank-statement amounts **usable** (right value, right heading), **94.7%** of
+statement rows recovered, and **1.0%** filed under the wrong heading. It is the
 first system here that reads the tables, gets the digits right, and follows the
 house style at once.
 
@@ -208,16 +208,60 @@ probe peaked at 21,908 MiB and died allocating it. Sharded across two L4s it
 loads and runs, holding ~20.4 GB per card.
 
 So on 24 GB hardware **the best system in this study is a two-card-per-request
-model**. Throughput scales at half the rate per card, a card failure takes out a
-serving unit rather than a replica, and every layer all-reduces over PCIe. The
-accuracy that buys is 99.8% of bank-statement amounts against the 12B 4-bit's
-90.3% at one replica per card — roughly one wrong amount per statement against
-one per twelve.
+model**, and that is what makes the throughput question worth asking.
 
 **The 31B has no BF16 counterpart that fits anything here**, at 59 GB against a
 48 GB card. That is why finding 8's precision comparison is done at 12B and its
 capacity comparison at 4 bits: those are the two experiments the hardware
 permits.
+
+### What each system costs to run
+
+Measured on the 2×L4, the hardware production has. Nothing is timed on the
+L40S — a rate from a card you cannot deploy predicts nothing — which also
+excludes the two BF16 12B checkpoints, since they need 48 GB.
+
+Each system is timed **the way its weights allow it to be served**, because
+that is what a box delivers:
+
+- weights fit a card → **dp=2**, two independent replicas, one per card
+- weights do not fit → **tp=2**, one engine sharded across both
+
+Timing one card and doubling it would assume data parallelism scales linearly.
+It roughly does, and roughly is not measured: replicas contend for host CPU
+during image preprocessing and for PCIe.
+
+| System | deployment | images/min | per card | usable amounts |
+|---|---|---|---|---|
+| **gemma-4-12B-it-qat-w4a16-ct** | dp=2 | **13.79** | **6.90** | 88.3% |
+| InternVL3.5-8B | dp=2 | 5.47 | 2.74 | 85.3% |
+| **gemma-4-31B-it-qat-w4a16-ct** | tp=2 | 5.33 | 2.67 | **99.0%** |
+
+*165 pages, both cards. Usable amounts are bank statements only, where the hard
+tables are.*
+
+**InternVL3.5-8B is dominated on both axes.** It is 2.5× slower than the 12B and
+delivers fewer usable amounts than it; and it runs at the 31B's speed while
+delivering 13.7 points fewer. There is no workload of these three for which it
+is the right choice — which is not visible from accuracy alone, where its digit
+reading looked like a reasonable middle option.
+
+That leaves a two-way decision, and both of its numbers are now measured rather
+than one measured and one assumed:
+
+| | gemma-4-12B | gemma-4-31B |
+|---|---|---|
+| cards per request | 1 | 2 |
+| images/min per card | **6.90** | 2.67 |
+| usable amounts | 88.3% | **99.0%** |
+| wrong amounts per statement | about 1 in 9 | about 1 in 100 |
+
+**2.6× the hardware for roughly an order of magnitude fewer wrong amounts.**
+Which side of that is right is a costing question rather than a measurement one,
+and it depends on what a wrong amount costs to catch downstream. What the
+benchmark can say is that the trade is real, roughly linear in cards, and not
+the trade the CER table implies — on median normalised CER the two look 0.0081
+against 0.0000, which reads as a difference of no consequence.
 
 ---
 
@@ -565,31 +609,66 @@ amounts are scored on their own — extracted from the raw text, which makes thi
 the only measure here that compares a system emitting HTML tables and one
 emitting pipe tables on identical terms.
 
-The ordering it produces is not the CER ordering.
+**Read the next table carefully: it measures the digits and nothing else.**
+Amounts are pulled out of the raw text with a pattern match, so nothing here
+knows whether a figure ended up in the right column, the right row, or in a
+table at all. A system could score 100% on it and file every amount under the
+wrong heading. `recall` is the share of the page's amounts the system
+reproduced; `precision` is the share of what it emitted that the page actually
+shows.
 
-| System | amounts correct | pages with an error |
-|---|---|---|
-| MinerU | **100.0%** | 1 of 55 |
-| gemma 31B 4-bit | **99.8%** | 5 of 55 |
-| InternVL3.5-8B | 96.9% | 9 of 55 |
-| gemma 12B BF16 | 94.5% | 31 of 55 |
-| gemma 12B 4-bit | 90.3% | 36 of 55 |
-| Docling | 25.2% | 51 of 55 |
+| System | digit recall | digit precision | misread | dropped | invented |
+|---|---|---|---|---|---|
+| MinerU | **100.0%** | **100.0%** | 0 | 1 | 1 |
+| gemma 31B 4-bit | 99.9% | 99.9% | 3 | 2 | 2 |
+| InternVL3.5-8B | 97.2% | 99.8% | 2 | 91 | 3 |
+| gemma 12B 4-bit | 92.5% | 92.9% | 106 | 148 | 132 |
+| Docling | 37.9% | — | 1 | 2093 | 243 |
+
+*All 165 pages, 3,371 amounts.*
+
+The ordering is not the CER ordering: MinerU reads every digit correctly while
+paying the largest convention penalty of any system, and the 12B gemma — first
+on CER, first on table structure — is last of the four real readers.
+
+The two failure modes are reported apart rather than summed, because they call
+for different remedies. **InternVL's deficit is almost entirely omission**: 91
+dropped against 2 misread, and 99.8% of what it does emit is right. **The 12B's
+is corruption**: 106 misread and 132 invented, so roughly one amount in fourteen
+that it prints is not on the page at all.
+
+### But digits alone are not the deployment number
+
+An amount read perfectly and filed under the wrong heading is as wrong as one
+misread — downstream, neither can be told from the other. The figure a consumer
+can act on is **usable**: present, with the right value, under the right
+heading. That is `100% − misfiled`, since column integrity counts an amount as
+misplaced when it is absent from its column for *any* reason.
+
+Ranking by it reverses two systems:
+
+| System | digit recall | cell accuracy | width correct | **usable** |
+|---|---|---|---|---|
+| gemma 31B 4-bit | 99.8% | 0.996 | 55/55 | **99.0%** |
+| MinerU | **100.0%** | 1.000 | 54/55 | 93.0% |
+| gemma 12B 4-bit | 90.3% | 0.994 | **55/55** | **88.3%** |
+| InternVL3.5-8B | **96.9%** | 0.947 | 51/55 | **85.3%** |
 
 *Bank statements, 2,507 amounts.*
 
-**MinerU reproduces every one of the 2,507 amounts exactly** while paying the
-largest convention penalty of any system, and the 12B gemma — first on CER,
-first on table structure — gets at least one amount wrong on two statements in
-three. Reading a table, matching a house style, and getting the digits right are
-three separable skills, and a benchmark measuring only the first two would rank
-these systems almost backwards for anyone who cares about the money.
+**InternVL reads 6.6 points more digits correctly than the 12B gemma and
+delivers 3 points fewer usable amounts.** It gets the numbers right and puts
+them in the wrong place — 4 statements with the wrong column count against
+gemma's none, and cell accuracy 0.947 against 0.994. MinerU loses 7 points the
+same way.
 
-Two failures are worth distinguishing, and the metric reports them apart rather
-than summed: **misread**, where the system saw the figure and got a digit wrong,
-and **dropped**, where it never emitted one. Only the first is recoverable by
-re-reading the page. InternVL's deficit is almost entirely drops — 76 against 2
-misreads — while the 12B gemma's is misreads. Those call for different remedies.
+So the three skills dissociate cleanly, and quoting any one of them alone
+misdescribes a system:
+
+- **gemma 12B**: structure right, digits wrong
+- **InternVL3.5-8B**: digits right, structure wrong
+- **gemma 31B**: both right, and an order of magnitude ahead on usable amounts
+- **MinerU**: perfect digits, 7% misplaced, and no table at all on receipts
 
 One mechanism deserves naming. On several statements a single misread amount is
 followed by every subsequent balance being **recomputed from the wrong figure** —
@@ -636,11 +715,11 @@ group, one wrong date fails the whole group. Every other system's alignment
 ceiling was substantially a digit-fidelity ceiling wearing a structural costume.
 Remove the digit errors and it lifts.
 
-It also beats MinerU where MinerU had been unbeatable: **1.0% of amounts misfiled
-against 7.0%**, while trailing it 99.8% to 100.0% on the amounts themselves.
-MinerU reproduces every figure and files one in fourteen under the wrong heading;
-the 31B misses five figures in 2,507 and puts almost all of them in the right
-place. It is the first system here that is good at both.
+It also beats MinerU where MinerU had been unbeatable. On the digits alone
+MinerU is ahead, 100.0% to 99.8% — but it files one figure in fourteen under the
+wrong heading, so **93.0% of its amounts are usable against the 31B's 99.0%**.
+Reading every digit correctly is not the same as delivering a usable number, and
+the 31B is the first system here that does both.
 
 One qualification. The 31B is a differently trained model, not a scaled 12B, so
 "capacity" is shorthand for everything that differs between the two sizes. It is
@@ -727,13 +806,17 @@ prices a wrong digit in a total at a typo in a merchant's name — and it is the
 only measure here that is convention-blind, so it compares a system emitting
 HTML tables with one emitting pipe tables on identical terms.
 
-Between them they produced the pass's most counter-intuitive result: **MinerU,
-which pays the largest convention penalty of any system, reproduces every one of
-the 2,507 bank-statement amounts exactly**, while a 12B leading the CER table
-gets at least one amount wrong on two statements in three. Reading a table,
-matching a house style and getting the digits right are three separable skills,
-and a benchmark measuring only the first two ranks these systems close to
-backwards for anyone who cares about the money.
+Between them they produced the pass's most counter-intuitive result, and it only
+appears when the metrics are kept apart. **MinerU reads every one of the 2,507
+bank-statement digits correctly and still delivers fewer usable amounts than the
+31B**, because it misfiles 7% of them. **InternVL3.5-8B reads 6.6 points more
+digits correctly than the 12B gemma and delivers 3 points fewer usable amounts**,
+for the same reason.
+
+Reading a table, matching a house style and getting the digits right are three
+separable skills, and no single one of them ranks these systems correctly for
+anyone who cares about the money. The figure that does is **usable** — present,
+right value, right heading — and it is the one to quote.
 
 **One observation that only a whole-page metric could surface.** A model that
 misreads a running balance then **recomputes every balance below it** from the
