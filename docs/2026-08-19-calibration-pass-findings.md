@@ -1,6 +1,6 @@
 # Can a prompted VLM be steered to a house style?
 
-**Calibration pass, August 2026.** Four document-parsing systems over 165
+**Calibration pass, August 2026.** Seven document-parsing systems over 165
 synthetic pages of Australian business documents.
 
 ---
@@ -13,11 +13,8 @@ a label joins its value. The worry was that our house style might be
 idiosyncratic — that a model could read a page perfectly and still score badly
 for formatting it differently.
 
-**It is not, and the reason is that gemma-4-12B can be told.** Given the
-convention in its prompt it reaches a median normalised character error rate of
-**0.008**, produces the correct table width on **163 of 165 documents**, and
-files amounts under the right heading more reliably than either dedicated
-parser. Three separate conventions were each stated, measured, and adopted:
+**It is not, and the reason is that gemma-4 can be told.** Three separate
+conventions were each stated, measured, and adopted:
 
 | Convention | before | after |
 |---|---|---|
@@ -25,11 +22,20 @@ parser. Three separate conventions were each stated, measured, and adopted:
 | dates carried down a group | 61.6% of rows | **97.2%** (truth: 98.9%) |
 | repeated glyphs are spacing | 275 stray lines | **0** |
 
-The cumulative effect of stating all three: median normalised CER **0.0201 →
-0.0081**, mean **0.3011 → 0.0178**, misfiled amounts **12.7% → 9.7%** — and
-three pages the benchmark had written off as impossible now transcribe at 0.05.
+Stating all three took the 12B's median normalised CER from **0.0201 to
+0.0081**, its mean from **0.3011 to 0.0178**, and its misfiled amounts from
+**12.7% to 9.7%** — and three pages the benchmark had written off as impossible
+now transcribe at 0.05.
 
-Four things qualify it, and they are the substance of this document:
+**The 31B at the same 4-bit quantisation goes further than steering alone
+could.** Median normalised CER **0.0000** — more than half its pages are
+character-perfect once formatting is set aside — with **99.8%** of
+bank-statement amounts reproduced exactly, **94.7%** of statement rows
+recovered, and **1.0%** of amounts filed under the wrong heading. It is the
+first system here that reads the tables, gets the digits right, and follows the
+house style at once.
+
+Four things qualify that, and they are the substance of this document:
 
 1. **Steerability is a property of the model, not the prompt.** The same three
    conventions, identically worded, moved the 12B and barely moved an 8B from
@@ -39,12 +45,12 @@ Four things qualify it, and they are the substance of this document:
    but not improvising a replacement; the example supplied the behaviour the
    prohibition left undefined.
 3. **Normalised character error rate — this benchmark's headline number — is
-   blind to the error that matters most on a bank statement.** It compares two
-   strings after stripping Markdown syntax, and a table's pipes are Markdown
-   syntax, so the delimiters that say which column an amount sits in are
-   discarded before anything is compared. Pages with *every* amount filed under
-   the wrong heading score 0.08–0.11, twice a normal page and nowhere near the
-   1.0 that output deserves.
+   blind to the two errors that matter most on a bank statement.** It strips
+   Markdown syntax before comparing, and a table's pipes are Markdown syntax, so
+   the delimiters recording which column an amount sits in are discarded first:
+   pages with *every* amount under the wrong heading score 0.08–0.11. And it
+   weighs a wrong digit in a total exactly as it weighs a typo in a merchant's
+   name. Scored on amounts alone, the ranking is close to reversed.
 4. **Ground truth and prompt are a matched pair, and both are components under
    test.** Two defects in this corpus were found only by asking whether it
    treated the same visual device the same way everywhere.
@@ -160,7 +166,7 @@ Split by one property: **whether they can be told the convention.**
 
 | Group | Systems | Reads a prompt? | Measures |
 |---|---|---|---|
-| **Prompted** | gemma-4-12B-it-qat-w4a16-ct, InternVL3.5-8B | yes | is the convention *communicable*? |
+| **Prompted** | four gemma-4 checkpoints, InternVL3.5-8B | yes | is the convention *communicable*? |
 | **Unprompted** | MinerU, Docling | no | is it *idiomatic Markdown at all*? |
 
 You cannot ask MinerU to emit pipe tables. Its divergences are therefore
@@ -168,8 +174,10 @@ uncontaminated evidence about whether the house style matches what the Markdown
 world does by default. A prompted model *is* told; if it still diverges, the
 instruction failed.
 
-The gemma checkpoint is 4-bit quantisation-aware-trained, so character-level
-slips there carry a quantisation signal rather than a convention one.
+Four gemma checkpoints appear: a 12B at 4-bit quantisation-aware training, the
+same QAT weights at BF16, the plain BF16 instruct model, and a 31B at 4-bit.
+They exist to separate precision, QAT training and capacity as explanations for
+character-level error — see finding 8.
 
 ---
 
@@ -180,14 +188,22 @@ and quoting means alone misdescribes every system here.
 
 | System | median nCER | median sCER | **gap** | mean nCER | told? |
 |---|---|---|---|---|---|
-| **gemma-4-12B-it-qat-w4a16-ct** | **0.0081** | 0.0382 | **+0.0136** | **0.0178** | yes |
-| mineru | 0.0404 | 0.4277 | **+0.3917** | 0.0520 | no |
+| **gemma 31B 4-bit** | **0.0000** | 0.0161 | **+0.0134** | **0.0016** | yes |
+| gemma 12B BF16 | 0.0026 | 0.0317 | +0.0139 | 0.0082 | yes |
+| gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0138 | 0.0101 | yes |
+| gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0136 | 0.0178 | yes |
+| MinerU | 0.0404 | 0.4277 | **+0.3917** | 0.0520 | no |
 | InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1630** | 0.0743 | yes |
-| docling | 0.4145 | 0.6120 | +0.0581 | 1.6457 | no |
+| Docling | 0.4145 | 0.6120 | +0.0581 | 1.6457 | no |
 
-**Gemma reads best and formats closest**, by a margin of five times on the
-median. Its mean of 0.018 against a median of 0.008 is the tightest distribution
-of any system here: no catastrophic pages remain.
+**The 31B's median normalised CER is 0.0000** — more than half its pages are
+transcribed without a single character wrong once formatting is set aside.
+
+**The convention cost is flat across all four gemma checkpoints** — +0.0134,
++0.0138, +0.0139, +0.0136 — while their reading accuracy varies fivefold.
+Following a house style is not a fidelity-limited skill: precision and capacity
+move what a model *reads* and leave what it *formats* untouched. That
+dissociation is easy to miss in a table and obvious in figure 1.
 
 **MinerU and InternVL read comparably** — 0.040 and 0.042 — and are separated
 almost entirely by convention cost.
@@ -212,87 +228,96 @@ repetition loops, not convention. Its gap says nothing about the house style.
 
 ---
 
-## Gemma-4 extracts tables most accurately
+## Reading the tables
 
 Across all 165 pages:
 
 | System | rows aligned | fragments | width breaks | cell accuracy | content recall |
 |---|---|---|---|---|---|
-| **gemma-4-12B** | **1359/2005 (67.8%)** | 9 | 15 | **0.995** | 0.888 |
+| **gemma 31B 4-bit** | **1919/2005 (95.7%)** | **0** | 6 | 0.997 | **0.987** |
+| gemma 12B BF16 | 1528/2005 (76.2%) | 4 | 66 | 0.996 | 0.925 |
+| gemma 12B BF16 QAT | 1486/2005 (74.1%) | **0** | **3** | 0.999 | 0.917 |
+| gemma 12B 4-bit | 1359/2005 (67.8%) | 9 | 15 | 0.995 | 0.888 |
 | InternVL3.5-8B | 1343/2005 (67.0%) | **0** | 8 | 0.957 | 0.867 |
-| mineru | 1234/2005 (61.5%) | 292 | 156 | 1.000 | 0.888 |
-| docling | 283/2005 (14.1%) | 120 | 13 | 0.850 | 0.273 |
+| MinerU | 1234/2005 (61.5%) | 292 | 156 | 1.000 | 0.888 |
+| Docling | 283/2005 (14.1%) | 120 | 13 | 0.850 | 0.273 |
 
 Amounts filed under the correct heading:
 
 | System | misfiled | **rate** | wrong column count | **correct width** |
 |---|---|---|---|---|
-| **gemma-4-12B** | 242/2503 | **9.7%** | **2** | **163/165** |
-| mineru | 325/2503 | 13.0% | 56 | 109/165 |
+| **gemma 31B 4-bit** | 20/2503 | **0.8%** | 3 | 162/165 |
+| gemma 12B BF16 | 116/2503 | 4.6% | 8 | 157/165 |
+| gemma 12B BF16 QAT | 131/2503 | 5.2% | **0** | **165/165** |
+| gemma 12B 4-bit | 242/2503 | 9.7% | 2 | 163/165 |
+| MinerU | 325/2503 | 13.0% | 56 | 109/165 |
 | InternVL3.5-8B | 330/2503 | 13.2% | 13 | 152/165 |
-| docling | 1929/2503 | 77.1% | 117 | 48/165 |
+| Docling | 1929/2503 | 77.1% | 117 | 48/165 |
 
-**Column-count stability is where the margin is.** Gemma produces a table of the
-correct width on 163 of 165 documents, against MinerU's 109 and Docling's 48. A
-system that invents or drops a column shifts every amount on the page, so this
-single property dominates everything downstream of it.
+**Column-count stability separates the families.** Every gemma checkpoint gets
+the table width right on at least 157 of 165 documents; MinerU manages 109 and
+Docling 48. A system that invents or drops a column shifts every amount on the
+page, so this one property dominates everything downstream of it.
 
 By document type — and read it this way, because bank statements are the only
 genuinely hard tables here:
 
 | misfiled | bank statements | invoices | receipts |
 |---|---|---|---|
-| **gemma-4-12B** | 11.7% | 2.3% | **0.0%** |
+| **gemma 31B 4-bit** | **1.0%** | **0.0%** | **0.0%** |
+| gemma 12B BF16 | 5.6% | 1.0% | **0.0%** |
+| gemma 12B 4-bit | 11.7% | 2.3% | **0.0%** |
 | InternVL3.5-8B | 14.7% | 1.0% | 16.8% |
-| mineru | **7.0%** | **0.0%** | 100% |
-| docling | 83.1% | 24.0% | 100% |
+| MinerU | 7.0% | **0.0%** | 100% |
+| Docling | 83.1% | 24.0% | 100% |
 
-Gemma misfiles **not one** of the 184 receipt amounts, and aligns 184 of 184
-receipt rows. It is the only system producing a correct table on all three
-document types: the parsers' 100% on receipts is not misplacement but absence —
-neither emits a table there at all.
-
-**MinerU still places bank-statement amounts better**, 7.0% against gemma's
-11.7%. That is the one measurement where the CER leaderboard and the structural
-metrics disagree, and it has survived every prompt revision.
+The parsers' 100% on receipts is absence, not misplacement — neither emits a
+table there at all. Every gemma checkpoint misfiles **not one** of the 184
+receipt amounts.
 
 ### Bank-transaction tables
 
-The hard case, and worth separating. 55 statements, 1,612 rows, 2,011 amounts.
+The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.
 
 | System | rows aligned | fragments | width breaks | cell acc | misfiled | **width ok** |
 |---|---|---|---|---|---|---|
-| mineru | **1025/1612** | 292 | 156 | 1.000 | **7.0%** | 54/55 |
-| InternVL3.5-8B | 987/1612 | **0** | 8 | 0.947 | 14.7% | 51/55 |
-| **gemma-4-12B** | 971/1612 | **0** | **0** | 0.994 | 11.7% | **55/55** |
-| docling | 134/1612 | 120 | 13 | 0.704 | 83.1% | 6/55 |
+| **gemma 31B 4-bit** | **1527/1612 (94.7%)** | **0** | **0** | 0.997 | **1.0%** | **55/55** |
+| gemma 12B BF16 | 1137/1612 (70.5%) | **0** | **0** | 0.996 | 5.6% | **55/55** |
+| gemma 12B BF16 QAT | 1095/1612 (67.9%) | **0** | **0** | 0.999 | 6.4% | **55/55** |
+| MinerU | 1025/1612 (63.6%) | 292 | 156 | 1.000 | 7.0% | 54/55 |
+| InternVL3.5-8B | 987/1612 (61.2%) | **0** | 8 | 0.947 | 14.7% | 51/55 |
+| gemma 12B 4-bit | 971/1612 (60.2%) | **0** | **0** | 0.994 | 11.7% | **55/55** |
+| Docling | 134/1612 (8.3%) | 120 | 13 | 0.704 | 83.1% | 6/55 |
 
-**MinerU aligns the most rows and pays for them.** It recovers more content than
-anything else — content recall 0.928 — but does it by splitting 292 rows in two
-and emitting 156 rows of the wrong width. Gemma aligns 54 fewer rows and breaks
-structure **zero times in 1,612**. Those are different things to want: MinerU
-recovers more, gemma's output is trustworthy row by row.
+**The 31B is the first system to read these tables properly** — 94.7% of rows
+recovered against everyone else's 60–70%, zero structure broken, and 1.0% of
+amounts misfiled, an order of magnitude below the next best.
 
-**Gemma gets the column count right on all 55 statements.** InternVL's 4 broken
-documents carry **149 of its 296 misfiled amounts** — half its total error on
-7% of its pages, which is what a column-count failure does.
+**MinerU aligns rows by breaking them.** It recovers more content than any 12B —
+content recall 0.928 — but does it by splitting 292 rows in two and emitting 156
+of the wrong width. Every gemma checkpoint breaks structure **zero times in
+1,612 rows**. Those are different things to want: MinerU recovers more of the
+text, gemma's output is trustworthy row by row.
 
-Row alignment tops out near 60–65% for every real reader, and the reason is not
-segmentation. It is that a single misread character in a row poisons that row's
-signature. Two pages illustrate both mechanisms:
+**The alignment ceiling was a digit ceiling in disguise.** For every system
+except the 31B, row recovery sits near 60–70%, and the cause is not
+segmentation. Rows are matched by their content, so one misread character fails
+the row it sits in — and where the convention carries a group's date onto every
+row beneath it, one wrong date fails the whole group. Two statements show both
+mechanisms:
 
-- one statement lost 27 rows to a date read as `01/03/2024` instead of
-  `01/01/2024`. Because the convention carries a group's date onto every row
-  beneath it, one wrong digit fails every row of that group.
+- one lost 27 rows to a date read as `01/03/2024` instead of `01/01/2024`;
 - another lost 24 rows to a balance read as `$15,571.32` instead of
-  `$15,971.32` — and then **every subsequent balance was recomputed from the
+  `$15,971.32`, after which **every subsequent balance was recomputed from the
   wrong figure**, `$16,073.50` becoming `$15,469.14`. The model is not reading
   that column; it is doing arithmetic down it.
 
-That second one is worth dwelling on. A model reconstructing a running balance
-rather than transcribing it will look correct on any single row, and will look
-correct to an information-extraction task that pulls one balance. It is visible
-here only because the whole column is scored against the whole page.
+That second failure is invisible on any single row, invisible to an extraction
+task pulling one balance, and unmistakable only when the whole column is scored
+at once.
+
+The 31B, which misreads five amounts in 2,507, recovers 94.7% of rows. Fix the
+digits and the structural ceiling lifts with them.
 
 ---
 
@@ -492,30 +517,109 @@ Three details worth carrying to any similar benchmark:
 - **Verify the guard fails on a deliberate leak.** A vacuously-passing guard
   manufactures confidence and is worse than none.
 
-### 7. Character-level errors are the remaining real cost
+### 7. Getting the digits right is a separate skill, and CER cannot see it
 
-The evaluated gemma checkpoint is 4-bit QAT. Theory says quantisation costs
-character fidelity first, and it does. On one field across seven pages, gemma got
-5 of 7 wrong: three reading a comma as a period, three substituting a digit
-(`487,205` → `497,205`). InternVL, with a corrected tokenizer, got every digit
-right but made the same comma-for-period substitution on 3 of 7.
+Character error rate weighs a wrong digit in a total exactly as it weighs a typo
+in a merchant's name. On a financial document those are not the same error, so
+amounts are scored on their own — extracted from the raw text, which makes this
+the only measure here that compares a system emitting HTML tables and one
+emitting pipe tables on identical terms.
 
-Two independent models misreading the same comma glyph is worth noting. The
-pages were checked at magnification and render unambiguous commas. `345,678`
-versus `345.678` differ by three orders of magnitude.
+The ordering it produces is not the CER ordering.
 
-This was measurable only because those figures are authored per page. Where a
-layout hardcodes one number repeated across seven pages, one error repeats seven
-times and a model can score well by memorising it.
+| System | amounts correct | pages with an error |
+|---|---|---|
+| MinerU | **100.0%** | 1 of 55 |
+| gemma 31B 4-bit | **99.8%** | 5 of 55 |
+| InternVL3.5-8B | 96.9% | 9 of 55 |
+| gemma 12B BF16 | 94.5% | 31 of 55 |
+| gemma 12B 4-bit | 90.3% | 36 of 55 |
+| Docling | 25.2% | 51 of 55 |
+
+*Bank statements, 2,507 amounts.*
+
+**MinerU reproduces every one of the 2,507 amounts exactly** while paying the
+largest convention penalty of any system, and the 12B gemma — first on CER,
+first on table structure — gets at least one amount wrong on two statements in
+three. Reading a table, matching a house style, and getting the digits right are
+three separable skills, and a benchmark measuring only the first two would rank
+these systems almost backwards for anyone who cares about the money.
+
+Two failures are worth distinguishing, and the metric reports them apart rather
+than summed: **misread**, where the system saw the figure and got a digit wrong,
+and **dropped**, where it never emitted one. Only the first is recoverable by
+re-reading the page. InternVL's deficit is almost entirely drops — 76 against 2
+misreads — while the 12B gemma's is misreads. Those call for different remedies.
+
+One mechanism deserves naming. On several statements a single misread amount is
+followed by every subsequent balance being **recomputed from the wrong figure** —
+`353.68` read as `355.68`, then each balance below it off by exactly `−2.00`. The
+model is not transcribing the running-balance column; it is doing arithmetic down
+it. That is invisible on any single row, invisible to an extraction task pulling
+one balance, and unmistakable only when the whole column is scored at once.
+
+All of this was measurable only because these figures are authored per page.
+Where a layout hardcodes one number repeated across seven pages, one error
+repeats seven times and a model can score well by memorising it.
+
+### 8. The digit deficit is capacity, not quantisation
+
+The obvious explanation for the 12B's 90.3% was its 4-bit quantisation —
+quantisation costs character fidelity first, so the story tells itself. It is
+wrong, and only a control could show that.
+
+The 12B checkpoint differs from a plain BF16 model in two ways at once, so three
+runs were needed to separate them. All decoding and engine settings were held
+identical; only the checkpoint varied.
+
+| comparison | isolates | effect |
+|---|---|---|
+| 12B 4-bit → 12B BF16 QAT | precision, QAT held fixed | **+4.1 pts** |
+| 12B BF16 QAT → 12B BF16 | QAT training, both BF16 | +0.1 pts |
+| **12B 4-bit → 31B 4-bit** | **capacity, quantisation held fixed** | **+9.5 pts** |
+
+**At the same 4 bits, the 31B reaches 99.8%.** So 4-bit was never the binding
+constraint. Precision buys a real 4 points at 12B, but capacity subsumes it: the
+31B at 4 bits reads amounts *more* accurately than the 12B at BF16. QAT training
+contributes nothing measurable either way.
+
+The causal direction matters. "Quantisation costs digit fidelity" describes a
+model running out of capacity, with the bit-width as a symptom. Had the control
+not run, that sentence would have gone into this document as a finding.
+
+**The 31B is also the first system to read these tables properly**, and the two
+results are connected. It aligns 94.7% of statement rows against everyone else's
+60–70%, with zero fragments and 1.0% of amounts misfiled — an order of magnitude
+below the next best. Row alignment matches rows by their content, so a single
+wrong digit fails the row it sits in; where a date is carried onto every row of a
+group, one wrong date fails the whole group. Every other system's alignment
+ceiling was substantially a digit-fidelity ceiling wearing a structural costume.
+Remove the digit errors and it lifts.
+
+It also beats MinerU where MinerU had been unbeatable: **1.0% of amounts misfiled
+against 7.0%**, while trailing it 99.8% to 100.0% on the amounts themselves.
+MinerU reproduces every figure and files one in fourteen under the wrong heading;
+the 31B misses five figures in 2,507 and puts almost all of them in the right
+place. It is the first system here that is good at both.
+
+One qualification. The 31B is a differently trained model, not a scaled 12B, so
+"capacity" is shorthand for everything that differs between the two sizes. It is
+a strong test rather than the clean isolation the precision comparison was.
 
 ---
 
 ## Limits
 
-**Coverage.** Gemma produced all 165 pages. InternVL produced 164; the one
-failure is scored as a total failure rather than dropped, so all systems are
-averaged over the same 165 transcripts. Docling produced 2 empty pages, scored
-the same way.
+**Coverage.** All four gemma checkpoints produced all 165 pages. InternVL
+produced 164; the one failure is scored as a total failure rather than dropped,
+so every system is averaged over the same 165 transcripts. Docling produced 2
+empty pages, scored the same way.
+
+**The four gemma checkpoints differ only in the checkpoint.** Every decoding and
+engine setting is identical across them, including the vision budget — varying
+that would confound precision or capacity with what the model can see. All seven
+systems were scored against the same corpus, and the analysis refuses reports
+that were not.
 
 **The two prompted systems were run under the prompt shipped with this corpus**,
 verified by hashing the text actually sent. **The two parsers read no prompt**,
@@ -536,9 +640,11 @@ digit. It is not purely structural.
 **Synthetic and pristine.** Clean renders, not photographs or scans. No claim is
 made about degraded documents.
 
-**Character errors are not separated by cause.** A misread digit could be
-quantisation, resolution, or the model. Comparing quantised and unquantised
-checkpoints would isolate it; that has not been done.
+**"Capacity" is shorthand.** The 31B is a differently trained model, not a
+scaled 12B, so finding 8 attributes the digit deficit to everything that differs
+between the two sizes. The precision comparison is a clean isolation — same QAT
+weights, only the bit-width varies — and the capacity one is a strong test
+rather than a controlled experiment.
 
 **One convention mismatch is known and unresolved.** On one layout the corpus
 records a block's visual alignment (`Opening Balance          345,678`) while a
@@ -559,31 +665,49 @@ breaks — every one of which is on a receipt, none on a statement.
 ## What this pass produced
 
 **A house style that is demonstrably communicable.** Told the conventions, a
-capable prompted model adopts them for **+0.0136** — the gap between its strict
+capable prompted model adopts them for **+0.013** — the gap between its strict
 and normalised CER, which is by construction what formatting costs it. An
-unpromptable parser of comparable reading quality pays +0.3917 for the same
-corpus. The style is not an arbitrary imposition.
+unpromptable parser pays +0.392 for the same corpus. The style is not an
+arbitrary imposition.
+
+That figure is remarkably stable: **+0.0134, +0.0136, +0.0138, +0.0139** across
+four gemma checkpoints whose reading accuracy varies fivefold. Precision and
+capacity move what a model reads and leave what it formats untouched. Following
+a house style is not a fidelity-limited skill.
 
 **A steerability result with a sharp edge.** The 12B adopts every convention put
 to it; an 8B from another family adopts one of three and is destabilised by the
 technique that helps the 12B most. Prompt engineering results do not transfer
 across model scales, and reporting one without the other overstates both.
 
-**Two metrics that normalised CER cannot replace.** Column integrity, because a
-page can be character-perfect and financially meaningless. Table structure,
-because column integrity presupposes the rows. Together they produced the pass's most useful
-result — gemma-4-12B gets the column count right on **163 of 165** documents and
-on **all 55 bank statements**, breaking table structure zero times in 1,612
-statement rows — and its most counter-intuitive one: MinerU, which pays the
-largest convention penalty of any system, still places bank-statement amounts
-more accurately than anything else. Reading a table and matching a house style
-are close to independent skills.
+**Three metrics that normalised CER cannot replace.** Column integrity, because
+a page can be character-perfect and financially meaningless. Table structure,
+because column integrity presupposes the rows. Numeric fidelity, because CER
+prices a wrong digit in a total at a typo in a merchant's name — and it is the
+only measure here that is convention-blind, so it compares a system emitting
+HTML tables with one emitting pipe tables on identical terms.
+
+Between them they produced the pass's most counter-intuitive result: **MinerU,
+which pays the largest convention penalty of any system, reproduces every one of
+the 2,507 bank-statement amounts exactly**, while a 12B leading the CER table
+gets at least one amount wrong on two statements in three. Reading a table,
+matching a house style and getting the digits right are three separable skills,
+and a benchmark measuring only the first two ranks these systems close to
+backwards for anyone who cares about the money.
 
 **One observation that only a whole-page metric could surface.** A model that
 misreads a running balance then **recomputes every balance below it** from the
 wrong figure. It is arithmetically reconstructing the column rather than
 transcribing it — invisible on any single row, invisible to an extraction task
 pulling one balance, and unmistakable when the whole column is scored at once.
+
+**A cause established by control rather than assumed.** The 12B's digit errors
+looked like a quantisation cost, and quantisation costing character fidelity
+first is exactly what theory predicts. Three controlled runs say otherwise:
+precision buys 4 points, quantisation-aware training buys none, and **capacity
+buys 9.5** — the 31B at the same 4 bits reads amounts more accurately than the
+12B at BF16. The plausible explanation was the wrong one, and only running the
+control distinguished them.
 
 **Four scoring corrections**, each closing a case where formatting was scored as
 misreading: HTML tables, HTML entities, trailing label colons, and repeated-glyph
