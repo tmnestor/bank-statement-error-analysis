@@ -7,11 +7,21 @@
 # out the two BF16 12B checkpoints, which need 48 GB and exist only to answer
 # the digit-fidelity question.
 #
-# Three deployable configurations, and the comparison is deliberately PER CARD:
+# THE SYSTEMS DO NOT SHARE A CONDA ENVIRONMENT, so this runs in two passes and
+# accumulates into one output directory. The summary at the end reads whatever
+# has been measured so far, so it is correct after either pass:
 #
-#   gemma-4-12B-it-qat-w4a16-ct     9.7 GB   one replica per card
-#   InternVL3.5-8B                   16 GB   one replica per card
-#   gemma-4-31B-it-qat-w4a16-ct      22 GB   TWO cards per request (tp=2)
+#   conda activate vllm_env3
+#   ./measure_throughput.sh                       # the two gemma configurations
+#
+#   conda activate vllm_env2
+#   ./measure_throughput.sh InternVL3.5-8B        # needs the older vLLM
+#
+# Three deployable configurations, compared deliberately PER CARD:
+#
+#   gemma-4-12B-it-qat-w4a16-ct     9.7 GB   one replica per card   vllm_env3
+#   InternVL3.5-8B                   16 GB   one replica per card   vllm_env2
+#   gemma-4-31B-it-qat-w4a16-ct      22 GB   TWO cards per request  vllm_env3
 #
 # The single-card systems are run on ONE card, not sharded across both. Running
 # them data-parallel would double the images per minute and leave the per-card
@@ -23,20 +33,28 @@
 #   InternVL3.5-8B                  96.9%
 #   gemma-4-12B-it-qat-w4a16-ct     90.3%
 #
-# Run ON THE 2xL4 HOST from the repo root, in the vLLM env.
+# Run ON THE 2xL4 HOST from the repo root.
 
 set -euo pipefail
 
 OUT=${OUT:-runs_throughput}
 CORPUS=${CORPUS:-}
 
-# system:devices. The 31B entry is the tp=2 one; its single-card sibling is
-# throttled to max_num_seqs=1 for the memory probe and would understate it.
-CONFIGS=(
-    "gemma-4-12B-it-qat-w4a16-ct:0"
-    "InternVL3.5-8B:0"
-    "gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2:0,1"
-)
+# Which cards each configuration occupies. Anything not listed gets one card,
+# which is the right default for a system whose weights fit one.
+devices_for() {
+    case "$1" in
+        *-2xL4-tp2) echo "0,1" ;;
+        *)          echo "0" ;;
+    esac
+}
+
+SYSTEMS=("$@")
+if [[ ${#SYSTEMS[@]} -eq 0 ]]; then
+    # The vllm_env3 pass. InternVL is deliberately absent: it needs vllm_env2,
+    # and naming it here would fail late, after a 40-minute gemma run.
+    SYSTEMS=(gemma-4-12B-it-qat-w4a16-ct gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2)
+fi
 
 if ! grep -q "four or more" config/prompt.md; then
     echo "config/prompt.md is stale — run 'git pull'."
@@ -61,17 +79,17 @@ if [[ $pages -ne 165 ]]; then
     echo "   and will not predict a statement-heavy workload. Quote it as a ceiling,"
     echo "   not an estimate."
 fi
+echo "env:    ${CONDA_DEFAULT_ENV:-<none>}"
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader 2>/dev/null || true
 echo
 
-for entry in "${CONFIGS[@]}"; do
-    system=${entry%%:*}
-    devices=${entry##*:}
+for system in "${SYSTEMS[@]}"; do
+    devices=$(devices_for "$system")
     echo "=== $system on GPU $devices ==="
     # Each run writes its own _timing.json. A resumed run measures only the pages
-    # it actually transcribes, so a directory left over from a previous attempt
-    # produces a rate from a handful of pages -- which is why this uses a fresh
-    # output per system rather than a shared one.
+    # it actually transcribes, so a directory left from a previous attempt would
+    # produce a rate from a handful of pages — which is why a fresh --out per
+    # measurement matters more here than for an accuracy run.
     CUDA_VISIBLE_DEVICES=$devices python -u -m runners.run_vlm \
         --corpus "$CORPUS" --system "$system" --out "$OUT" || {
         echo "!! $system failed; continuing so the others still measure"
@@ -86,10 +104,7 @@ import sys
 from pathlib import Path
 
 out = Path(sys.argv[1])
-rows = []
-for timing in sorted(out.glob("*/_timing.json")):
-    data = json.loads(timing.read_text())
-    rows.append(data)
+rows = [json.loads(p.read_text()) for p in sorted(out.glob("*/_timing.json"))]
 
 if not rows:
     print("  no _timing.json found — did any run complete?")
@@ -104,6 +119,15 @@ for data in sorted(rows, key=lambda d: -(d.get("images_per_minute_per_card") or 
         data.get("images_per_minute") or "-",
         data.get("images_per_minute_per_card") or "-",
     ))
+
+measured = {row["system"] for row in rows}
+for expected, env in (
+    ("gemma-4-12B-it-qat-w4a16-ct", "vllm_env3"),
+    ("InternVL3.5-8B", "vllm_env2"),
+    ("gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2", "vllm_env3"),
+):
+    if expected not in measured:
+        print(f"  not yet measured: {expected}  (run it in {env})")
 
 print()
 print("  Per card is the figure a cluster is sized on. A tp=2 engine occupies one")

@@ -149,6 +149,12 @@ systems:
 
   # Spec §8.6. A second VLM family rather than a second Gemma, because the pass
   # is looking for convention disagreement, not a leaderboard.
+  #
+  # RUN THIS IN `vllm_env2`, not the `vllm_env3` the gemma checkpoints need.
+  # The two environments carry different vLLM versions and this checkpoint wants
+  # the older one, so a script that runs gemma and InternVL in a single pass
+  # fails on the second system — after the first has already spent its time.
+  # measure_throughput.sh splits the passes for that reason.
   InternVL3.5-8B:
     transport: vllm_offline
     model: /home/jovyan/nfs_share/models/InternVL3_5-8B
