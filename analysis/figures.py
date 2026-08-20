@@ -340,6 +340,7 @@ TIMED_AS = {
     "gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2": "gemma 31B 4-bit",
     "gemma-4-12B-it-qat-w4a16-ct": "gemma 12B 4-bit",
     "InternVL3.5-8B": "InternVL3.5-8B",
+    "mineru-vllm": "MinerU",
 }
 
 
@@ -370,12 +371,23 @@ def pareto(
 ) -> list[Path]:
     """Throughput against usable amounts, with the frontier drawn.
 
-    The deployment decision, and the one place a frontier is honest here: the
-    12B and the 31B each beat the other on one axis, so both are live and
-    choosing between them is a judgement about what a wrong amount costs. A
-    system inside the frontier is beaten on BOTH and can be discarded without
-    further thought — which is a claim a chart makes immediately and a table
-    makes only after arithmetic.
+    The deployment decision, and the one place a frontier is honest here: more
+    than one system survives, so choosing between them is a judgement about what
+    a wrong amount costs rather than a lookup. A system inside the frontier is
+    beaten on BOTH axes and can be discarded without further thought — which is
+    a claim a chart makes immediately and a table makes only after arithmetic.
+
+    Read the y axis's caption before the ranking. It is **bank statements
+    only**, where the hard tables are, and it says nothing about whether a
+    system produced a table at all on the other two document types — MinerU
+    emits none on receipts, so its position here is its best case, not its
+    average. A frontier drawn over one document type ranks systems for that
+    document type.
+
+    A point whose rate is a floor is labelled `≥`. MinerU's clock includes model
+    load and the engine-driven runners' does not, so its true rate is higher by
+    an unmeasured margin; drawing it unmarked would put an apples-to-oranges
+    number on the same axis.
 
     Not drawn for read-against-placed, where a frontier would overclaim: the
     31B dominates every system on both dimensions, so the frontier is a single
@@ -396,7 +408,13 @@ def pareto(
     grouped["usable"] = 1 - grouped.misfiled / grouped.amounts
 
     points = [
-        (name, timing["images_per_minute_per_card"], grouped.loc[name, "usable"], timing["deployment"])
+        (
+            name,
+            timing["images_per_minute_per_card"],
+            grouped.loc[name, "usable"],
+            timing["deployment"],
+            timing.get("includes_model_load", False),
+        )
         for name, timing in measured.items()
         if name in grouped.index
     ]
@@ -427,7 +445,7 @@ def pareto(
 
     on_frontier = {p[0] for p in frontier}
     ceiling = max(p[2] for p in points)
-    for name, rate, usable, mode in points:
+    for name, rate, usable, mode, is_floor in points:
         colour = PALETTE.get(name, MUTED)
         ax.scatter(
             rate,
@@ -439,7 +457,7 @@ def pareto(
             linewidth=1.5,
             alpha=1.0 if name in on_frontier else 0.55,
         )
-        label = f"{name}\n{mode}" + ("" if name in on_frontier else "\ndominated")
+        label = f"{name}\n{'≥ ' if is_floor else ''}{mode}" + ("" if name in on_frontier else "\ndominated")
         # The y axis is capped at 100% because a share cannot exceed it, so a
         # point near the ceiling has no room above for its label and would
         # print over the title.
@@ -457,7 +475,8 @@ def pareto(
 
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1, decimals=0))
     ax.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(0.05))
-    ax.set_xlabel("images per minute per card  →  cheaper")
+    floor_note = "  (≥ = rate is a floor, model load included)" if any(p[4] for p in points) else ""
+    ax.set_xlabel(f"images per minute per card  →  cheaper{floor_note}")
     ax.set_ylabel("amounts usable: right value, right heading  →  better")
     ax.margins(0.28)
     # A share cannot exceed 1. The default margin pushed the axis to 103%, which

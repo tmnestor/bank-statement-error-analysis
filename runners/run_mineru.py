@@ -36,6 +36,7 @@ from runners.common import (
     shard_of,
     verify_complete,
     write_prediction,
+    write_timing,
 )
 
 app = typer.Typer(add_completion=False)
@@ -203,6 +204,23 @@ def main(
 
     elapsed = time.monotonic() - started
     rprint(f"[bold]{system}[/bold]: finished in {elapsed / 60:.1f} min")
+
+    # Wall clock, load included, and declared as such. MinerU is invoked as a
+    # subprocess per chunk and loads the model each time, so there is no
+    # generate-only interval to time -- unlike run_vlm, which drives an engine
+    # it loaded itself. The flag is what keeps this from being read beside the
+    # engine-driven numbers as though it were measured the same way.
+    if todo:
+        write_timing(
+            out_dir,
+            system=system,
+            inference_seconds=elapsed,
+            pages=len(todo),
+            cards=1,
+            shard=shard,
+            shards=shards,
+            includes_model_load=True,
+        )
 
     try:
         verify_complete(out_dir, owned)

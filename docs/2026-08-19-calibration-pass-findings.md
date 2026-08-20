@@ -239,33 +239,58 @@ during image preprocessing and for PCIe.
 
 | System | deployment | images/min | per card | usable amounts |
 |---|---|---|---|---|
-| **gemma-4-12B-it-qat-w4a16-ct** | dp=2 | **13.79** | **6.90** | 88.3% |
+| **MinerU2.5-Pro-1.2B** | dp=2 | **≥ 22.20** | **≥ 11.10** | 90.3% |
+| gemma-4-12B-it-qat-w4a16-ct | dp=2 | 13.79 | 6.90 | 88.3% |
 | InternVL3.5-8B | dp=2 | 5.47 | 2.74 | 85.3% |
 | **gemma-4-31B-it-qat-w4a16-ct** | tp=2 | 5.33 | 2.67 | **99.0%** |
 
 *165 pages, both cards. Usable amounts are bank statements only, where the hard
 tables are.*
 
-**InternVL3.5-8B is dominated on both axes.** It is 2.5× slower than the 12B and
-delivers fewer usable amounts than it; and it runs at the 31B's speed while
-delivering 13.7 points fewer. There is no workload of these three for which it
-is the right choice — which is not visible from accuracy alone, where its digit
-reading looked like a reasonable middle option.
+**MinerU's rate is a floor, marked `≥`.** It is invoked as a subprocess per
+chunk and reloads the model each time, so its clock is wall clock with load
+included, while the three engine-driven systems time generation only. Its true
+rate is higher by an unmeasured margin. This is the one number in the study
+measured on a different basis from its neighbours, so it is labelled everywhere
+it appears rather than quietly compared.
 
-That leaves a two-way decision, and both of its numbers are now measured rather
-than one measured and one assumed:
+**InternVL3.5-8B is dominated on every axis.** It is 2.5× slower than the 12B
+and delivers fewer usable amounts than it; and it runs at the 31B's speed while
+delivering 13.7 points fewer. There is no workload here for which it is the
+right choice — which is not visible from accuracy alone, where its digit reading
+looked like a reasonable middle option.
 
-| | gemma-4-12B | gemma-4-31B |
+**And so, on these tables, is the 12B gemma.** MinerU is at least 1.6× faster
+*and* 2 points more usable. That is a genuine reversal: the 12B was on the
+frontier until MinerU had a comparable rate to be judged by, and prompted-VLM
+convention compliance — the thing the 12B is good at and MinerU cannot do at
+all — turns out not to be what buys usable amounts.
+
+Two qualifications, and they are load-bearing rather than hedges:
+
+- **The y axis is bank statements.** MinerU emits no table at all on receipts,
+  where every gemma checkpoint misfiles not one amount. Its position here is its
+  best document type, not its average.
+- **It pays +0.387 strict CER** for a Markdown dialect no prompt can change,
+  against the 12B's +0.030. If the consumer is a downstream parser reading
+  house-style Markdown rather than a person reading amounts, that cost is real
+  and this chart does not show it.
+
+That leaves a frontier of two, and every number on it is now measured:
+
+| | MinerU2.5-Pro | gemma-4-31B |
 |---|---|---|
 | cards per request | 1 | 2 |
-| images/min per card | **6.90** | 2.67 |
-| usable amounts | 88.3% | **99.0%** |
-| wrong amounts per statement | about 1 in 9 | about 1 in 100 |
+| images/min per card | **≥ 11.10** | 2.67 |
+| usable amounts | 90.3% | **99.0%** |
+| wrong amounts per statement | about 1 in 10 | about 1 in 100 |
+| can be told the convention | no | **yes** |
+| produces a table on receipts | no | **yes** |
 
-**2.6× the hardware for roughly an order of magnitude fewer wrong amounts.**
-Which side of that is right is a costing question rather than a measurement one,
-and it depends on what a wrong amount costs to catch downstream. What the
-benchmark can say is that the trade is real and roughly linear in cards.
+**At least 4× the throughput per card, against roughly an order of magnitude
+fewer wrong amounts.** Which side is right is a costing question rather than a
+measurement one, and it turns on what a wrong amount costs to catch downstream
+and on whether the workload is bank statements alone.
 
 CER does show this difference where it matters — 0.0202 against 0.0004 on bank
 statements, a fifty-fold ratio. It is over all 165 pages that it flattens, to

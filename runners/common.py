@@ -400,6 +400,7 @@ def write_timing(
     cards: int,
     shard: int = 0,
     shards: int = 1,
+    includes_model_load: bool = False,
 ) -> Path:
     """Record throughput, so configurations can be compared rather than recalled.
 
@@ -421,9 +422,17 @@ def write_timing(
     mean the last writer won and the run reported half its pages as though they
     were all of them, which reads as a system half as fast as it is.
 
-    Model load is excluded outright. It is paid once per process, not per page,
-    so counting it would make a short run look slower than a long one of the same
-    model on the same card — and it is not what a serving cluster is sized on.
+    Model load is excluded, in every runner that drives an engine directly. It is
+    paid once per process, not per page, so counting it would make a short run
+    look slower than a long one of the same model on the same card — and it is
+    not what a serving cluster is sized on.
+
+    A runner that cannot separate it says so with `includes_model_load`, and the
+    flag survives into `read_timing` and out to every consumer. MinerU is that
+    case: it shells out to a CLI that loads the model once per invocation, so its
+    seconds are wall clock and its rate is a FLOOR. Recording that as an ordinary
+    timing would put a load-inclusive number in a column of load-exclusive ones
+    and understate it silently — the kind of comparison this file exists to stop.
 
     `score` globs `*.md` one level deep, so a JSON sidecar is never mistaken for
     a prediction.
@@ -436,6 +445,8 @@ def write_timing(
         cards: How many GPUs this process occupied.
         shard: This process's index, when several share the work.
         shards: How many processes are sharing it.
+        includes_model_load: True when the seconds are wall clock and load
+            cannot be separated out, making the rate a floor.
 
     Returns:
         The path written.
@@ -450,6 +461,7 @@ def write_timing(
                 "cards": cards,
                 "shard": shard,
                 "shards": shards,
+                "includes_model_load": includes_model_load,
                 "images": pages,
                 "inference_seconds": round(inference_seconds, 1),
                 "images_per_minute": (
@@ -487,6 +499,9 @@ def read_timing(system_dir: Path) -> dict | None:
     return {
         "system": parts[0]["system"],
         "deployment": (f"tp={cards}" if parts[0]["shards"] == 1 and cards > 1 else f"dp={len(parts)}"),
+        # True if ANY shard's clock includes it: the aggregate is then a floor,
+        # and a reader comparing it with the others has to be told.
+        "includes_model_load": any(part.get("includes_model_load") for part in parts),
         "cards": cards,
         "images": images,
         "inference_seconds": round(seconds, 1),
