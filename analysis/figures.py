@@ -51,7 +51,11 @@ SHORT = {
     "gemma-4-12B-it": "gemma 12B BF16",
     "gemma-4-31B-it-qat-w4a16-ct": "gemma 31B 4-bit",
     "InternVL3.5-8B": "InternVL3.5-8B",
-    "mineru": "MinerU",
+    # The L4/vLLM run, not the Mac/MLX one. Production is a 24 GB cluster, so a
+    # figure from Apple Silicon is not the figure to quote — and the two are not
+    # interchangeable: 41 of 165 pages differ between them.
+    "mineru-vllm": "MinerU",
+    "mineru": "MinerU (MLX)",
     "docling": "Docling",
 }
 

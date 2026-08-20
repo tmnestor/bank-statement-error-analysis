@@ -1,6 +1,6 @@
 # Can a prompted VLM be steered to a house style?
 
-**Calibration pass, August 2026.** Seven document-parsing systems over 165
+**Calibration pass, August 2026.** Six document-parsing systems over 165
 synthetic pages of Australian business documents.
 
 ---
@@ -45,8 +45,8 @@ Four things qualify that, and they are the substance of this document:
    but not improvising a replacement; the example supplied the behaviour the
    prohibition left undefined.
 3. **Normalised character error rate ranks systems adequately and cannot find a
-   bad page.** Across the seven systems it tracks usable-amount rate closely
-   (Spearman ρ = 0.964). *Within* a system it is uncorrelated with whether a
+   bad page.** Across the six systems it tracks usable-amount rate closely
+   (Spearman ρ = 0.943). *Within* a system it is uncorrelated with whether a
    page's numbers survive — ρ = 0.01 for two of them, and **−0.17** for the best,
    whose worst page loses 11% of its amounts at a CER of 0.0000. Three pages in
    this corpus lose **every** amount to the wrong column while scoring 0.08–0.10.
@@ -168,7 +168,7 @@ Split by one property: **whether they can be told the convention.**
 | Group | Systems | Reads a prompt? | Measures |
 |---|---|---|---|
 | **Prompted** | four gemma-4 checkpoints, InternVL3.5-8B | yes | is the convention *communicable*? |
-| **Unprompted** | MinerU, Docling | no | is it *idiomatic Markdown at all*? |
+| **Unprompted** | MinerU | no | is it *idiomatic Markdown at all*? |
 
 You cannot ask MinerU to emit pipe tables. Its divergences are therefore
 uncontaminated evidence about whether the house style matches what the Markdown
@@ -196,9 +196,10 @@ budget the weights leave for the KV cache, and the KV cache is what fails first.
 | gemma-4-12B-it | 23 GB | no | L40S 48 GB |
 | *gemma-4-31B-it (BF16)* | *59 GB* | *no* | *fits nothing available* |
 
-Docling and MinerU are absent because they were run on Apple Silicon against
-unified memory, which is not a GPU sizing figure and does not transfer to the
-cluster this table exists to inform.
+MinerU is 2.2 GB and fits a card many times over, so it is measured on the L4s
+like everything else. Its earlier figures in this study came from Apple Silicon
+via MLX and are **not** quoted here: 41 of 165 pages differ between the two
+stacks, and a laptop's numbers do not describe a 24 GB cluster.
 
 Two consequences worth reading off it.
 
@@ -277,13 +278,12 @@ and quoting means alone misdescribes every system here.
 
 | System | median nCER | median sCER | **gap** | mean nCER | told? |
 |---|---|---|---|---|---|
-| **gemma 31B 4-bit** | **0.0000** | 0.0161 | **+0.0134** | **0.0016** | yes |
-| gemma 12B BF16 | 0.0026 | 0.0317 | +0.0139 | 0.0082 | yes |
-| gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0138 | 0.0101 | yes |
-| gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0136 | 0.0178 | yes |
-| MinerU | 0.0404 | 0.4277 | **+0.3917** | 0.0520 | no |
-| InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1630** | 0.0743 | yes |
-| Docling | 0.4145 | 0.6120 | +0.0581 | 1.6457 | no |
+| **gemma 31B 4-bit** | **0.0000** | 0.0161 | **+0.0161** | **0.0016** | yes |
+| gemma 12B BF16 | 0.0026 | 0.0317 | +0.0291 | 0.0082 | yes |
+| gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0309 | 0.0101 | yes |
+| gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0301 | 0.0178 | yes |
+| MinerU | 0.0403 | 0.4277 | **+0.3873** | 0.0520 | no |
+| InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1700** | 0.0743 | yes |
 
 **The 31B's median normalised CER is 0.0000** — more than half its pages are
 transcribed without a single character wrong once formatting is set aside.
@@ -312,9 +312,6 @@ no vertical rules, so in a space-aligned block the whitespace **is** the
 structure — and `normalised` already discards it, making `strict` the only place
 spacing is measured at all.
 
-**Docling is a different category.** A median of 0.41 against a mean of 1.65 is
-repetition loops, not convention. Its gap says nothing about the house style.
-
 ---
 
 ## Reading the tables
@@ -328,8 +325,7 @@ Across all 165 pages:
 | gemma 12B BF16 QAT | 1486/2005 (74.1%) | **0** | **3** | 0.999 | 0.917 |
 | gemma 12B 4-bit | 1359/2005 (67.8%) | 9 | 15 | 0.995 | 0.888 |
 | InternVL3.5-8B | 1343/2005 (67.0%) | **0** | 8 | 0.957 | 0.867 |
-| MinerU | 1234/2005 (61.5%) | 292 | 156 | 1.000 | 0.888 |
-| Docling | 283/2005 (14.1%) | 120 | 13 | 0.850 | 0.273 |
+| MinerU | 1251/2005 (62.4%) | 276 | 152 | 1.000 | 0.881 |
 
 Amounts filed under the correct heading:
 
@@ -339,14 +335,13 @@ Amounts filed under the correct heading:
 | gemma 12B BF16 | 116/2503 | 4.6% | 8 | 157/165 |
 | gemma 12B BF16 QAT | 131/2503 | 5.2% | **0** | **165/165** |
 | gemma 12B 4-bit | 242/2503 | 9.7% | 2 | 163/165 |
-| MinerU | 325/2503 | 13.0% | 56 | 109/165 |
+| MinerU | 378/2503 | 15.1% | 56 | 109/165 |
 | InternVL3.5-8B | 330/2503 | 13.2% | 13 | 152/165 |
-| Docling | 1929/2503 | 77.1% | 117 | 48/165 |
 
 **Column-count stability separates the families.** Every gemma checkpoint gets
-the table width right on at least 157 of 165 documents; MinerU manages 109 and
-Docling 48. A system that invents or drops a column shifts every amount on the
-page, so this one property dominates everything downstream of it.
+the table width right on at least 157 of 165 documents; MinerU manages 109. A
+system that invents or drops a column shifts every amount on the page, so this
+one property dominates everything downstream of it.
 
 By document type — and read it this way, because bank statements are the only
 genuinely hard tables here:
@@ -357,11 +352,10 @@ genuinely hard tables here:
 | gemma 12B BF16 | 5.6% | 1.0% | **0.0%** |
 | gemma 12B 4-bit | 11.7% | 2.3% | **0.0%** |
 | InternVL3.5-8B | 14.7% | 1.0% | 16.8% |
-| MinerU | 7.0% | **0.0%** | 100% |
-| Docling | 83.1% | 24.0% | 100% |
+| MinerU | 9.7% | **0.0%** | 100% |
 
-The parsers' 100% on receipts is absence, not misplacement — neither emits a
-table there at all. Every gemma checkpoint misfiles **not one** of the 184
+MinerU's 100% on receipts is absence, not misplacement — it emits no table
+there at all. Every gemma checkpoint misfiles **not one** of the 184
 receipt amounts.
 
 ### Bank-transaction tables
@@ -373,10 +367,9 @@ The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.
 | **gemma 31B 4-bit** | **1527/1612 (94.7%)** | **0** | **0** | 0.997 | **1.0%** | **55/55** |
 | gemma 12B BF16 | 1137/1612 (70.5%) | **0** | **0** | 0.996 | 5.6% | **55/55** |
 | gemma 12B BF16 QAT | 1095/1612 (67.9%) | **0** | **0** | 0.999 | 6.4% | **55/55** |
-| MinerU | 1025/1612 (63.6%) | 292 | 156 | 1.000 | 7.0% | 54/55 |
+| MinerU | 1041/1612 (64.6%) | 276 | 152 | 1.000 | 9.7% | 54/55 |
 | InternVL3.5-8B | 987/1612 (61.2%) | **0** | 8 | 0.947 | 14.7% | 51/55 |
 | gemma 12B 4-bit | 971/1612 (60.2%) | **0** | **0** | 0.994 | 11.7% | **55/55** |
-| Docling | 134/1612 (8.3%) | 120 | 13 | 0.704 | 83.1% | 6/55 |
 
 **The 31B is the first system to read these tables properly** — 94.7% of rows
 recovered against everyone else's 60–70%, zero structure broken, and 1.0% of
@@ -624,17 +617,16 @@ shows.
 
 | System | digit recall | digit precision | misread | dropped | invented |
 |---|---|---|---|---|---|
-| MinerU | **100.0%** | **100.0%** | 0 | 1 | 1 |
+| MinerU | 99.5% | 99.8% | **0** | 16 | 7 |
 | gemma 31B 4-bit | 99.9% | 99.9% | 3 | 2 | 2 |
 | InternVL3.5-8B | 97.2% | 99.8% | 2 | 91 | 3 |
 | gemma 12B 4-bit | 92.5% | 92.9% | 106 | 148 | 132 |
-| Docling | 37.9% | — | 1 | 2093 | 243 |
 
 *All 165 pages, 3,371 amounts.*
 
-The ordering is not the CER ordering: MinerU reads every digit correctly while
-paying the largest convention penalty of any system, and the 12B gemma — first
-on CER, first on table structure — is last of the four real readers.
+The ordering is not the CER ordering. MinerU **misreads not one** of the 3,371
+amounts — every miss is an omission — while paying the largest convention penalty
+of any system; and the 12B gemma, first on CER and on table structure, is last.
 
 The two failure modes are reported apart rather than summed, because they call
 for different remedies. **InternVL's deficit is almost entirely omission**: 91
@@ -655,7 +647,7 @@ Ranking by it reverses two systems:
 | System | digit recall | cell accuracy | width correct | **usable** |
 |---|---|---|---|---|
 | gemma 31B 4-bit | 99.8% | 0.996 | 55/55 | **99.0%** |
-| MinerU | **100.0%** | 1.000 | 54/55 | 93.0% |
+| MinerU | **99.4%** | 1.000 | 54/55 | 90.3% |
 | gemma 12B 4-bit | 90.3% | 0.994 | **55/55** | **88.3%** |
 | InternVL3.5-8B | **96.9%** | 0.947 | 51/55 | **85.3%** |
 
@@ -664,7 +656,7 @@ Ranking by it reverses two systems:
 **InternVL reads 6.6 points more digits correctly than the 12B gemma and
 delivers 3 points fewer usable amounts.** It gets the numbers right and puts
 them in the wrong place — 4 statements with the wrong column count against
-gemma's none, and cell accuracy 0.947 against 0.994. MinerU loses 7 points the
+gemma's none, and cell accuracy 0.947 against 0.994. MinerU loses 9 points the
 same way.
 
 So the three skills dissociate cleanly, and quoting any one of them alone
@@ -673,7 +665,7 @@ misdescribes a system:
 - **gemma 12B**: structure right, digits wrong
 - **InternVL3.5-8B**: digits right, structure wrong
 - **gemma 31B**: both right, and an order of magnitude ahead on usable amounts
-- **MinerU**: perfect digits, 7% misplaced, and no table at all on receipts
+- **MinerU**: near-perfect digits, 10% misplaced, and no table at all on receipts
 
 One mechanism deserves naming. On several statements a single misread amount is
 followed by every subsequent balance being **recomputed from the wrong figure** —
@@ -720,11 +712,12 @@ group, one wrong date fails the whole group. Every other system's alignment
 ceiling was substantially a digit-fidelity ceiling wearing a structural costume.
 Remove the digit errors and it lifts.
 
-It also beats MinerU where MinerU had been unbeatable. On the digits alone
-MinerU is ahead, 100.0% to 99.8% — but it files one figure in fourteen under the
-wrong heading, so **93.0% of its amounts are usable against the 31B's 99.0%**.
-Reading every digit correctly is not the same as delivering a usable number, and
-the 31B is the first system here that does both.
+It also beats MinerU on placement, which is where MinerU had been strongest.
+The two read digits almost identically — 99.8% against 99.4% — but MinerU files
+one figure in eleven under the wrong heading, so **90.3% of its amounts are
+usable against the 31B's 99.0%**. Reading the digits is not the same as
+delivering a usable number, and the 31B is the first system here that does
+both.
 
 One qualification. The 31B is a differently trained model, not a scaled 12B, so
 "capacity" is shorthand for everything that differs between the two sizes. It is
@@ -737,9 +730,9 @@ it strips the pipes that encode column membership, it prices a wrong digit like
 a typo. Those are arguments. This is the measurement.
 
 **Across systems it works.** Median normalised CER against usable-amount rate,
-over the seven systems on bank statements: **Spearman ρ = 0.964**, one swap in
-seven. As a way of ranking systems it is not misleading, and the case against it
-should not be overstated.
+over the six systems on bank statements: **Spearman ρ = 0.943** (p = 0.005), one
+swap in six. As a way of ranking systems it is not misleading, and the case
+against it should not be overstated.
 
 **Within a system it is uncorrelated with whether a page is usable.**
 
@@ -750,7 +743,7 @@ should not be overstated.
 | gemma 12B BF16 QAT | **0.01** | 46% lost at CER 0.0332 |
 | gemma 12B 4-bit | 0.22 | 59% lost at CER 0.0472 |
 | InternVL3.5-8B | 0.21 | 100% lost at CER 1.0000 |
-| MinerU | 0.52 | 46% lost at CER 0.1039 |
+| MinerU | 0.36 | 46% lost at CER 0.1039 |
 
 ρ = 0.01 is noise. The best system's is **negative**: its worst page, losing 11%
 of its amounts, scored a perfect 0.0000.
@@ -790,12 +783,12 @@ small CER as evidence that a page's numbers can be used.
 
 **Coverage.** All four gemma checkpoints produced all 165 pages. InternVL
 produced 164; the one failure is scored as a total failure rather than dropped,
-so every system is averaged over the same 165 transcripts. Docling produced 2
-empty pages, scored the same way.
+so every system is averaged over the same 165 transcripts. MinerU produced all
+165.
 
 **The four gemma checkpoints differ only in the checkpoint.** Every decoding and
 engine setting is identical across them, including the vision budget — varying
-that would confound precision or capacity with what the model can see. All seven
+that would confound precision or capacity with what the model can see. All six
 systems were scored against the same corpus, and the analysis refuses reports
 that were not.
 
@@ -866,11 +859,11 @@ only measure here that is convention-blind, so it compares a system emitting
 HTML tables with one emitting pipe tables on identical terms.
 
 Between them they produced the pass's most counter-intuitive result, and it only
-appears when the metrics are kept apart. **MinerU reads every one of the 2,507
-bank-statement digits correctly and still delivers fewer usable amounts than the
-31B**, because it misfiles 7% of them. **InternVL3.5-8B reads 6.6 points more
-digits correctly than the 12B gemma and delivers 3 points fewer usable amounts**,
-for the same reason.
+appears when the metrics are kept apart. **MinerU misreads not one of the 3,371
+amounts in the corpus — every miss is an omission — and still delivers fewer
+usable amounts than the 31B**, because it misfiles a tenth of them.
+**InternVL3.5-8B reads 6.6 points more digits correctly than the 12B gemma and
+delivers 3 points fewer usable amounts**, for the same reason.
 
 Reading a table, matching a house style and getting the digits right are three
 separable skills, and no single one of them ranks these systems correctly for
@@ -879,7 +872,7 @@ right value, right heading — and it is the one to quote.
 
 **And a measured limit on the headline metric, rather than an argued one.**
 Across systems, normalised CER tracks usable-amount rate closely: Spearman
-ρ = 0.964 over seven systems. Within a system it is uncorrelated with whether a
+ρ = 0.943 over six systems (p = 0.005). Within a system it is uncorrelated with whether a
 page's numbers survive — ρ = 0.01 for two of them, −0.17 for the best. A review
 queue ordered by CER is a review queue ordered at random. Report it, because it
 ranks systems and it catches the catastrophes a field-level metric would miss;
