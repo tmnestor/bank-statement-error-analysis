@@ -30,13 +30,26 @@ cat <<'SETUP'
   hf download opendatalab/MinerU2.5-Pro-2605-1.2B \
       --local-dir /home/jovyan/nfs_share/models/MinerU2.5-Pro-2605-1.2B
 
-  conda create -n mineru_cuda python=3.12 -y
+  conda create -n mineru_cuda --clone vllm_env2 -y
   conda activate mineru_cuda
-  pip install "mineru[core]" "mineru-vl-utils[vllm]" typer rich pyyaml
+  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+  pip install --no-deps mineru mineru-vl-utils
+  pip install mineru --no-build-isolation
 
-Do NOT install into vllm_env2 or vllm_env3. Those are load-bearing for the gemma
-and InternVL runs, and mineru pulls its own torch and vLLM pins; breaking them
-costs more than a separate environment does.
+CLONE vllm_env2, do not build from a bare python. mineru-vl-utils[vllm] requires
+vllm<0.22.0 and vllm_env2 already carries 0.19.0, so cloning gives the resolver
+nothing to search. Asking pip to resolve vLLM from nothing sends it backtracking
+through every version of every transitive dependency — it downloads sdists to
+read their metadata and can run for hours. If it starts doing that anyway, add
+--only-binary=:all:.
+
+Do NOT install into vllm_env2 itself. It is load-bearing for the InternVL runs,
+and a clone costs disk rather than a working environment.
+
+Check both survived before running anything:
+
+  mineru --help | head -5
+  python -c "import vllm; print(vllm.__version__)"
 
 Point MinerU at the local weights so it cannot start downloading mid-run:
 
