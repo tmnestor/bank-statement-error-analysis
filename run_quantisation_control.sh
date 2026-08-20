@@ -54,25 +54,35 @@ fi
 pages=$(find "$CORPUS/transcripts" -name '*.md' | wc -l)
 [[ $pages -eq 165 ]] || { echo "!! expected 165 pages, found $pages in $CORPUS"; exit 1; }
 
-# A missing processor_config.json is silent and expensive: without it mlx/vLLM
-# falls back to a bare tokenizer with no image preprocessing, the PNG never
-# becomes patches, and the model politely asks to be shown the image. That is a
-# non-empty file which passes every completeness check and scores as a total
-# reading failure, blaming the model for a packaging omission.
+# A checkpoint with no image-preprocessing config is silent and expensive:
+# without one, vLLM falls back to a bare tokenizer, the PNG never becomes
+# patches, and the model politely asks to be shown the image. That is a
+# NON-EMPTY file which passes every completeness check and scores as a total
+# reading failure, blaming the model for a packaging omission. A gemma repack
+# shipped without one and cost a whole run before anyone noticed.
+#
+# Either filename satisfies it. gemma writes processor_config.json; InternVL and
+# most others write preprocessor_config.json. Demanding the gemma spelling would
+# refuse checkpoints that run perfectly well, which is a worse failure than the
+# one being guarded against.
 for s in "${SYSTEMS[@]}"; do
     dir=$(python -c "
-import sys, yaml
+import yaml
 print(yaml.safe_load(open('config/vlm_systems.yml'))['systems']['$s']['model'])")
     [[ -d $dir ]] || { echo "!! $s: checkpoint directory missing: $dir"; exit 1; }
-    [[ -f $dir/processor_config.json ]] || {
-        echo "!! $s: no processor_config.json in $dir"
-        echo "   Without it the image is never preprocessed and the run scores as a"
+    found=""
+    for name in processor_config.json preprocessor_config.json; do
+        [[ -f $dir/$name ]] && { found=$name; break; }
+    done
+    [[ -n $found ]] || {
+        echo "!! $s: no processor_config.json or preprocessor_config.json in $dir"
+        echo "   Without one the image is never preprocessed and the run scores as a"
         echo "   total reading failure while looking like a completed one."
         exit 1
     }
     arch=$(python -c "
 import json; print(json.load(open('$dir/config.json')).get('model_type', '?'))" 2>/dev/null || echo '?')
-    echo "  $s: $arch, processor_config.json present"
+    echo "  $s: $arch, $found present"
 done
 
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || true
