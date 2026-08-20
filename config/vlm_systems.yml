@@ -200,6 +200,16 @@ systems:
   # would leave precision as the only variable; that checkpoint is not on the
   # host, so this is the available approximation and is named for what it is.
   #
+  # That checkpoint name reads like a contradiction and is not one. QAT is a
+  # TRAINING method: fake-quantisation ops sit in the forward pass so the model
+  # learns weights that survive being quantised, while the master weights stay
+  # high-precision throughout. What comes out of QAT is a BF16 checkpoint, and
+  # quantising it to 4 bits is a separate later step. Google publishes both
+  # halves — `-qat-q4_0` at 4 bits and `-qat-q4_0-unquantized` at BF16 — where
+  # `q4_0` names the quantisation the training was aware of and `unquantized`
+  # says this distribution has not had it applied. Holding QAT constant and
+  # varying only the precision is what makes it the clean control.
+  #
   # What it settles, and it is asymmetric:
   #
   #   reads amounts NO BETTER  -> strong evidence AGAINST quantisation, since
