@@ -191,3 +191,54 @@ systems:
       # Running without it scores a tokenizer bug as the model misreading, on
       # the amount columns this corpus is largely made of.
       tokenizer: /home/jovyan/.cache/lmm_poc_tokenizers/InternVL3_5-8B
+
+  # THE QUANTISATION CONTROL. The same weights as gemma-4-12B-it-qat-w4a16-ct,
+  # at BF16 instead of 4 bits, so the only difference between the two runs is
+  # numeric precision. That is what makes it a control: `gemma-4-12B-it` would
+  # also be a strong model, but it differs by QAT training AS WELL as by
+  # precision and could not separate the two causes.
+  #
+  # What it settles. Numeric fidelity over 165 pages puts the 4-bit checkpoint
+  # at 92.5% of amounts correct, against MinerU's 100.0% and InternVL3.5-8B's
+  # 97.2% — and its misses are digit substitutions, not dropped lines, on a
+  # model that leads every other metric in the pass. Quantisation costing
+  # character fidelity first is the leading explanation and has never been
+  # measured here. If this run reads amounts markedly better on the same pages,
+  # the explanation holds. If it reads them about the same, the cause is
+  # something else and the finding needs rewriting.
+  #
+  # ~24 GB of weights at BF16, so it needs a 48 GB card. It does not fit the
+  # 2xL4 host — 24 GB of weights will not sit on a 24 GB card beside a KV cache,
+  # and sharding one engine across both L4s hits the SHM deadlock that host
+  # records. One L40S, one engine, no --shards.
+  gemma-4-12B-it-qat-unquantized:
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/gemma-4-12B-it-qat-q4_0-unquantized
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    # Identical decoding to the 4-bit run. A control that changes two things
+    # measures neither.
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 600
+    mlx_unused_towers: []
+    image_first: true
+    repetition_penalty: 1.0
+    vllm_engine:
+      tensor_parallel_size: 1
+      max_model_len: 16384
+      # BF16 weights are ~24 GB of a 48 GB card, leaving room for the KV cache
+      # at this utilisation. Lower it only if the engine fails to allocate.
+      gpu_memory_utilization: 0.90
+      max_num_seqs: 10
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      # Must match the 4-bit run exactly. soft_tokens is the vision budget, and
+      # 1120 and 280 were both measured on this checkpoint family and both
+      # regressed; changing it here would confound precision with what the model
+      # can see.
+      soft_tokens: 560
+      tokenizer: none
