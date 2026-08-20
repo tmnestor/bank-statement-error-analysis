@@ -305,14 +305,24 @@ finding 9 is about the more serious limitation underneath that.
 Per-page **medians**. A handful of catastrophic pages distort the means badly,
 and quoting means alone misdescribes every system here.
 
-| System | median nCER | median sCER | **gap** | mean nCER | told? |
+| System | median nCER | median sCER | **median gap** | mean nCER | told? |
 |---|---|---|---|---|---|
-| **gemma 31B 4-bit** | **0.0000** | 0.0161 | **+0.0161** | **0.0016** | yes |
-| gemma 12B BF16 | 0.0026 | 0.0317 | +0.0291 | 0.0082 | yes |
-| gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0309 | 0.0101 | yes |
-| gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0301 | 0.0178 | yes |
-| MinerU | 0.0403 | 0.4277 | **+0.3873** | 0.0520 | no |
-| InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1700** | 0.0743 | yes |
+| **gemma 31B 4-bit** | **0.0000** | 0.0161 | **+0.0134** | **0.0016** | yes |
+| gemma 12B BF16 | 0.0026 | 0.0317 | +0.0139 | 0.0082 | yes |
+| gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0138 | 0.0101 | yes |
+| gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0136 | 0.0178 | yes |
+| MinerU | 0.0403 | 0.4277 | **+0.3917** | 0.0520 | no |
+| InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1630** | 0.0743 | yes |
+
+**The gap column is the median of each page's own gap — deliberately not the
+difference of the two medians beside it.** A median of differences is not the
+difference of medians, and they answer different questions: subtracting the
+columns says how two summary statistics of the corpus relate, while the median
+gap says what the convention costs *on a page*, which is the quantity this
+study is about. The two coincide only if the same pages sit at both medians,
+and here they do not — the 31B's normalised median is 0.0000, drawn from a
+different set of pages than its strict median. Reading the column as column
+minus column is an easy mistake to make, and it was made here.
 
 **The 31B's median normalised CER is 0.0000** — more than half its pages are
 transcribed without a single character wrong once formatting is set aside.

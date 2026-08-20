@@ -59,6 +59,19 @@ SHORT = {
     "docling": "Docling",
 }
 
+# Dropped from the study, and dropped here so no chart can quietly restore it.
+# `scores_parsers.json` still holds Docling's rows -- it was scored alongside
+# MinerU in the same run -- so a load that took every system in every report put
+# it back into four of five figures while the prose no longer mentioned it. Its
+# median CER of 0.41 against a mean of 1.65 is repetition loops rather than a
+# reading or convention result, and on every axis these charts use it sits so
+# far outside the others that it compresses all of them into the top band.
+#
+# Deleting the rows from the report would be worse: the report is the record of
+# what was measured. The exclusion belongs where the charts are drawn, stated
+# once, rather than in each caller's filter.
+EXCLUDED = {"Docling"}
+
 
 def apply_style() -> None:
     """Set the house look once, so no figure carries its own styling."""
@@ -87,6 +100,9 @@ def load(*reports: Path | str) -> pd.DataFrame:
     The prompted systems, the precision controls and the parsers were scored in
     separate runs. A later report wins on a system-name collision, so pass them
     oldest first.
+
+    Systems in `EXCLUDED` are dropped here rather than by each caller, so a new
+    figure cannot reintroduce one by forgetting to filter.
 
     Args:
         reports: Paths to `scores_*.json` files.
@@ -117,6 +133,7 @@ def load(*reports: Path | str) -> pd.DataFrame:
 
     documents = pd.concat(frames, ignore_index=True)
     documents = documents.drop_duplicates(subset=["system", "stem"], keep="last")
+    documents = documents[~documents.system.isin(EXCLUDED)]
     documents["doc_type"] = documents["stem"].str.split("_", n=1).str[1]
     return documents
 
