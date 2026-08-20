@@ -16,10 +16,10 @@ idiosyncratic — that a model could read a page perfectly and still score badly
 for formatting it differently.
 
 **It is not, and the reason is that gemma-4-12B can be told.** Given the
-convention in its prompt, it follows it at a cost of 0.008 CER, produces the
-most accurate table structure of any system tested, and files amounts under the
-right heading more reliably than either dedicated parser. Three separate
-conventions were each stated, measured, and adopted:
+convention in its prompt it reaches a median character error rate of **0.008**,
+produces the correct table width on **163 of 165 documents**, and files amounts
+under the right heading more reliably than either dedicated parser. Three
+separate conventions were each stated, measured, and adopted:
 
 | Convention | before | after |
 |---|---|---|
@@ -27,8 +27,9 @@ conventions were each stated, measured, and adopted:
 | dates carried down a group | 61.6% of rows | **97.2%** (truth: 98.9%) |
 | repeated glyphs are spacing | 275 stray lines | **0** |
 
-That last one also recovered three pages the benchmark had written off as
-impossible.
+The cumulative effect of stating all three: median CER **0.0201 → 0.0081**, mean
+**0.3011 → 0.0178**, misfiled amounts **12.7% → 9.7%** — and three pages the
+benchmark had written off as impossible now transcribe at 0.05.
 
 Four things qualify it, and they are the substance of this document:
 
@@ -174,17 +175,19 @@ slips there carry a quantisation signal rather than a convention one.
 Per-page **medians**. A handful of catastrophic pages distort the means badly,
 and quoting means alone misdescribes every system here.
 
-| System | median nCER | median sCER | **gap** | told? |
-|---|---|---|---|---|
-| **gemma-4-12B-it-qat-w4a16-ct** | **0.0201** | 0.0476 | **+0.0084** | yes |
-| mineru | 0.0404 | 0.4277 | **+0.3917** | no |
-| InternVL3.5-8B | 0.0432 | 0.2299 | **+0.1552** | yes |
-| docling | 0.4145 | 0.6120 | +0.0581 | no |
+| System | median nCER | median sCER | **gap** | mean nCER | told? |
+|---|---|---|---|---|---|
+| **gemma-4-12B-it-qat-w4a16-ct** | **0.0081** | 0.0382 | **+0.0136** | **0.0178** | yes |
+| mineru | 0.0404 | 0.4277 | **+0.3917** | 0.0520 | no |
+| InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1630** | 0.0743 | yes |
+| docling | 0.4145 | 0.6120 | +0.0581 | 1.6457 | no |
 
-**Reading quality is close between the three real readers** — 0.020 to 0.043.
-The convention cost is what separates them.
+**Gemma reads best and formats closest**, by a margin of five times on the
+median. Its mean of 0.018 against a median of 0.008 is the tightest distribution
+of any system here: no catastrophic pages remain.
 
-**Gemma pays almost nothing.** Told the style, it complies.
+**MinerU and InternVL read comparably** — 0.040 and 0.042 — and are separated
+almost entirely by convention cost.
 
 **MinerU pays 0.39 for formatting it cannot be instructed about**, principally
 HTML tables on 110 of 165 pages where the corpus uses pipe tables. It reads well
@@ -193,8 +196,8 @@ look like.
 
 **InternVL sits between**, and about half its gap is table *padding* — it
 pretty-prints `|-----|-----|` against the corpus's `| --- |`. Collapsing
-whitespace alone, changing nothing else, takes its median strict CER from 0.2299
-to **0.1118**.
+whitespace alone, changing nothing else, takes its median strict CER from 0.2116
+to **0.1149**.
 
 Whether padding should count is a fair question, and it should. These pages draw
 no vertical rules, so in a space-aligned block the whitespace **is** the
@@ -212,50 +215,81 @@ Across all 165 pages:
 
 | System | rows aligned | fragments | width breaks | cell accuracy | content recall |
 |---|---|---|---|---|---|
-| **gemma-4-12B** | **1409/2005 (70.3%)** | **0** | **0** | 0.992 | 0.879 |
-| InternVL3.5-8B | 1390/2005 (69.3%) | 17 | 9 | 0.922 | 0.902 |
-| mineru | 1234/2005 (61.5%) | 292 | 156 | **1.000** | 0.888 |
+| **gemma-4-12B** | **1359/2005 (67.8%)** | 9 | 15 | **0.995** | 0.888 |
+| InternVL3.5-8B | 1343/2005 (67.0%) | **0** | 8 | 0.957 | 0.867 |
+| mineru | 1234/2005 (61.5%) | 292 | 156 | 1.000 | 0.888 |
 | docling | 283/2005 (14.1%) | 120 | 13 | 0.850 | 0.273 |
-
-**Zero fragments and zero width breaks across 165 pages** is the number to
-notice. Gemma never splits a wrapped description into two rows and never emits a
-row with the wrong number of cells. MinerU does both, 292 and 156 times. When
-gemma commits to a cell it is right 99.2% of the time.
 
 Amounts filed under the correct heading:
 
-| System | misfiled | **rate** | documents with the wrong column count |
-|---|---|---|---|
-| **gemma-4-12B** | 319/2503 | **12.7%** | **4** |
-| mineru | 325/2503 | 13.0% | 56 |
-| InternVL3.5-8B | 361/2503 | 14.4% | 14 |
-| docling | 1929/2503 | 77.1% | 117 |
+| System | misfiled | **rate** | wrong column count | **correct width** |
+|---|---|---|---|---|
+| **gemma-4-12B** | 242/2503 | **9.7%** | **2** | **163/165** |
+| mineru | 325/2503 | 13.0% | 56 | 109/165 |
+| InternVL3.5-8B | 330/2503 | 13.2% | 13 | 152/165 |
+| docling | 1929/2503 | 77.1% | 117 | 48/165 |
 
-Gemma leads on the aggregate and leads overwhelmingly on **column-count
-stability**: it produces a table of the correct width on 161 of 165 documents,
-against MinerU's 109 and Docling's 48. A system that invents a column shifts
-every amount on the page.
+**Column-count stability is where the margin is.** Gemma produces a table of the
+correct width on 163 of 165 documents, against MinerU's 109 and Docling's 48. A
+system that invents or drops a column shifts every amount on the page, so this
+single property dominates everything downstream of it.
 
-By document type:
+By document type — and read it this way, because bank statements are the only
+genuinely hard tables here:
 
 | misfiled | bank statements | invoices | receipts |
 |---|---|---|---|
-| **gemma-4-12B** | 15.6% | 1.6% | **0.5%** |
-| InternVL3.5-8B | 16.2% | 1.0% | 17.4% |
+| **gemma-4-12B** | 11.7% | 2.3% | **0.0%** |
+| InternVL3.5-8B | 14.7% | 1.0% | 16.8% |
 | mineru | **7.0%** | **0.0%** | 100% |
 | docling | 83.1% | 24.0% | 100% |
 
-Two honest qualifications. The parsers' 100% on receipts is not misplacement —
-neither emits a table there at all, so every amount is trivially absent from a
-column; gemma is the only system that produces a correct table on all three
-document types. And **MinerU still places bank-statement amounts better** than
-anything else, 7.0% against gemma's 15.6%, which is the one place the
-CER leaderboard and the structural metrics disagree.
+Gemma misfiles **not one** of the 184 receipt amounts, and aligns 184 of 184
+receipt rows. It is the only system producing a correct table on all three
+document types: the parsers' 100% on receipts is not misplacement but absence —
+neither emits a table there at all.
 
-That bank-statement figure is measured under a prompt that has since been
-corrected. On the 61 pages where the corrected prompt has been run, gemma's
-misfiling fell from 24.0% to **0.3%**. Whether that holds across all 165 is the
-outstanding measurement, not a claim made here.
+**MinerU still places bank-statement amounts better**, 7.0% against gemma's
+11.7%. That is the one measurement where the CER leaderboard and the structural
+metrics disagree, and it has survived every prompt revision.
+
+### Bank-transaction tables
+
+The hard case, and worth separating. 55 statements, 1,612 rows, 2,011 amounts.
+
+| System | rows aligned | fragments | width breaks | cell acc | misfiled | **width ok** |
+|---|---|---|---|---|---|---|
+| mineru | **1025/1612** | 292 | 156 | 1.000 | **7.0%** | 54/55 |
+| InternVL3.5-8B | 987/1612 | **0** | 8 | 0.947 | 14.7% | 51/55 |
+| **gemma-4-12B** | 971/1612 | **0** | **0** | 0.994 | 11.7% | **55/55** |
+| docling | 134/1612 | 120 | 13 | 0.704 | 83.1% | 6/55 |
+
+**MinerU aligns the most rows and pays for them.** It recovers more content than
+anything else — content recall 0.928 — but does it by splitting 292 rows in two
+and emitting 156 rows of the wrong width. Gemma aligns 54 fewer rows and breaks
+structure **zero times in 1,612**. Those are different things to want: MinerU
+recovers more, gemma's output is trustworthy row by row.
+
+**Gemma gets the column count right on all 55 statements.** InternVL's 4 broken
+documents carry **149 of its 296 misfiled amounts** — half its total error on
+7% of its pages, which is what a column-count failure does.
+
+Row alignment tops out near 60–65% for every real reader, and the reason is not
+segmentation. It is that a single misread character in a row poisons that row's
+signature. Two pages illustrate both mechanisms:
+
+- one statement lost 27 rows to a date read as `01/03/2024` instead of
+  `01/01/2024`. Because the convention carries a group's date onto every row
+  beneath it, one wrong digit fails every row of that group.
+- another lost 24 rows to a balance read as `$15,571.32` instead of
+  `$15,971.32` — and then **every subsequent balance was recomputed from the
+  wrong figure**, `$16,073.50` becoming `$15,469.14`. The model is not reading
+  that column; it is doing arithmetic down it.
+
+That second one is worth dwelling on. A model reconstructing a running balance
+rather than transcribing it will look correct on any single row, and will look
+correct to an information-extraction task that pulls one balance. It is visible
+here only because the whole column is scored against the whole page.
 
 ---
 
@@ -268,10 +302,16 @@ systems:
 
 | Convention | gemma-4-12B | InternVL3.5-8B |
 |---|---|---|
-| headerless item tables (rows segmented) | 4.9% → **99.5%** | 9.2% → **81.0%** |
+| headerless item tables (receipt rows segmented) | 4.9% → **100%** | 9.2% → **81.5%** |
 | dates carried down a group | 61.6% → **97.2%** | 57.1% → 57.4% |
 | repeated glyphs omitted (stray lines) | 275 → **0** | 69 → 6 |
 | worked example added on top | rescued a failed page | **caused** a new failure |
+
+Compounded over the full corpus, the three conventions take gemma's median CER
+from 0.0201 to **0.0081** and its mean from 0.3011 to **0.0178** — and its
+receipt tables from 9 of 184 rows correctly segmented to **184 of 184**, with
+not one of 184 amounts misfiled. Over the same revisions InternVL's median moved
+0.0432 → 0.0420.
 
 The 12B adopts every one. The 8B adopts the structural rule about tables,
 ignores the procedural rule about dates entirely — three phrasings, a 0.9-point
@@ -469,21 +509,22 @@ times and a model can score well by memorising it.
 
 ## Limits
 
-**The headline figures predate the most recent prompt revision.** The
-repeated-glyph rule was measured on a 61-page subset and has since been
-promoted; the 165-page numbers throughout were produced without it. Gemma's
-receipt CER is 0.8164 in those figures and 0.0043 under the current prompt, so
-every gemma number here **understates** it. A full re-run is the outstanding
-work.
+**Coverage.** Gemma produced all 165 pages. InternVL produced 164; the one
+failure is scored as a total failure rather than dropped, so all systems are
+averaged over the same 165 transcripts. Docling produced 2 empty pages, scored
+the same way.
 
-**Coverage.** Gemma produced 162 of 165 pages; the 3 failures are scored as
-total failures rather than dropped, so all systems are averaged over the same
-165 transcripts. InternVL produced all 165. Docling produced 2 empty pages,
-scored the same way. Those 3 gemma pages transcribe correctly under the current
-prompt.
+**The two prompted systems were run under the prompt shipped with this corpus**,
+verified by hashing the text actually sent. **The two parsers read no prompt**,
+so their figures are unaffected by prompt revisions and are directly comparable
+throughout.
 
-**The two parsers read no prompt**, so their figures are unaffected by prompt
-revisions and are directly comparable throughout.
+**Row alignment is fragile to single-character errors.** A row is matched by its
+content, so one misread digit in a cell fails that row — and where the
+convention carries a date onto every row of a group, one misread date fails the
+whole group. Two statements lose 27 and 24 rows this way. Alignment percentages
+are therefore a joint measure of segmentation *and* character fidelity, not of
+segmentation alone.
 
 **The column metric conflates two things.** `misfiled` counts an amount as
 misplaced if it is absent from its column for *any* reason, including a misread
@@ -506,7 +547,9 @@ follows the shipped rule, and still diverges.
 **Two correct instructions can be jointly wrong.** Removing the separator rules
 also removed the visual fence around a receipt's totals block, which then looks
 exactly like the headerless item list another rule instructs the model to render
-as a table. Spurious second tables on receipts went from 5 of 55 to 26 of 55.
+as a table. Spurious second tables on gemma's receipts went from 5 of 55 to
+**18 of 55**, and they are the sole source of its 9 fragments and 15 width
+breaks — every one of which is on a receipt, none on a statement.
 
 ---
 
@@ -522,11 +565,19 @@ across model scales, and reporting one without the other overstates both.
 
 **Two metrics that CER cannot replace.** Column integrity, because a page can be
 character-perfect and financially meaningless. Table structure, because column
-integrity presupposes the rows. Together they produced the pass's most
-counter-intuitive result — the system with the worst convention score reads bank
-statements' tables most faithfully — and its most useful one: gemma-4-12B
-produces correct table structure on all three document types, with zero
-fragments and zero width breaks across 165 pages.
+integrity presupposes the rows. Together they produced the pass's most useful
+result — gemma-4-12B gets the column count right on **163 of 165** documents and
+on **all 55 bank statements**, breaking table structure zero times in 1,612
+statement rows — and its most counter-intuitive one: MinerU, which pays the
+largest convention penalty of any system, still places bank-statement amounts
+more accurately than anything else. Reading a table and matching a house style
+are close to independent skills.
+
+**One observation that only a whole-page metric could surface.** A model that
+misreads a running balance then **recomputes every balance below it** from the
+wrong figure. It is arithmetically reconstructing the column rather than
+transcribing it — invisible on any single row, invisible to an extraction task
+pulling one balance, and unmistakable when the whole column is scored at once.
 
 **Four scoring corrections**, each closing a case where formatting was scored as
 misreading: HTML tables, HTML entities, trailing label colons, and repeated-glyph
