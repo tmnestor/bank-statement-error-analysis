@@ -33,6 +33,7 @@ from runners.common import (
     mineru_markdown_path,
     pending,
     runner_error,
+    shard_of,
     verify_complete,
     write_prediction,
 )
@@ -108,6 +109,17 @@ def main(
         str, typer.Option("--backend", help="MinerU backend; vlm-engine is local MLX inference.")
     ] = "vlm-engine",
     chunk: Annotated[int, typer.Option("--chunk", help="Pages per MinerU invocation.")] = 25,
+    shard: Annotated[
+        int,
+        typer.Option(
+            "--shard",
+            help="This process's shard index, from 0. With --shards, runs one whole "
+            "replica per GPU over a disjoint slice.",
+        ),
+    ] = 0,
+    shards: Annotated[
+        int, typer.Option("--shards", help="How many processes share the work; one per GPU.")
+    ] = 1,
     workdir: Annotated[
         Path,
         typer.Option(
@@ -141,6 +153,17 @@ def main(
 
     out_dir = out / system
     todo = pending(out_dir, stems)
+    try:
+        todo = shard_of(todo, index=shard, shards=shards)
+    except RuntimeError as err:
+        rprint(f"[red]{err}[/red]")
+        raise typer.Exit(1) from None
+    # What this process is answerable for. With several, checking every stem
+    # would fail whichever finishes first, since the rest belong to other
+    # processes and are still being written.
+    owned = todo if shards > 1 else stems
+    if shards > 1:
+        rprint(f"[dim]shard {shard} of {shards}: {len(todo)} page(s) of this process[/dim]")
     rprint(f"[bold]{system}[/bold]: {len(todo)} of {len(stems)} page(s) to transcribe")
     if not todo:
         rprint("[green]nothing to do — every page already has a prediction[/green]")
@@ -182,7 +205,7 @@ def main(
     rprint(f"[bold]{system}[/bold]: finished in {elapsed / 60:.1f} min")
 
     try:
-        verify_complete(out_dir, stems)
+        verify_complete(out_dir, owned)
     except RuntimeError as err:
         rprint(f"[red]{err}[/red]")
         raise typer.Exit(1) from None

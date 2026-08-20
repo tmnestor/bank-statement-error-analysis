@@ -37,3 +37,4 @@ docs/figures/
 parsing_probe/
 runs_probe/
 runs_throughput/
+.mineru_work_*/
