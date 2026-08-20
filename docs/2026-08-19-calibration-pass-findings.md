@@ -44,13 +44,14 @@ Four things qualify that, and they are the substance of this document:
    controlled A/B, a rule alone stopped a model emitting the wrong characters
    but not improvising a replacement; the example supplied the behaviour the
    prohibition left undefined.
-3. **Normalised character error rate — this benchmark's headline number — is
-   blind to the two errors that matter most on a bank statement.** It strips
-   Markdown syntax before comparing, and a table's pipes are Markdown syntax, so
-   the delimiters recording which column an amount sits in are discarded first:
-   pages with *every* amount under the wrong heading score 0.08–0.11. And it
-   weighs a wrong digit in a total exactly as it weighs a typo in a merchant's
-   name. Scored on amounts alone, the ranking is close to reversed.
+3. **Normalised character error rate ranks systems adequately and cannot find a
+   bad page.** Across the seven systems it tracks usable-amount rate closely
+   (Spearman ρ = 0.964). *Within* a system it is uncorrelated with whether a
+   page's numbers survive — ρ = 0.01 for two of them, and **−0.17** for the best,
+   whose worst page loses 11% of its amounts at a CER of 0.0000. Three pages in
+   this corpus lose **every** amount to the wrong column while scoring 0.08–0.10.
+   Ranking systems is something you do once; deciding which pages a human must
+   check is something you do on every batch.
 4. **Ground truth and prompt are a matched pair, and both are components under
    test.** Two defects in this corpus were found only by asking whether it
    treated the same visual device the same way everywhere.
@@ -259,9 +260,13 @@ than one measured and one assumed:
 **2.6× the hardware for roughly an order of magnitude fewer wrong amounts.**
 Which side of that is right is a costing question rather than a measurement one,
 and it depends on what a wrong amount costs to catch downstream. What the
-benchmark can say is that the trade is real, roughly linear in cards, and not
-the trade the CER table implies — on median normalised CER the two look 0.0081
-against 0.0000, which reads as a difference of no consequence.
+benchmark can say is that the trade is real and roughly linear in cards.
+
+CER does show this difference where it matters — 0.0202 against 0.0004 on bank
+statements, a fifty-fold ratio. It is over all 165 pages that it flattens, to
+0.0081 against 0.0000, because two thirds of the corpus is easy. Which median
+gets quoted decides whether the difference looks decisive or negligible, and
+finding 9 is about the more serious limitation underneath that.
 
 ---
 
@@ -725,6 +730,60 @@ One qualification. The 31B is a differently trained model, not a scaled 12B, so
 "capacity" is shorthand for everything that differs between the two sizes. It is
 a strong test rather than the clean isolation the precision comparison was.
 
+### 9. CER ranks systems adequately and cannot find a bad page
+
+Every criticism of character error rate in this document has been mechanical:
+it strips the pipes that encode column membership, it prices a wrong digit like
+a typo. Those are arguments. This is the measurement.
+
+**Across systems it works.** Median normalised CER against usable-amount rate,
+over the seven systems on bank statements: **Spearman ρ = 0.964**, one swap in
+seven. As a way of ranking systems it is not misleading, and the case against it
+should not be overstated.
+
+**Within a system it is uncorrelated with whether a page is usable.**
+
+| System | ρ, CER vs unusable amounts, per page | worst page |
+|---|---|---|
+| gemma 31B 4-bit | **−0.17** | 11% of amounts lost at CER **0.0000** |
+| gemma 12B BF16 | **0.01** | 43% lost at CER 0.0653 |
+| gemma 12B BF16 QAT | **0.01** | 46% lost at CER 0.0332 |
+| gemma 12B 4-bit | 0.22 | 59% lost at CER 0.0472 |
+| InternVL3.5-8B | 0.21 | 100% lost at CER 1.0000 |
+| MinerU | 0.52 | 46% lost at CER 0.1039 |
+
+ρ = 0.01 is noise. The best system's is **negative**: its worst page, losing 11%
+of its amounts, scored a perfect 0.0000.
+
+The three most damaged pages in the corpus:
+
+| page | amounts lost | CER |
+|---|---|---|
+| InternVL CASE033 | **38 of 38** | 0.0810 |
+| InternVL CASE012 | **39 of 39** | 0.0924 |
+| InternVL CASE005 | **39 of 39** | 0.1016 |
+
+Every amount on the page in the wrong column, at a character error rate that
+reads as a mildly imperfect transcription.
+
+**That split is the practical conclusion of this whole document.** Ranking
+systems is something you do once. Deciding which pages a human must check is
+something you do on every batch, and for that CER carries no signal at all —
+ρ = 0.01 means a review queue ordered by CER is a review queue ordered at
+random.
+
+The blindness is structural rather than statistical. Normalisation removes
+Markdown syntax; a table's pipes are Markdown syntax; the delimiters recording
+which column an amount sits in are therefore discarded before anything is
+compared. A page can be character-perfect and financially worthless, and CER
+cannot represent the difference — not because it is noisy, but because the
+information is gone by the time it computes.
+
+So: report CER, because it ranks systems and it catches the catastrophes
+(repetition loops, empty pages) that a field-level metric would miss entirely.
+Do not triage on it, do not size a review budget from it, and do not read a
+small CER as evidence that a page's numbers can be used.
+
 ---
 
 ## Limits
@@ -817,6 +876,15 @@ Reading a table, matching a house style and getting the digits right are three
 separable skills, and no single one of them ranks these systems correctly for
 anyone who cares about the money. The figure that does is **usable** — present,
 right value, right heading — and it is the one to quote.
+
+**And a measured limit on the headline metric, rather than an argued one.**
+Across systems, normalised CER tracks usable-amount rate closely: Spearman
+ρ = 0.964 over seven systems. Within a system it is uncorrelated with whether a
+page's numbers survive — ρ = 0.01 for two of them, −0.17 for the best. A review
+queue ordered by CER is a review queue ordered at random. Report it, because it
+ranks systems and it catches the catastrophes a field-level metric would miss;
+do not triage on it, and do not read a small CER as evidence that a page's
+numbers can be used.
 
 **One observation that only a whole-page metric could surface.** A model that
 misreads a running balance then **recomputes every balance below it** from the
