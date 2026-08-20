@@ -9,8 +9,16 @@
 #   fits one card  -> scale by replicas. No NCCL, no interconnect requirement,
 #                     a dead card costs one replica and nothing else.
 #   does not fit   -> every request must be sharded, which on NVLink-less L4s
-#                     means tensor parallel over PCIe, and this host records an
-#                     SHM deadlock on exactly that path.
+#                     means tensor parallel over PCIe, with an all-reduce on
+#                     every layer.
+#
+# PROD note if the sharded path is the one you end up on: vLLM's tensor-parallel
+# communication goes through shared memory, and an undersized /dev/shm makes it
+# HANG rather than fail — a deadlock with no error, which reads as a wedged
+# model. PROD hit that and it was resolved by raising the limit. Containers
+# commonly default to 64 MB and vLLM wants gigabytes: `--shm-size` on Docker,
+# `emptyDir: {medium: Memory}` on Kubernetes. Size it before deploying, not
+# after the first silent hang.
 #
 # Accuracy is already measured on the L40S over all 165 pages. This runs three
 # pages per configuration, because the outcome is load-or-not and the peak
@@ -114,7 +122,7 @@ run_probe() {
 }
 
 run_probe gemma-4-31B-it-qat-w4a16-ct-1xL4    0   "one whole replica on ONE L4 (the replica-scaling path)"
-run_probe gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2 0,1 "one engine sharded across BOTH L4s (tp=2, the path this host records a deadlock on)"
+run_probe gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2 0,1 "one engine sharded across BOTH L4s (tp=2)"
 
 cat <<NOTE
 === what the outcomes mean for a 24 GB cluster ===

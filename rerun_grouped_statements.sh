@@ -56,9 +56,9 @@ echo
 
 # ---------------------------------------------------------------- run
 # One whole engine per card over a disjoint, strided slice. tp=1 means one
-# engine PER GPU, not one GPU: the L4s have no NVLink, and the data-parallel
-# path uses no NCCL and no /dev/shm. Systems run one after another because
-# 2x24 GB will not hold two models at once.
+# engine PER GPU, not one GPU: a card holds a whole replica, so nothing has to
+# all-reduce across PCIe. Systems run one after another because 2x24 GB will not
+# hold two models at once.
 for s in "${SYSTEMS[@]}"; do
     echo "=== $s ==="
     CUDA_VISIBLE_DEVICES=0 python -u -m runners.run_vlm --corpus "$CORPUS" \

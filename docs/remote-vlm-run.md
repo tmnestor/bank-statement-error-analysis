@@ -74,9 +74,10 @@ starting guess. It is written once and applied to both places vLLM reads it
 `hf_overrides.vision_config.num_soft_tokens`), so the two cannot disagree.
 
 `tensor_parallel_size: 1` means **one whole engine per GPU**, not one GPU. A
-card fits a whole engine, so a 2xL4 host runs two engines rather than sharding
-one engine tp=2 across PCIe — the L4s have no NVLink, and the data-parallel path
-uses no NCCL and no /dev/shm, sidestepping the tensor-parallel SHM deadlock.
+card fits a whole engine for the 12B, so a 2xL4 host runs two engines rather
+than sharding one engine tp=2 across PCIe: a whole replica per card avoids an
+all-reduce per layer over an interconnect these cards do not have. Where the
+weights do NOT fit one card — the 31B — tp=2 is the option, and it works.
 
 **Use both cards.** Run one process per GPU over disjoint pages:
 

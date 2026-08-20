@@ -142,9 +142,9 @@ def shard_of(stems: list[str], *, index: int, shards: int) -> list[str]:
     """Take one data-parallel process's disjoint slice of the pages.
 
     Data parallelism here is one whole engine per GPU — the arrangement the
-    LMM_POC sandbox uses for its 2xL4, because a card fits a whole engine and
-    sharding one engine tp=2 across PCIe hits a documented SHM deadlock on
-    NVLink-less L4s. Each process loads its own engine, takes a disjoint slice,
+    LMM_POC sandbox uses for its 2xL4, because a card fits a whole engine and a
+    whole replica per card avoids an all-reduce per layer across PCIe on cards
+    with no NVLink. Each process loads its own engine, takes a disjoint slice,
     and writes to the same output directory; the resume logic already skips
     whatever another process has finished, so nothing has to coordinate.
 

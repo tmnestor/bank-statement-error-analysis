@@ -115,9 +115,10 @@ systems:
     vllm_engine:
       # tp=1 means ONE WHOLE ENGINE PER GPU, not one GPU. 9.56 GiB fits a card
       # whole, so the sandbox runs 2xL4 as two engines (tp=1 each) rather than
-      # sharding one engine tp=2 across PCIe — the L4s have no NVLink, and the
-      # data-parallel path uses no NCCL and no /dev/shm, sidestepping the
-      # tensor-parallel SHM deadlock that host records.
+      # sharding one engine tp=2 across PCIe. A whole replica per card is the
+      # better arrangement when the weights fit one: no all-reduce per layer
+      # over an interconnect these cards do not have, and a dead card costs one
+      # replica rather than a serving unit.
       #
       # Use both cards by running one process per GPU over disjoint pages:
       #   CUDA_VISIBLE_DEVICES=0 python -m runners.run_vlm ... --shard 0 --shards 2 &
@@ -219,9 +220,8 @@ systems:
   # `unquantized` says this distribution has not had it applied. Its model card
   # calls it "half-precision weights extracted from the QAT pipeline".
   #
-  # Both are ~24 GB at BF16 and need a 48 GB card. Neither fits an L4 beside a
-  # KV cache, and sharding one engine across both hits the SHM deadlock that
-  # host records. One L40S, one engine, no --shards, one after the other.
+  # Both are ~24 GB at BF16 and need a 48 GB card: neither fits an L4 beside a
+  # KV cache. One L40S, one engine, no --shards, one after the other.
   # ---------------------------------------------------------------------------
 
   # Control 3, and it asks a different question from the other two. Those
@@ -281,8 +281,7 @@ systems:
   #   fits one card    -> scale by replicas. No NCCL, no interconnect
   #                       requirement, a dead card costs one replica.
   #   does not fit     -> every request must be sharded across cards, which on
-  #                       NVLink-less L4s means tensor parallel over PCIe, and
-  #                       this host records an SHM deadlock on exactly that.
+  #                       NVLink-less L4s means tensor parallel over PCIe.
   #
   # Same checkpoint as gemma-4-31B-it-qat-w4a16-ct; only the engine differs, and
   # the names say which deployment each is. Keep their predictions out of the
@@ -330,9 +329,21 @@ systems:
 
   # Probe 2: one engine sharded across both L4s. Halves the weights per card and
   # buys real KV headroom, at the cost of an all-reduce on every layer over PCIe
-  # — no NVLink on these cards. This host records an SHM deadlock on exactly
-  # this path, so the probe is as much a check of whether that reproduces as of
-  # whether the memory works.
+  # — no NVLink on these cards, so the all-reduce crosses PCIe on every layer.
+  # The probe asks whether the memory works and what it costs in throughput.
+  #
+  # DEPLOYMENT NOTE, and it applies to PROD rather than to this sandbox. vLLM's
+  # tensor-parallel path communicates through shared memory, and an undersized
+  # /dev/shm makes it hang rather than fail — a deadlock with no error, which
+  # reads as a wedged model. PROD hit exactly that and it was resolved by
+  # raising the shared-memory limit. The sandbox is sized adequately and has
+  # never shown it.
+  #
+  # This is not incidental here: the 31B does not fit a 24 GB card, so on an
+  # A10G or L4 cluster it MUST run tensor-parallel. Size /dev/shm before
+  # deploying it, or the first thing that happens is a hang with nothing in the
+  # logs. Containers commonly default to 64 MB; vLLM wants gigabytes
+  # (`--shm-size` on Docker, `emptyDir: {medium: Memory}` on Kubernetes).
   gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2:
     transport: vllm_offline
     model: /home/jovyan/nfs_share/models/gemma-4-31B-it-qat-w4a16-ct
