@@ -270,6 +270,94 @@ systems:
       soft_tokens: 560
       tokenizer: none
 
+  # ---------------------------------------------------------------------------
+  # DEPLOYMENT PROBES: does the 31B fit a 24 GB card?
+  #
+  # The 31B is the best system in this study by a wide margin, and at 4 bits its
+  # weights are SMALLER than the 12B at BF16. Production here is a multi-A10G or
+  # multi-L4 cluster — 24 GB cards — so the question is not whether it runs but
+  # whether ONE CARD HOLDS A WHOLE REPLICA. That decides the deployment shape:
+  #
+  #   fits one card    -> scale by replicas. No NCCL, no interconnect
+  #                       requirement, a dead card costs one replica.
+  #   does not fit     -> every request must be sharded across cards, which on
+  #                       NVLink-less L4s means tensor parallel over PCIe, and
+  #                       this host records an SHM deadlock on exactly that.
+  #
+  # Same checkpoint as gemma-4-31B-it-qat-w4a16-ct; only the engine differs, and
+  # the names say which deployment each is. Keep their predictions out of the
+  # scored comparison: a shorter max_model_len can truncate where the declared
+  # configuration would not, so they answer a capacity question, not an accuracy
+  # one.
+  # ---------------------------------------------------------------------------
+
+  # Probe 1: one whole replica on one L4. max_model_len is the binding
+  # constraint, not the weights — ~18 GB of weights on a 24 GB card leaves a few
+  # GB for the KV cache, and the cache scales with max_model_len x max_num_seqs.
+  #
+  # 12288 is a floor, not a preference. A page needs 560 image tokens plus ~1000
+  # of prompt plus up to max_output_tokens (8192) of transcription; drop below
+  # about 10k and long bank statements start truncating, which would score as
+  # the model failing rather than the card being too small.
+  gemma-4-31B-it-qat-w4a16-ct-1xL4:
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/gemma-4-31B-it-qat-w4a16-ct
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 900
+    mlx_unused_towers: []
+    image_first: true
+    repetition_penalty: 1.0
+    vllm_engine:
+      tensor_parallel_size: 1
+      max_model_len: 12288
+      # 0.95 rather than 0.90: this probe is asking whether the card can be made
+      # to hold a replica at all, so it should not fail for want of the last
+      # 5% it is allowed to use.
+      gpu_memory_utilization: 0.95
+      # One sequence at a time. Concurrency multiplies the KV cache, and the
+      # question here is the floor, not the throughput.
+      max_num_seqs: 1
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      soft_tokens: 560
+      tokenizer: none
+
+  # Probe 2: one engine sharded across both L4s. Halves the weights per card and
+  # buys real KV headroom, at the cost of an all-reduce on every layer over PCIe
+  # — no NVLink on these cards. This host records an SHM deadlock on exactly
+  # this path, so the probe is as much a check of whether that reproduces as of
+  # whether the memory works.
+  gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2:
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/gemma-4-31B-it-qat-w4a16-ct
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 900
+    mlx_unused_towers: []
+    image_first: true
+    repetition_penalty: 1.0
+    vllm_engine:
+      tensor_parallel_size: 2
+      # The declared length, since sharding should afford it.
+      max_model_len: 16384
+      gpu_memory_utilization: 0.90
+      max_num_seqs: 10
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      soft_tokens: 560
+      tokenizer: none
+
   # Control 1: the same QAT weights as the 4-bit checkpoint, at BF16. Precision
   # is the ONLY variable against w4a16-ct, which makes this the clean control
   # and the one to quote.
