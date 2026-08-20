@@ -25,7 +25,11 @@ set -euo pipefail
 
 OUT=${OUT:-runs_control}
 CORPUS=${CORPUS:-}
-SYSTEMS=(gemma-4-12B-it-qat-q4_0-unquantized gemma-4-12B-it)
+# Systems may be named as arguments; the two 12B precision controls are the
+# default. For the capacity question:
+#   OUT=runs_31b ./run_quantisation_control.sh gemma-4-31B-it-qat-w4a16-ct
+SYSTEMS=("$@")
+[[ ${#SYSTEMS[@]} -gt 0 ]] || SYSTEMS=(gemma-4-12B-it-qat-q4_0-unquantized gemma-4-12B-it)
 
 if ! grep -q "four or more" config/prompt.md; then
     echo "config/prompt.md does not carry the decoration rule — run 'git pull'."

@@ -224,6 +224,52 @@ systems:
   # host records. One L40S, one engine, no --shards, one after the other.
   # ---------------------------------------------------------------------------
 
+  # Control 3, and it asks a different question from the other two. Those
+  # measured what PRECISION costs at 12B: 4-bit -> BF16 buys +4.1 points of
+  # bank-statement amount accuracy (90.3% -> 94.4%), while QAT training buys
+  # +0.1. That leaves 5.5 points between the best gemma and MinerU's 100.0%
+  # which is neither precision nor QAT.
+  #
+  # This tests whether that residue is CAPACITY. Same 4-bit w4a16-ct format as
+  # the 12B, so quantisation is held fixed and parameter count is the variable:
+  #
+  #   31B@4-bit near 100%  ->  4-bit is not the binding constraint at all, the
+  #                            12B's deficit is size, and the finding is about
+  #                            model capacity rather than quantisation.
+  #   31B@4-bit near  90%  ->  the deficit tracks the quantisation, not the
+  #                            parameter count, and scaling will not fix it.
+  #
+  # ~18-20 GB at 4 bits, so it fits the 48 GB L40S with room for the KV cache.
+  # Its BF16 counterpart is ~62 GB and does NOT fit, so precision cannot be
+  # isolated within the 31B on this hardware the way it was for the 12B.
+  gemma-4-31B-it-qat-w4a16-ct:
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/gemma-4-31B-it-qat-w4a16-ct
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    # Identical decoding to every other gemma run in this pass.
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 900
+    mlx_unused_towers: []
+    image_first: true
+    repetition_penalty: 1.0
+    vllm_engine:
+      tensor_parallel_size: 1
+      max_model_len: 16384
+      gpu_memory_utilization: 0.90
+      max_num_seqs: 10
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      # Held at the 12B's measured value. soft_tokens is the vision budget, and
+      # varying it here would confound capacity with what the model can see —
+      # which is the one thing this run exists to separate.
+      soft_tokens: 560
+      tokenizer: none
+
   # Control 1: the same QAT weights as the 4-bit checkpoint, at BF16. Precision
   # is the ONLY variable against w4a16-ct, which makes this the clean control
   # and the one to quote.
