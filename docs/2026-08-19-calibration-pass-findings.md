@@ -179,6 +179,44 @@ same QAT weights at BF16, the plain BF16 instruct model, and a 31B at 4-bit.
 They exist to separate precision, QAT training and capacity as explanations for
 character-level error — see finding 8.
 
+### What each system needs to run
+
+Weights measured on disk, not derived from parameter counts. Under vLLM the
+memory a process actually claims is `gpu_memory_utilization` × the card
+regardless — what varies is how much of that budget the weights leave for the
+KV cache, and the KV cache is what fails first.
+
+| System | weights | 24 GB card | ran on |
+|---|---|---|---|
+| Docling (granite-docling-258M-mlx) | 0.6 GB | — | M1 16 GB, unified memory |
+| MinerU (MinerU2.5-Pro-2605-1.2B) | 2.2 GB | — | M1 16 GB, unified memory |
+| gemma-4-12B-it-qat-w4a16-ct | **9.7 GB** | one replica per card | 2×L4 |
+| InternVL3.5-8B | 16 GB | one replica per card | L4 |
+| gemma-4-31B-it-qat-w4a16-ct | **22 GB** | **no — needs 2 cards** | L40S; 2×L4 tp=2 |
+| gemma-4-12B-it-qat-q4_0-unquantized | 23 GB | no | L40S 48 GB |
+| gemma-4-12B-it | 23 GB | no | L40S 48 GB |
+| *gemma-4-31B-it (BF16)* | *59 GB* | *no* | *fits nothing available* |
+
+Two consequences worth reading off it.
+
+**The 31B at 4 bits is 22 GB, not the ~15 GB its parameter count suggests.** The
+embedding and vision tensors stay at higher precision and Gemma's vocabulary is
+large. On a 23,034 MiB card that leaves nothing for a KV cache: the single-card
+probe peaked at 21,908 MiB and died allocating it. Sharded across two L4s it
+loads and runs, holding ~20.4 GB per card.
+
+So on 24 GB hardware **the best system in this study is a two-card-per-request
+model**. Throughput scales at half the rate per card, a card failure takes out a
+serving unit rather than a replica, and every layer all-reduces over PCIe. The
+accuracy that buys is 99.8% of bank-statement amounts against the 12B 4-bit's
+90.3% at one replica per card — roughly one wrong amount per statement against
+one per twelve.
+
+**The 31B has no BF16 counterpart that fits anything here**, at 59 GB against a
+48 GB card. That is why finding 8's precision comparison is done at 12B and its
+capacity comparison at 4 bits: those are the two experiments the hardware
+permits.
+
 ---
 
 ## Results

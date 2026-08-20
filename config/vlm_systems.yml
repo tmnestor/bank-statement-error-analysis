@@ -273,10 +273,12 @@ systems:
   # ---------------------------------------------------------------------------
   # DEPLOYMENT PROBES: does the 31B fit a 24 GB card?
   #
-  # The 31B is the best system in this study by a wide margin, and at 4 bits its
-  # weights are SMALLER than the 12B at BF16. Production here is a multi-A10G or
-  # multi-L4 cluster — 24 GB cards — so the question is not whether it runs but
-  # whether ONE CARD HOLDS A WHOLE REPLICA. That decides the deployment shape:
+  # The 31B is the best system in this study by a wide margin. Its weights are
+  # 22 GB at 4 bits (measured, not estimated) — barely under the BF16 12B's
+  # 23 GB, because the embedding and vision tensors stay at higher precision and
+  # Gemma's vocabulary is large. Production here is a multi-A10G or multi-L4
+  # cluster — 24 GB cards — so the question is not whether it runs but whether
+  # ONE CARD HOLDS A WHOLE REPLICA. That decides the deployment shape:
   #
   #   fits one card    -> scale by replicas. No NCCL, no interconnect
   #                       requirement, a dead card costs one replica.

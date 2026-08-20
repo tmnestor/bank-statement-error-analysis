@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Does the 31B fit a 24 GB card? A capacity probe, not an accuracy run.
 #
-# The 31B is the best system in this study by a wide margin, and at 4 bits its
-# weights are SMALLER than the 12B at BF16. Production is a multi-A10G or
-# multi-L4 cluster — 24 GB cards — so the question that decides the deployment
-# shape is whether ONE CARD HOLDS A WHOLE REPLICA:
+# The 31B is the best system in this study by a wide margin. Its weights are
+# 22 GB at 4 bits — measured, and barely under the BF16 12B's 23 GB, since the
+# embedding and vision tensors stay at higher precision. Production is a
+# multi-A10G or multi-L4 cluster — 24 GB cards — so the question that decides
+# the deployment shape is whether ONE CARD HOLDS A WHOLE REPLICA:
 #
 #   fits one card  -> scale by replicas. No NCCL, no interconnect requirement,
 #                     a dead card costs one replica and nothing else.
@@ -142,6 +143,6 @@ both fail
     truncate), then max_num_seqs, then accept the 12B BF16 on 48 GB instead —
     which reads amounts at 94.5% against the 31B's 99.8%.
 
-Peak memory above is sampled at 5s intervals during the run, since vLLM frees
+Peak memory above is sampled every second during the run, since vLLM frees
 its allocation on exit and anything measured afterwards reads zero.
 NOTE
