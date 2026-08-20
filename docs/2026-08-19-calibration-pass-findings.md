@@ -196,10 +196,8 @@ budget the weights leave for the KV cache, and the KV cache is what fails first.
 | gemma-4-12B-it | 23 GB | no | L40S 48 GB |
 | *gemma-4-31B-it (BF16)* | *59 GB* | *no* | *fits nothing available* |
 
-MinerU is 2.2 GB and fits a card many times over, so it is measured on the L4s
-like everything else. Its earlier figures in this study came from Apple Silicon
-via MLX and are **not** quoted here: 41 of 165 pages differ between the two
-stacks, and a laptop's numbers do not describe a 24 GB cluster.
+MinerU is 2.2 GB and fits a card many times over. Every system here is measured
+on the L4s, so nothing in this document mixes hardware.
 
 Two consequences worth reading off it.
 
