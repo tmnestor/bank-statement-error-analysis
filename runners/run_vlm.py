@@ -838,11 +838,12 @@ def main(
             inference_seconds=elapsed,
             pages=len(todo),
             cards=cards,
+            shard=shard,
+            shards=shards,
         )
         rprint(
-            f"[dim]{60 * len(todo) / elapsed:.1f} images/min "
-            f"({60 * len(todo) / elapsed / cards:.1f} per card across {cards}); "
-            f"timing written to {timing}[/dim]"
+            f"[dim]{60 * len(todo) / elapsed:.1f} images/min from this process "
+            f"on {cards} card(s); timing written to {timing}[/dim]"
         )
     rprint(f"[bold]{system}[/bold]: {len(todo) - len(failures)} written in {elapsed / 60:.1f} min")
 

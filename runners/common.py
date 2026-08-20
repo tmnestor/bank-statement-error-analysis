@@ -355,13 +355,28 @@ def write_timing(
     inference_seconds: float,
     pages: int,
     cards: int,
+    shard: int = 0,
+    shards: int = 1,
 ) -> Path:
-    """Record throughput as images per minute, so configurations can be compared.
+    """Record throughput, so configurations can be compared rather than recalled.
 
-    Deployment decisions here turn on images per minute PER CARD: a model needing
-    two cards for one request buys its accuracy at half the throughput of one
-    that fits a card whole, and comparing the two from console output means
-    reading a stopwatch off scrollback.
+    The number a cluster is sized on is what a BOX delivers, not what one card
+    does. Those differ by how the model is deployed, and the deployment follows
+    from whether the weights fit a card:
+
+        fits    -> one whole replica per card, data-parallel. Two cards run two
+                   independent engines and the box does both their work.
+        does not-> one engine sharded across the cards, tensor-parallel. Two
+                   cards serve one request between them.
+
+    Measuring one card and doubling it would assume data parallelism scales
+    linearly. It roughly does, and roughly is not measured — replicas contend for
+    host CPU during image preprocessing and for PCIe, so the box is the thing to
+    time.
+
+    Each data-parallel process therefore writes its OWN file. Sharing one would
+    mean the last writer won and the run reported half its pages as though they
+    were all of them, which reads as a system half as fast as it is.
 
     Model load is excluded outright. It is paid once per process, not per page,
     so counting it would make a short run look slower than a long one of the same
@@ -374,29 +389,28 @@ def write_timing(
         out_dir: The system's prediction directory.
         system: The system name, recorded for the reader.
         inference_seconds: Seconds spent generating, across every page.
-        pages: How many pages were attempted.
-        cards: How many GPUs this process occupied, so per-card throughput is
-            derivable without knowing how the run was launched.
+        pages: How many pages this process attempted.
+        cards: How many GPUs this process occupied.
+        shard: This process's index, when several share the work.
+        shards: How many processes are sharing it.
 
     Returns:
         The path written.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "_timing.json"
+    name = "_timing.json" if shards == 1 else f"_timing.shard{shard}.json"
+    path = out_dir / name
     path.write_text(
         json.dumps(
             {
                 "system": system,
                 "cards": cards,
+                "shard": shard,
+                "shards": shards,
                 "images": pages,
                 "inference_seconds": round(inference_seconds, 1),
                 "images_per_minute": (
                     round(60 * pages / inference_seconds, 2) if inference_seconds else None
-                ),
-                "images_per_minute_per_card": (
-                    round(60 * pages / inference_seconds / cards, 2)
-                    if inference_seconds and cards
-                    else None
                 ),
             },
             indent=2,
@@ -404,6 +418,40 @@ def write_timing(
         encoding="utf-8",
     )
     return path
+
+
+def read_timing(system_dir: Path) -> dict | None:
+    """Combine one system's shards into what the box delivered.
+
+    Shards run concurrently, so the box's wall clock is the SLOWEST of them, not
+    their sum — and the images are the sum, not the slowest. Getting either the
+    wrong way round misreports throughput by the number of shards.
+
+    Args:
+        system_dir: A system's prediction directory.
+
+    Returns:
+        Aggregate throughput, or None where nothing was timed.
+    """
+    files = sorted(system_dir.glob("_timing*.json"))
+    if not files:
+        return None
+    parts = [json.loads(path.read_text(encoding="utf-8")) for path in files]
+
+    images = sum(part["images"] for part in parts)
+    seconds = max(part["inference_seconds"] for part in parts)
+    cards = sum(part["cards"] for part in parts)
+    return {
+        "system": parts[0]["system"],
+        "deployment": "tp" if parts[0]["shards"] == 1 and cards > 1 else f"dp={len(parts)}",
+        "cards": cards,
+        "images": images,
+        "inference_seconds": round(seconds, 1),
+        "images_per_minute": round(60 * images / seconds, 2) if seconds else None,
+        "images_per_minute_per_card": (
+            round(60 * images / seconds / cards, 2) if seconds and cards else None
+        ),
+    }
 
 
 def verify_complete(out_dir: Path, stems: list[str]) -> None:
