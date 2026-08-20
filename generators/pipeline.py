@@ -739,7 +739,7 @@ def score(
             if figures["misread"] or figures["dropped"] or figures["invented"]:
                 numbers["documents_with_an_error"] += 1
 
-            row: dict[str, str | float] = {"stem": stem}
+            row: dict[str, str | float | bool] = {"stem": stem}
             for metric, (left, right) in pairs.items():
                 char_distance, char_rate = cer(left, right)
                 word_distance, word_rate = wer(left, right)
@@ -749,6 +749,28 @@ def score(
                 totals[metric]["words"] += len(left.split())
                 row[f"{metric}_cer"] = char_rate
                 row[f"{metric}_wer"] = word_rate
+
+            # Per-document structural and numeric counts, not only the corpus
+            # aggregate. Every interesting reading of this benchmark has been a
+            # per-document-type one -- bank statements are the only hard tables,
+            # and averaging them with near-saturated invoices hides the result --
+            # so a report that carries only totals forces every such breakdown
+            # to re-read the predictions. Those are gitignored and
+            # machine-specific, which would tie any analysis to the machine that
+            # produced them. With these fields the JSON report is sufficient on
+            # its own.
+            row["amounts"] = integrity["amounts"]
+            row["misfiled"] = integrity["misfiled"]
+            row["columns_match"] = integrity["columns_match"]
+            row["truth_rows"] = structure["truth_rows"]
+            row["aligned"] = structure["aligned"]
+            row["fragments"] = structure["fragments"]
+            row["width_breaks"] = structure["width_breaks"]
+            row["truth_amounts"] = figures["truth_amounts"]
+            row["amounts_correct"] = figures["matched"]
+            row["misread"] = figures["misread"]
+            row["dropped"] = figures["dropped"]
+            row["invented"] = figures["invented"]
             per_document.append(row)
             system_hunks.extend(hunks(truth, prediction, convention))
 

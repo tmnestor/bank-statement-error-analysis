@@ -29,3 +29,6 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# Generated figures: derived from the (gitignored) score reports.
+docs/figures/
