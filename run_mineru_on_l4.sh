@@ -94,12 +94,19 @@ echo
 # into a scratch directory and deletes it afterwards, so two processes sharing
 # one would delete each other's inputs mid-run. Both must also sit OUTSIDE --out,
 # since score treats every subdirectory of the predictions root as a system.
+# vlm-engine, stated explicitly and NOT left to the default. MinerU's default is
+# now hybrid-engine, a different parsing method — using it would compare a
+# hybrid-engine run on CUDA against a vlm-engine run on Metal and attribute the
+# difference to the hardware. vlm-engine is the same backend name the Mac run
+# used; MinerU picks the local accelerator itself, MLX there and vLLM here.
+BACKEND=${BACKEND:-vlm-engine}
+echo "backend: $BACKEND"
 started=$SECONDS
 CUDA_VISIBLE_DEVICES=0 python -u -m runners.run_mineru --corpus "$CORPUS" \
-    --out "$OUT" --system "$SYSTEM" --backend vlm-vllm-engine \
+    --out "$OUT" --system "$SYSTEM" --backend "$BACKEND" \
     --shard 0 --shards 2 --workdir .mineru_work_0 & p0=$!
 CUDA_VISIBLE_DEVICES=1 python -u -m runners.run_mineru --corpus "$CORPUS" \
-    --out "$OUT" --system "$SYSTEM" --backend vlm-vllm-engine \
+    --out "$OUT" --system "$SYSTEM" --backend "$BACKEND" \
     --shard 1 --shards 2 --workdir .mineru_work_1 & p1=$!
 wait $p0 || echo "!! shard 0 failed"
 wait $p1 || echo "!! shard 1 failed"
