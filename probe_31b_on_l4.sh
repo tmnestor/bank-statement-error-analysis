@@ -59,8 +59,11 @@ echo
 # Sampled during the run rather than after: vLLM frees its allocation on exit,
 # so peak usage is invisible to anything that looks afterwards.
 watch_memory() {
-    local label=$1 log=$2
-    while sleep 5; do
+    local log=$1
+    # One second, not five. An engine that refuses to start does so in a couple
+    # of seconds, and a five-second sample reads an idle card and reports 18 MiB
+    # as though that were the peak.
+    while sleep 1; do
         nvidia-smi --query-gpu=index,memory.used --format=csv,noheader >> "$log" 2>/dev/null || true
     done
 }
@@ -68,23 +71,45 @@ watch_memory() {
 run_probe() {
     local system=$1 devices=$2 label=$3
     echo "=== $label ==="
-    local log="${OUT}/${system}.memory.log"
     mkdir -p "$OUT"
-    : > "$log"
+    local mem="${OUT}/${system}.memory.log"
+    local full="${OUT}/${system}.run.log"
+    : > "$mem"
 
-    watch_memory "$label" "$log" & local watcher=$!
+    watch_memory "$mem" & local watcher=$!
     local status=0
+    # The WHOLE log to a file. vLLM prints the root cause well above the final
+    # traceback, so tailing the console output discards the only line that says
+    # what went wrong -- which is the entire point of a probe.
     CUDA_VISIBLE_DEVICES=$devices timeout 1800 python -u -m runners.run_vlm \
-        --corpus "$PROBE" --system "$system" --out "$OUT" 2>&1 | tail -25 || status=$?
+        --corpus "$PROBE" --system "$system" --out "$OUT" > "$full" 2>&1 || status=$?
     kill $watcher 2>/dev/null || true
 
     local peak
-    peak=$(awk -F', ' '{gsub(/ MiB/,"",$2); if ($2+0 > m) m = $2+0} END {print m+0}' "$log")
+    peak=$(awk -F', ' '{gsub(/ MiB/,"",$2); if ($2+0 > m) m = $2+0} END {print m+0}' "$mem")
+
     if [[ $status -eq 0 ]]; then
-        echo "  RESULT: fits.  peak $peak MiB on one card"
-    else
-        echo "  RESULT: FAILED (exit $status).  peak $peak MiB before it stopped"
+        echo "  RESULT: FITS.  peak $peak MiB"
+        echo "  log: $full"
+        echo
+        return
     fi
+
+    echo "  RESULT: FAILED (exit $status).  peak $peak MiB"
+    echo "  full log: $full"
+
+    # Distinguish "too big for the card" from everything else. A probe that
+    # reports every failure as "does not fit" would answer the question wrongly
+    # whenever the cause is a driver, a config or a missing file.
+    if grep -qiE "out of memory|CUDA out of memory|No available memory|less than desired GPU memory|memory profiling|KV cache" "$full"; then
+        echo "  DIAGNOSIS: memory. This is the answer the probe was asking for."
+    else
+        echo "  DIAGNOSIS: NOT memory -- the engine failed for another reason."
+        echo "  This does not answer the capacity question. Root cause:"
+    fi
+    echo
+    grep -iE "error|Error|ERROR|Traceback|raise |assert|not enough|out of memory|available memory|free memory|Cannot|Failed|unsupported|No module" "$full" \
+        | grep -viE "^\s*[0-9]+ +\|" | head -20 | sed 's/^/      /'
     echo
 }
 
