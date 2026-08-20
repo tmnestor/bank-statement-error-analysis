@@ -13,7 +13,7 @@ scores*.json
 
 # Predictions and excluded runs: large, machine-specific, and transferred out
 # of band rather than versioned.
-runs/
+runs*/
 runs_v*/
 runs_decoration_*/
 runs_excluded/
