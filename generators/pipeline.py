@@ -678,7 +678,18 @@ def score(
         # pipes that encode column membership, so CER is blind to an amount
         # filed under the wrong heading -- the one error a bank statement
         # cannot tolerate.
-        columns = {"amounts": 0, "misfiled": 0, "documents_mismatched": 0}
+        # Two independent questions about an extracted amount, kept apart because
+        # a single rate answers neither: is the number on the page at all, and
+        # was it taken from the right place. `usable` is their conjunction and is
+        # what a consumer feels; it cannot rank a system on either dimension.
+        columns = {
+            "amounts": 0,
+            "read": 0,
+            "placed": 0,
+            "misfiled": 0,
+            "usable": 0,
+            "documents_mismatched": 0,
+        }
         # Table structure, scored apart from CER and apart from column
         # assignment: a system can transcribe cells near-perfectly while
         # shredding row segmentation, and one number would hide the trade.
@@ -731,6 +742,11 @@ def score(
             integrity = column_integrity(truth, prediction)
             columns["amounts"] += integrity["amounts"]
             columns["misfiled"] += integrity["misfiled"]
+            columns["read"] += integrity["read"]
+            columns["placed"] += integrity["placed"]
+            # Read correctly AND filed correctly. The only one of these numbers
+            # a downstream consumer can act on.
+            columns["usable"] += integrity["amounts"] - integrity["misfiled"]
             columns["documents_mismatched"] += 0 if integrity["columns_match"] else 1
 
             figures = numeric_fidelity(truth, prediction)
@@ -761,6 +777,9 @@ def score(
             # its own.
             row["amounts"] = integrity["amounts"]
             row["misfiled"] = integrity["misfiled"]
+            row["read"] = integrity["read"]
+            row["placed"] = integrity["placed"]
+            row["usable"] = integrity["amounts"] - integrity["misfiled"]
             row["columns_match"] = integrity["columns_match"]
             row["truth_rows"] = structure["truth_rows"]
             row["aligned"] = structure["aligned"]
@@ -843,7 +862,26 @@ def _print_score_report(systems: dict, grouped: dict, report: Path) -> None:
 
 
 def _print_column_integrity(systems: dict) -> None:
-    """Report amounts filed under the wrong column heading.
+    """Report the two independent ways an extracted amount can be wrong.
+
+    **1. read** — is the number on the page at all? The share of the page's
+    amounts whose value appears anywhere in the prediction's tables. Position is
+    discarded, so this is reading alone.
+
+    **2. placed** — was it taken from the right position? Of the amounts that
+    WERE read, the share sitting under the heading the page puts them under.
+    Conditional on reading, so a system is neither credited for placing amounts
+    it never produced nor charged for misplacing ones it never read.
+
+    They are orthogonal and they rank systems differently: measured 2026-08-20
+    on bank statements, InternVL3.5-8B reads 5.3 points more amounts than
+    gemma-4-12B and places 8.8 points fewer of them correctly. Quoting either
+    alone misdescribes both.
+
+    **usable** is their conjunction — right value, right heading — and is what a
+    downstream consumer feels, since an amount read perfectly and filed wrongly
+    is indistinguishable from one misread. It is the deployment figure and the
+    wrong tool for diagnosing which dimension failed.
 
     Reported apart from CER on purpose. The pages draw no vertical rules, so a
     model infers column membership rather than reading it; normalisation then
@@ -853,11 +891,12 @@ def _print_column_integrity(systems: dict) -> None:
     Args:
         systems: Per-system aggregates carrying a `columns` block.
     """
-    integrity = Table(title="Column integrity (amounts filed under the wrong heading)")
+    integrity = Table(title="Extracted amounts: is it on the page, and is it in the right place")
     integrity.add_column("system")
     integrity.add_column("amounts", justify="right")
-    integrity.add_column("misfiled", justify="right")
-    integrity.add_column("misfiled %", justify="right")
+    integrity.add_column("1. read", justify="right")
+    integrity.add_column("2. placed", justify="right")
+    integrity.add_column("usable", justify="right")
     integrity.add_column("docs with wrong column count", justify="right")
 
     for system, scores in sorted(systems.items()):
@@ -865,12 +904,17 @@ def _print_column_integrity(systems: dict) -> None:
         if not counts:
             continue
         total = counts["amounts"]
-        rate = (counts["misfiled"] / total * 100) if total else 0.0
+        read = (counts["read"] / total * 100) if total else 0.0
+        # Conditional on having been read, which is what makes it a measure of
+        # placement rather than of reading.
+        placed = (counts["placed"] / counts["read"] * 100) if counts["read"] else None
+        usable = (counts["usable"] / total * 100) if total else 0.0
         integrity.add_row(
             system,
             f"{total}",
-            f"{counts['misfiled']}",
-            f"{rate:.1f}%",
+            f"{read:.1f}%",
+            f"{placed:.1f}%" if placed is not None else "-",
+            f"{usable:.1f}%",
             f"{counts['documents_mismatched']}",
         )
     rprint(integrity)

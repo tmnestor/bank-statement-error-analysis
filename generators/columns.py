@@ -121,7 +121,27 @@ def amount_placements(rows: list[list[str]]) -> Counter:
 
 
 def column_integrity(truth: str, prediction: str) -> dict:
-    """Score how many of the truth's amounts the prediction filed correctly.
+    """Score the two independent ways an extracted amount can be wrong.
+
+    They are separate questions and a single rate answers neither:
+
+    1. **Is the number on the page at all?** — `read`, the amounts whose value
+       appears somewhere in the prediction's tables, wherever it sits.
+    2. **Was it taken from the right place?** — `placed`, of those, how many sit
+       under the heading the page puts them under.
+
+    `misfiled` merges the two: it counts an amount as misplaced when it is
+    absent from its column for *any* reason, so a misread digit is charged to
+    placement. That total is what a downstream consumer feels, so it is kept —
+    but it cannot rank a system on either dimension, because a model that reads
+    badly and places perfectly scores the same as one that reads perfectly and
+    places badly.
+
+    `placement_rate` is `placed / read`, and is the only figure here that
+    isolates dimension 2: it is conditional on the value having been read, so a
+    system is not credited for placing amounts it never produced, nor charged
+    for misplacing ones it never read. A system that reads nothing has no
+    placement rate rather than a perfect one.
 
     Args:
         truth: The canonical transcript.
@@ -129,8 +149,8 @@ def column_integrity(truth: str, prediction: str) -> dict:
 
     Returns:
         Mapping with `truth_columns`, `prediction_columns`, `columns_match`,
-        `amounts` (how many the truth shows) and `misfiled` (how many are absent
-        from their column in the prediction).
+        `amounts`, `read`, `placed`, `placement_rate` (None where nothing was
+        read) and `misfiled`.
     """
     truth_rows = table_rows(truth)
     prediction_rows = table_rows(prediction)
@@ -142,10 +162,26 @@ def column_integrity(truth: str, prediction: str) -> dict:
     # appear twice there to count as filed.
     missing = truth_placements - prediction_placements
 
+    # Dimension 1, position discarded: the same amount in any column counts.
+    truth_values: Counter = Counter()
+    for (value, _), count in truth_placements.items():
+        truth_values[value] += count
+    prediction_values: Counter = Counter()
+    for (value, _), count in prediction_placements.items():
+        prediction_values[value] += count
+    read = sum((truth_values & prediction_values).values())
+
+    # Dimension 2, conditional on dimension 1: of what was read, how much sits
+    # where the page puts it.
+    placed = sum((truth_placements & prediction_placements).values())
+
     return {
         "truth_columns": column_width(truth_rows),
         "prediction_columns": column_width(prediction_rows),
         "columns_match": column_width(truth_rows) == column_width(prediction_rows),
         "amounts": sum(truth_placements.values()),
+        "read": read,
+        "placed": placed,
+        "placement_rate": (placed / read) if read else None,
         "misfiled": sum(missing.values()),
     }
