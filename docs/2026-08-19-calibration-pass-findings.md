@@ -181,21 +181,23 @@ character-level error — see finding 8.
 
 ### What each system needs to run
 
-Weights measured on disk, not derived from parameter counts. Under vLLM the
-memory a process actually claims is `gpu_memory_utilization` × the card
-regardless — what varies is how much of that budget the weights leave for the
-KV cache, and the KV cache is what fails first.
+The prompted models only. Weights measured on disk, not derived from parameter
+counts. Under vLLM the memory a process actually claims is
+`gpu_memory_utilization` × the card regardless — what varies is how much of that
+budget the weights leave for the KV cache, and the KV cache is what fails first.
 
 | System | weights | 24 GB card | ran on |
 |---|---|---|---|
-| Docling (granite-docling-258M-mlx) | 0.6 GB | — | M1 16 GB, unified memory |
-| MinerU (MinerU2.5-Pro-2605-1.2B) | 2.2 GB | — | M1 16 GB, unified memory |
 | gemma-4-12B-it-qat-w4a16-ct | **9.7 GB** | one replica per card | 2×L4 |
 | InternVL3.5-8B | 16 GB | one replica per card | L4 |
 | gemma-4-31B-it-qat-w4a16-ct | **22 GB** | **no — needs 2 cards** | L40S; 2×L4 tp=2 |
 | gemma-4-12B-it-qat-q4_0-unquantized | 23 GB | no | L40S 48 GB |
 | gemma-4-12B-it | 23 GB | no | L40S 48 GB |
 | *gemma-4-31B-it (BF16)* | *59 GB* | *no* | *fits nothing available* |
+
+Docling and MinerU are absent because they were run on Apple Silicon against
+unified memory, which is not a GPU sizing figure and does not transfer to the
+cluster this table exists to inform.
 
 Two consequences worth reading off it.
 

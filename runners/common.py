@@ -352,7 +352,6 @@ def write_timing(
     out_dir: Path,
     *,
     system: str,
-    engine_seconds: float,
     inference_seconds: float,
     pages: int,
     cards: int,
@@ -364,9 +363,9 @@ def write_timing(
     that fits a card whole, and comparing the two from console output means
     reading a stopwatch off scrollback.
 
-    Engine load is recorded apart from inference. It is paid once per process and
-    is a large fraction of a short run — folding it in would make a 3-page probe
-    look several times slower than a 165-page run of the same model.
+    Model load is excluded outright. It is paid once per process, not per page,
+    so counting it would make a short run look slower than a long one of the same
+    model on the same card — and it is not what a serving cluster is sized on.
 
     `score` globs `*.md` one level deep, so a JSON sidecar is never mistaken for
     a prediction.
@@ -374,7 +373,6 @@ def write_timing(
     Args:
         out_dir: The system's prediction directory.
         system: The system name, recorded for the reader.
-        engine_seconds: Seconds spent loading the model, before any page.
         inference_seconds: Seconds spent generating, across every page.
         pages: How many pages were attempted.
         cards: How many GPUs this process occupied, so per-card throughput is
@@ -391,7 +389,6 @@ def write_timing(
                 "system": system,
                 "cards": cards,
                 "pages": pages,
-                "engine_load_seconds": round(engine_seconds, 1),
                 "inference_seconds": round(inference_seconds, 1),
                 "seconds_per_page": round(inference_seconds / pages, 2) if pages else None,
                 "pages_per_minute": round(60 * pages / inference_seconds, 2) if inference_seconds else None,

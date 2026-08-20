@@ -761,7 +761,6 @@ def main(
         rprint("[green]nothing to do — every page already has a prediction[/green]")
         return
 
-    loading_started = time.monotonic()
     loaded = None
     vllm_engine = None
     try:
@@ -773,7 +772,6 @@ def main(
         rprint(f"[red]{err}[/red]")
         raise typer.Exit(1) from None
 
-    engine_seconds = time.monotonic() - loading_started
     started = time.monotonic()
     failures: list[str] = []
 
@@ -837,7 +835,6 @@ def main(
         timing = write_timing(
             out_dir,
             system=system,
-            engine_seconds=engine_seconds,
             inference_seconds=elapsed,
             pages=len(todo),
             cards=cards,
