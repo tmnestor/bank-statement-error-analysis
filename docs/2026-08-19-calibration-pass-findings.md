@@ -14,10 +14,10 @@ idiosyncratic — that a model could read a page perfectly and still score badly
 for formatting it differently.
 
 **It is not, and the reason is that gemma-4-12B can be told.** Given the
-convention in its prompt it reaches a median character error rate of **0.008**,
-produces the correct table width on **163 of 165 documents**, and files amounts
-under the right heading more reliably than either dedicated parser. Three
-separate conventions were each stated, measured, and adopted:
+convention in its prompt it reaches a median normalised character error rate of
+**0.008**, produces the correct table width on **163 of 165 documents**, and
+files amounts under the right heading more reliably than either dedicated
+parser. Three separate conventions were each stated, measured, and adopted:
 
 | Convention | before | after |
 |---|---|---|
@@ -25,9 +25,9 @@ separate conventions were each stated, measured, and adopted:
 | dates carried down a group | 61.6% of rows | **97.2%** (truth: 98.9%) |
 | repeated glyphs are spacing | 275 stray lines | **0** |
 
-The cumulative effect of stating all three: median CER **0.0201 → 0.0081**, mean
-**0.3011 → 0.0178**, misfiled amounts **12.7% → 9.7%** — and three pages the
-benchmark had written off as impossible now transcribe at 0.05.
+The cumulative effect of stating all three: median normalised CER **0.0201 →
+0.0081**, mean **0.3011 → 0.0178**, misfiled amounts **12.7% → 9.7%** — and
+three pages the benchmark had written off as impossible now transcribe at 0.05.
 
 Four things qualify it, and they are the substance of this document:
 
@@ -38,9 +38,13 @@ Four things qualify it, and they are the substance of this document:
    controlled A/B, a rule alone stopped a model emitting the wrong characters
    but not improvising a replacement; the example supplied the behaviour the
    prohibition left undefined.
-3. **The primary metric is blind to the error that matters most.** Pages with
-   every amount filed under the wrong column heading score like a mild reading
-   day.
+3. **Normalised character error rate — this benchmark's headline number — is
+   blind to the error that matters most on a bank statement.** It compares two
+   strings after stripping Markdown syntax, and a table's pipes are Markdown
+   syntax, so the delimiters that say which column an amount sits in are
+   discarded before anything is compared. Pages with *every* amount filed under
+   the wrong heading score 0.08–0.11, twice a normal page and nowhere near the
+   1.0 that output deserves.
 4. **Ground truth and prompt are a matched pair, and both are components under
    test.** Two defects in this corpus were found only by asking whether it
    treated the same visual device the same way everywhere.
@@ -122,10 +126,11 @@ never delimited on the page; it exists only as horizontal position under a
 heading. A model does not transcribe table structure — it **infers** it, then
 serialises the inference as pipes.
 
-CER cannot see that inference fail, because normalisation strips pipes as table
-marks and discards exactly the delimiters that carry the answer. So this metric
-counts, for every amount the page shows, whether the system filed it in the same
-column. Reported separately, never folded into CER.
+Normalised CER cannot see that inference fail, because normalisation strips
+pipes as table marks and so discards exactly the delimiters that carry the
+answer. **Column integrity** counts, for every amount the page shows, whether
+the system filed it under the same heading. It is reported separately and never
+folded into CER, which would inherit the same blindness.
 
 ### Table structure
 
@@ -400,7 +405,7 @@ model, same pages; only the wording.
 **A rule can be technically present and effectively absent.** The prompt is a
 component to be tested, not documentation to be written once.
 
-### 4. CER is blind to the error that matters most on a statement
+### 4. Normalised CER is blind to the error that matters most on a statement
 
 Four statements print a header cell that wraps across two lines — `Date of /
 Transaction`. InternVL reads it as **two columns**. Every data row inherits the
@@ -553,17 +558,20 @@ breaks — every one of which is on a receipt, none on a statement.
 
 ## What this pass produced
 
-**A house style that is demonstrably communicable.** A capable prompted model
-follows it at a cost of 0.008 CER. It is not an arbitrary imposition.
+**A house style that is demonstrably communicable.** Told the conventions, a
+capable prompted model adopts them for **+0.0136** — the gap between its strict
+and normalised CER, which is by construction what formatting costs it. An
+unpromptable parser of comparable reading quality pays +0.3917 for the same
+corpus. The style is not an arbitrary imposition.
 
 **A steerability result with a sharp edge.** The 12B adopts every convention put
 to it; an 8B from another family adopts one of three and is destabilised by the
 technique that helps the 12B most. Prompt engineering results do not transfer
 across model scales, and reporting one without the other overstates both.
 
-**Two metrics that CER cannot replace.** Column integrity, because a page can be
-character-perfect and financially meaningless. Table structure, because column
-integrity presupposes the rows. Together they produced the pass's most useful
+**Two metrics that normalised CER cannot replace.** Column integrity, because a
+page can be character-perfect and financially meaningless. Table structure,
+because column integrity presupposes the rows. Together they produced the pass's most useful
 result — gemma-4-12B gets the column count right on **163 of 165** documents and
 on **all 55 bank statements**, breaking table structure zero times in 1,612
 statement rows — and its most counter-intuitive one: MinerU, which pays the
