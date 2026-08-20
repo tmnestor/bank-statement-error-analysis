@@ -48,6 +48,7 @@ from runners.common import (
     verify_complete,
     write_prediction,
     write_settings_provenance,
+    write_timing,
 )
 from runners.vlm_config import load_vlm_systems, resolve_base_url, system_named
 
@@ -760,6 +761,7 @@ def main(
         rprint("[green]nothing to do — every page already has a prediction[/green]")
         return
 
+    loading_started = time.monotonic()
     loaded = None
     vllm_engine = None
     try:
@@ -771,6 +773,7 @@ def main(
         rprint(f"[red]{err}[/red]")
         raise typer.Exit(1) from None
 
+    engine_seconds = time.monotonic() - loading_started
     started = time.monotonic()
     failures: list[str] = []
 
@@ -825,6 +828,23 @@ def main(
             rprint(f"  {index}/{len(todo)} {stem} ({time.monotonic() - page_started:.1f}s)")
 
     elapsed = time.monotonic() - started
+    if todo:
+        # cards: a tensor-parallel engine occupies tp GPUs, one per rank. Without
+        # it a tp=2 run reads as twice as fast as it is per card, which is the
+        # figure a cluster is sized on.
+        engine = spec["vllm_engine"]
+        cards = int(engine["tensor_parallel_size"]) if isinstance(engine, dict) else 1
+        timing = write_timing(
+            out_dir,
+            system=system,
+            engine_seconds=engine_seconds,
+            inference_seconds=elapsed,
+            pages=len(todo),
+            cards=cards,
+        )
+        rprint(
+            f"[dim]{elapsed / len(todo):.1f}s per page on {cards} card(s); timing written to {timing}[/dim]"
+        )
     rprint(f"[bold]{system}[/bold]: {len(todo) - len(failures)} written in {elapsed / 60:.1f} min")
 
     still_missing = pending(out_dir, owned)

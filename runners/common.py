@@ -348,6 +348,66 @@ def write_settings_provenance(out_dir: Path, penalty: float, stems: list[str]) -
     return path
 
 
+def write_timing(
+    out_dir: Path,
+    *,
+    system: str,
+    engine_seconds: float,
+    inference_seconds: float,
+    pages: int,
+    cards: int,
+) -> Path:
+    """Record what this run cost per page, so throughput can be compared.
+
+    Deployment decisions here turn on pages per minute PER CARD: a model needing
+    two cards for one request buys its accuracy at half the throughput of one
+    that fits a card whole, and comparing the two from console output means
+    reading a stopwatch off scrollback.
+
+    Engine load is recorded apart from inference. It is paid once per process and
+    is a large fraction of a short run — folding it in would make a 3-page probe
+    look several times slower than a 165-page run of the same model.
+
+    `score` globs `*.md` one level deep, so a JSON sidecar is never mistaken for
+    a prediction.
+
+    Args:
+        out_dir: The system's prediction directory.
+        system: The system name, recorded for the reader.
+        engine_seconds: Seconds spent loading the model, before any page.
+        inference_seconds: Seconds spent generating, across every page.
+        pages: How many pages were attempted.
+        cards: How many GPUs this process occupied, so per-card throughput is
+            derivable without knowing how the run was launched.
+
+    Returns:
+        The path written.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "_timing.json"
+    path.write_text(
+        json.dumps(
+            {
+                "system": system,
+                "cards": cards,
+                "pages": pages,
+                "engine_load_seconds": round(engine_seconds, 1),
+                "inference_seconds": round(inference_seconds, 1),
+                "seconds_per_page": round(inference_seconds / pages, 2) if pages else None,
+                "pages_per_minute": round(60 * pages / inference_seconds, 2) if inference_seconds else None,
+                "pages_per_minute_per_card": (
+                    round(60 * pages / inference_seconds / cards, 2)
+                    if inference_seconds and cards
+                    else None
+                ),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def verify_complete(out_dir: Path, stems: list[str]) -> None:
     """Refuse to report success while any page is missing a prediction.
 
