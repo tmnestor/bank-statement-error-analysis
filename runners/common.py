@@ -14,6 +14,7 @@ prediction is written so that `score` can pair it (scoring spec §6 —
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 _ELIDE_AFTER = 5
@@ -56,6 +57,46 @@ def _name_sample(names: list[str]) -> str:
     head = ", ".join(names[:_ELIDE_AFTER])
     remainder = len(names) - _ELIDE_AFTER
     return head if remainder <= 0 else f"{head} and {remainder} more"
+
+
+def _write_json_atomically(path: Path, payload: dict) -> None:
+    """Write a sidecar so no reader can ever see it half-written.
+
+    Data-parallel shards share an output directory, so one process can be
+    reading a sidecar while another writes it. A plain write is not atomic and
+    the reader gets a truncated file — which surfaces as a JSONDecodeError from
+    somewhere unrelated, blaming the reader for the writer's timing.
+
+    The temporary name carries the pid, or two shards would collide on the
+    temporary file as well and merely move the race.
+
+    Args:
+        path: Final destination.
+        payload: What to serialise.
+    """
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temporary.replace(path)  # atomic on POSIX
+
+
+def _read_json_or_none(path: Path) -> dict | None:
+    """Read a sidecar, treating an unreadable one as absent.
+
+    A file left truncated by an interrupted run should not stop the next one:
+    the caller rewrites it, which is the correct repair.
+
+    Args:
+        path: The sidecar to read.
+
+    Returns:
+        Its contents, or None if absent or unparseable.
+    """
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def corpus_stems(corpus: Path) -> list[str]:
@@ -211,27 +252,32 @@ def check_prompt_provenance(out_dir: Path, prompt_path: Path, prompt: str) -> Pa
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     path = out_dir / "_prompt_provenance.json"
 
-    if path.exists():
-        recorded = json.loads(path.read_text(encoding="utf-8"))
-        if recorded.get("sha256") != digest:
-            written = sorted(p.stem for p in out_dir.glob("*.md"))
-            if written:
-                raise runner_error(
-                    f"{out_dir} holds {len(written)} prediction(s) made under a different "
-                    f"prompt ({recorded.get('sha256', '?')[:12]}, from "
-                    f"{recorded.get('prompt', '?')}); this run sends {digest[:12]}.",
-                    where=str(path.resolve()),
-                    expected="every prediction in one directory to answer the same prompt, "
-                    "since the runner resumes by skipping pages that already exist, e.g.\n"
-                    "              --out runs_v4   (a directory this prompt owns)",
-                    recover="pass --out pointing at a new directory, or delete the existing "
-                    "predictions to re-run them all under this prompt.",
-                )
+    recorded = _read_json_or_none(path)
+
+    # Already stamped with this prompt: return WITHOUT rewriting. Data-parallel
+    # shards all reach this line at once, and rewriting an identical file is a
+    # window in which another shard reads it half-written.
+    if recorded is not None and recorded.get("sha256") == digest:
+        return path
+
+    if recorded is not None:
+        written = sorted(p.stem for p in out_dir.glob("*.md"))
+        if written:
+            raise runner_error(
+                f"{out_dir} holds {len(written)} prediction(s) made under a different "
+                f"prompt ({recorded.get('sha256', '?')[:12]}, from "
+                f"{recorded.get('prompt', '?')}); this run sends {digest[:12]}.",
+                where=str(path.resolve()),
+                expected="every prediction in one directory to answer the same prompt, "
+                "since the runner resumes by skipping pages that already exist, e.g.\n"
+                "              --out runs_v4   (a directory this prompt owns)",
+                recover="pass --out pointing at a new directory, or delete the existing "
+                "predictions to re-run them all under this prompt.",
+            )
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"prompt": str(prompt_path), "sha256": digest, "words": len(prompt.split())}, indent=2),
-        encoding="utf-8",
+    _write_json_atomically(
+        path, {"prompt": str(prompt_path), "sha256": digest, "words": len(prompt.split())}
     )
     return path
 
@@ -333,17 +379,14 @@ def write_settings_provenance(out_dir: Path, penalty: float, stems: list[str]) -
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "_settings_provenance.json"
-    path.write_text(
-        json.dumps(
-            {
-                "overridden": "repetition_penalty",
-                "value": penalty,
-                "reason": "retrying pages that ran to the token cap",
-                "pages": sorted(stems),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
+    _write_json_atomically(
+        path,
+        {
+            "overridden": "repetition_penalty",
+            "value": penalty,
+            "reason": "retrying pages that ran to the token cap",
+            "pages": sorted(stems),
+        },
     )
     return path
 
