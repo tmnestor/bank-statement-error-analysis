@@ -269,25 +269,25 @@ def structure_tradeoff(
         palette=PALETTE,
         s=210,
         ax=ax,
-        legend=False,
+        legend=True,
         edgecolor="white",
         linewidth=1.5,
         zorder=3,
     )
-    # Alternate the label above and below by x-order. Systems of similar quality
-    # land close together by construction, and centred labels then overprint.
-    for rank, (system, row) in enumerate(grouped.sort_values("share").iterrows()):
-        above = rank % 2 == 0
-        ax.annotate(
-            system,
-            (row.share, row.broken),
-            textcoords="offset points",
-            xytext=(0, 17 if above else -25),
-            ha="center",
-            fontsize=9,
-            color=INK,
-            fontweight="bold",
-        )
+    # A legend rather than direct labels, which read better in principle and do
+    # not survive this data: every system that breaks no structure sits at y=0
+    # within a few percent of the others, and the names are wider than the
+    # separation between them. Vertical stagger only moved the collisions
+    # around, and each system added makes it worse.
+    ax.legend(
+        frameon=False,
+        fontsize=9,
+        labelcolor=INK,
+        loc="upper left",
+        handletextpad=0.4,
+        borderaxespad=0.8,
+        title=None,
+    )
 
     ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1, decimals=0))
     ax.set_xlabel("share of rows recovered  →  better")
@@ -322,6 +322,9 @@ def by_document_type(documents: pd.DataFrame, out_dir: Path) -> list[Path]:
     ax.set_xlabel("")
     ax.set_ylabel("amounts under the wrong heading")
     ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(xmax=1, decimals=0))
+    # Headroom, or the legend sits on the 100% gridline and on the receipt bars
+    # of the two parsers, which reach it.
+    ax.set_ylim(top=1.28)
     ax.legend(frameon=False, fontsize=9, ncols=3, labelcolor=INK, loc="upper left")
     _title(ax, "Read it by document type", "a parser scoring 100% on receipts emits no table there at all")
     return _save(fig, "04-by-document-type", out_dir)
