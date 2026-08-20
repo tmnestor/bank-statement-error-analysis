@@ -192,45 +192,73 @@ systems:
       # the amount columns this corpus is largely made of.
       tokenizer: /home/jovyan/.cache/lmm_poc_tokenizers/InternVL3_5-8B
 
-  # THE PRECISION CONTROL — and read what it can and cannot separate before
-  # quoting it. This is the BF16 instruct model, which differs from
-  # gemma-4-12B-it-qat-w4a16-ct in TWO ways: it is 16-bit rather than 4-bit, and
-  # it was not quantisation-aware-trained. The ideal control is
-  # `gemma-4-12B-it-qat-q4_0-unquantized`, the same QAT weights at BF16, which
-  # would leave precision as the only variable; that checkpoint is not on the
-  # host, so this is the available approximation and is named for what it is.
+  # ---------------------------------------------------------------------------
+  # THE DIGIT-FIDELITY CONTROLS. Two of them, and the pair is the experiment.
   #
-  # That checkpoint name reads like a contradiction and is not one. QAT is a
-  # TRAINING method: fake-quantisation ops sit in the forward pass so the model
-  # learns weights that survive being quantised, while the master weights stay
-  # high-precision throughout. What comes out of QAT is a BF16 checkpoint, and
-  # quantising it to 4 bits is a separate later step. Google publishes both
-  # halves — `-qat-q4_0` at 4 bits and `-qat-q4_0-unquantized` at BF16 — where
-  # `q4_0` names the quantisation the training was aware of and `unquantized`
-  # says this distribution has not had it applied. Holding QAT constant and
-  # varying only the precision is what makes it the clean control.
+  # The question. Numeric fidelity over 165 pages puts gemma-4-12B-it-qat-w4a16-ct
+  # at 92.5% of amounts correct against MinerU's 100.0%, with misses that are
+  # digit SUBSTITUTIONS rather than dropped lines — on a model that leads every
+  # other metric in this pass. Quantisation costing character fidelity first is
+  # the standing explanation and had never been measured here.
   #
-  # What it settles, and it is asymmetric:
+  # One control cannot answer it, because the 4-bit checkpoint differs from a
+  # plain BF16 model in two ways at once: precision AND quantisation-aware
+  # training. Three systems and three pairwise comparisons separate them:
   #
-  #   reads amounts NO BETTER  -> strong evidence AGAINST quantisation, since
-  #                               this model is both higher-precision and
-  #                               non-QAT and still fails the same way. The
-  #                               cause is elsewhere — the vision budget, page
-  #                               resolution, or the model family.
-  #   reads amounts BETTER     -> the cause is precision OR QAT training, and
-  #                               these two runs cannot say which. Reporting it
-  #                               as "quantisation costs digit fidelity" would
-  #                               overstate what was measured.
+  #   w4a16-ct  vs  qat-q4_0-unquantized   ->  precision alone (QAT held fixed)
+  #   w4a16-ct  vs  gemma-4-12B-it         ->  precision + QAT training
+  #   unquantized vs gemma-4-12B-it        ->  QAT training alone (BF16 both)
   #
-  # Worth running for the first branch alone. Numeric fidelity over 165 pages
-  # puts the 4-bit checkpoint at 92.5% of amounts correct against MinerU's
-  # 100.0%, with misses that are digit substitutions rather than dropped lines,
-  # on a model that leads every other metric in the pass.
+  # On "qat...unquantized", which reads like a contradiction and is not one.
+  # QAT is a TRAINING method: fake-quantisation ops sit in the forward pass so
+  # the model learns weights that survive being quantised, while the master
+  # weights stay high-precision throughout. What comes out of QAT is a BF16
+  # checkpoint; quantising it to 4 bits is a separate later step. Google
+  # publishes both halves — `-qat-q4_0` at 4 bits and `-qat-q4_0-unquantized` at
+  # BF16 — where `q4_0` names the quantisation the training was aware of and
+  # `unquantized` says this distribution has not had it applied. Its model card
+  # calls it "half-precision weights extracted from the QAT pipeline".
   #
-  # ~24 GB of weights at BF16, so it needs a 48 GB card. It fits neither L4 —
-  # 24 GB of weights will not sit on a 24 GB card beside a KV cache, and
-  # sharding one engine across both hits the SHM deadlock that host records.
-  # One L40S, one engine, no --shards.
+  # Both are ~24 GB at BF16 and need a 48 GB card. Neither fits an L4 beside a
+  # KV cache, and sharding one engine across both hits the SHM deadlock that
+  # host records. One L40S, one engine, no --shards, one after the other.
+  # ---------------------------------------------------------------------------
+
+  # Control 1: the same QAT weights as the 4-bit checkpoint, at BF16. Precision
+  # is the ONLY variable against w4a16-ct, which makes this the clean control
+  # and the one to quote.
+  gemma-4-12B-it-qat-q4_0-unquantized:
+    transport: vllm_offline
+    model: /home/jovyan/nfs_share/models/gemma-4-12B-it-qat-q4_0-unquantized
+    base_url: none
+    base_url_env: none
+    api_key_env: none
+    # Identical decoding to the 4-bit run. A control that changes two things
+    # measures neither.
+    temperature: 0.0
+    top_p: 1.0
+    max_output_tokens: 8192
+    timeout_seconds: 600
+    mlx_unused_towers: []
+    image_first: true
+    repetition_penalty: 1.0
+    vllm_engine:
+      tensor_parallel_size: 1
+      max_model_len: 16384
+      gpu_memory_utilization: 0.90
+      max_num_seqs: 10
+      limit_mm_images: 1
+      enable_prefix_caching: true
+      enforce_eager: false
+      # Must match the 4-bit run exactly. soft_tokens is the vision budget, and
+      # 1120 and 280 were both measured on this checkpoint family and both
+      # regressed; changing it here would confound precision with what the model
+      # can see.
+      soft_tokens: 560
+      tokenizer: none
+
+  # Control 2: the plain BF16 instruct model — no QAT. Against control 1 it
+  # isolates what quantisation-aware training does on its own, both being BF16.
   gemma-4-12B-it:
     transport: vllm_offline
     model: /home/jovyan/nfs_share/models/gemma-4-12B-it
