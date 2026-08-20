@@ -51,9 +51,28 @@ Check both survived before running anything:
   mineru --help | head -5
   python -c "import vllm; print(vllm.__version__)"
 
-Point MinerU at the local weights so it cannot start downloading mid-run:
+Point MinerU at the local weights so it cannot start downloading mid-run. Both
+exports are needed: MINERU_MODEL_SOURCE says "do not fetch", and the config says
+WHERE local is. Setting only the first leaves it looking in a default cache.
+
+  cat > ~/mineru.json <<'JSON'
+  {
+    "models-dir": {
+      "vlm": "/home/jovyan/nfs_share/models/MinerU2.5-Pro-2605-1.2B",
+      "pipeline": "/home/jovyan/nfs_share/models/MinerU2.5-Pro-2605-1.2B"
+    }
+  }
+  JSON
 
   export MINERU_MODEL_SOURCE=local
+  export MINERU_TOOLS_CONFIG_JSON=~/mineru.json
+
+Only `vlm` is used by this run; `pipeline` points at the same directory because
+the key is required, not because the pipeline backend would work from it.
+
+MinerU REWRITES this file with its config template on first run. models-dir
+survives, but the template adds placeholder credential keys — so it is not a
+file to put real values in.
 
 ===============================================
 SETUP
@@ -70,6 +89,27 @@ command -v mineru >/dev/null || { echo "!! the mineru CLI is not on PATH in $ENV
     echo "   weights mid-run, which times the network rather than the model."
     exit 1
 }
+# "local" without a config says do-not-fetch but not where-from, so MinerU looks
+# in a default cache and either fails or silently uses a different checkpoint.
+config=${MINERU_TOOLS_CONFIG_JSON:-}
+[[ -n $config && -f ${config/#\~/$HOME} ]] || {
+    echo "!! MINERU_TOOLS_CONFIG_JSON is unset or points at no file."
+    echo "   MINERU_MODEL_SOURCE=local says do not fetch; this says where local is."
+    echo "   See the setup block above."
+    exit 1
+}
+python - "${config/#\~/$HOME}" "$MODEL_DIR" <<'PYTHON'
+import json
+import sys
+
+config, expected = sys.argv[1], sys.argv[2]
+declared = json.load(open(config)).get("models-dir", {}).get("vlm")
+if declared != expected:
+    print(f"!! {config} points vlm at {declared!r}, not {expected!r}.")
+    print("   The run would score a different checkpoint under this name.")
+    raise SystemExit(1)
+print(f"  weights: {declared}")
+PYTHON
 
 if [[ -z $CORPUS ]]; then
     for candidate in parsing_20260820 parsing_20260819d parsing_20260819c \
