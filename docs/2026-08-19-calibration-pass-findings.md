@@ -28,7 +28,7 @@ Stating all three took the 12B's median normalised CER from **0.0201 to
 now transcribe at 0.05.
 
 **The 31B at the same 4-bit quantisation goes further than steering alone
-could.** Median normalised CER **0.0000** — more than half its pages are
+could.** Median normalised CER **0.0000** — **128 of its 165 pages** are
 character-perfect once formatting is set aside — with **99.0%** of
 bank-statement amounts **usable** (right value, right heading), **94.7%** of
 statement rows recovered, and **1.0%** filed under the wrong heading. It is the
@@ -325,7 +325,7 @@ and here they do not — the 31B's normalised median is 0.0000, drawn from a
 different set of pages than its strict median. Reading the column as column
 minus column is an easy mistake to make, and it was made here.
 
-**The 31B's median normalised CER is 0.0000** — more than half its pages are
+**The 31B's median normalised CER is 0.0000** — **128 of 165 pages (78%)** are
 transcribed without a single character wrong once formatting is set aside.
 
 **The convention cost is flat across all four gemma checkpoints** — +0.0134,
@@ -451,7 +451,7 @@ That second failure is invisible on any single row, invisible to an extraction
 task pulling one balance, and unmistakable only when the whole column is scored
 at once.
 
-The 31B, which misreads five amounts in 2,507, recovers 94.7% of rows. Fix the
+The 31B, which misses five amounts in 2,507 — three misread, two never emitted — recovers 94.7% of rows. Fix the
 digits and the structural ceiling lifts with them.
 
 ---
