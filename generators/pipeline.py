@@ -35,6 +35,7 @@ from generators.invoice import render_invoice
 from generators.layout_dsl.schema import LayoutSchemaError, validate_layout
 from generators.loader import load_generation_config, load_ground_truth, load_layout_registry
 from generators.metrics import cer, error_rate, wer
+from generators.numerics import numeric_fidelity
 from generators.overflow_check import build_overflow_error, check_overflow
 from generators.receipt import render_receipt
 from generators.schema import field_names_for, layout_field_names_for, validate_entry
@@ -694,6 +695,20 @@ def score(
             "recalled_cells": 0,
             "truth_cells": 0,
         }
+        # Convention-blind, and the only metric here that is: amounts are read
+        # out of the raw text, so a system emitting HTML tables and one
+        # emitting pipe tables are compared on identical terms. It inverts the
+        # CER ordering, which is the point of reporting it.
+        numbers = {
+            "truth_amounts": 0,
+            "prediction_amounts": 0,
+            "matched": 0,
+            "literal": 0,
+            "misread": 0,
+            "dropped": 0,
+            "invented": 0,
+            "documents_with_an_error": 0,
+        }
 
         # Declared-unproducible pages are scored as empty predictions, which is
         # a total failure by construction: the edit distance is the length of
@@ -717,6 +732,12 @@ def score(
             columns["amounts"] += integrity["amounts"]
             columns["misfiled"] += integrity["misfiled"]
             columns["documents_mismatched"] += 0 if integrity["columns_match"] else 1
+
+            figures = numeric_fidelity(truth, prediction)
+            for key in figures:
+                numbers[key] += figures[key]
+            if figures["misread"] or figures["dropped"] or figures["invented"]:
+                numbers["documents_with_an_error"] += 1
 
             row: dict[str, str | float] = {"stem": stem}
             for metric, (left, right) in pairs.items():
@@ -750,6 +771,7 @@ def score(
         }
         systems[system]["columns"] = columns
         systems[system]["tables"] = tables
+        systems[system]["numbers"] = numbers
         systems[system]["documents"] = per_document
         hunks_by_system[system] = system_hunks
 
@@ -794,6 +816,7 @@ def _print_score_report(systems: dict, grouped: dict, report: Path) -> None:
 
     _print_column_integrity(systems)
     _print_table_structure(systems)
+    _print_numeric_fidelity(systems)
     _print_divergences(grouped, report)
 
 
@@ -869,6 +892,48 @@ def _print_table_structure(systems: dict) -> None:
             recall,
         )
     rprint(structure)
+
+
+def _print_numeric_fidelity(systems: dict) -> None:
+    """Print amount accuracy, which no other metric in this report measures.
+
+    CER weighs a wrong digit in a total exactly as it weighs a typo in a
+    merchant's name. This separates them, and it is convention-blind: amounts
+    come out of the raw text, so an HTML dialect and a pipe dialect are
+    compared on the same terms.
+
+    `misread` and `dropped` are split rather than summed because they fail
+    differently — one system saw the figure and got a digit wrong, the other
+    never emitted one.
+
+    Args:
+        systems: Per-system aggregates carrying a `numbers` block.
+    """
+    figures = Table(title="Numeric fidelity (amounts, independent of formatting)")
+    figures.add_column("system")
+    figures.add_column("amounts", justify="right")
+    figures.add_column("correct", justify="right")
+    figures.add_column("misread", justify="right")
+    figures.add_column("dropped", justify="right")
+    figures.add_column("invented", justify="right")
+    figures.add_column("docs with an error", justify="right")
+
+    for system, scores in sorted(systems.items()):
+        counts = scores.get("numbers")
+        if not counts:
+            continue
+        total = counts["truth_amounts"]
+        correct = f"{100 * counts['matched'] / total:.1f}%" if total else "-"
+        figures.add_row(
+            system,
+            f"{total}",
+            correct,
+            f"{counts['misread']}",
+            f"{counts['dropped']}",
+            f"{counts['invented']}",
+            f"{counts['documents_with_an_error']}",
+        )
+    rprint(figures)
 
 
 def _print_divergences(grouped: dict, report: Path) -> None:
