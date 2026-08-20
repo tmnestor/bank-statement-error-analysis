@@ -1,9 +1,7 @@
 # Can a prompted VLM be steered to a house style?
 
 **Calibration pass, August 2026.** Four document-parsing systems over 165
-synthetic pages of Australian business documents. Written for readers who know
-machine learning but not this project's vocabulary — every term is defined at
-first use.
+synthetic pages of Australian business documents.
 
 ---
 
