@@ -1,22 +1,34 @@
 #!/usr/bin/env bash
-# Does 4-bit quantisation cost digit fidelity? The control run.
+# Does 4-bit quantisation cost digit fidelity? The precision control.
 #
 # gemma-4-12B-it-qat-w4a16-ct leads this benchmark on character error rate, on
 # table structure and on column integrity — and gets 92.5% of amounts right,
 # against MinerU's 100.0% and InternVL3.5-8B's 97.2%. Its misses are digit
 # substitutions, not dropped lines. Quantisation costing character fidelity
-# first is the leading explanation and has never been measured.
+# first is the standing explanation and has never been measured.
 #
-# This runs the SAME weights at BF16. The systems file was checked: the two
-# entries differ in nothing but the checkpoint path, so precision is the only
-# variable. Anything else that changed would make the comparison worthless.
+# READ THIS BEFORE QUOTING THE RESULT. This runs gemma-4-12B-it, which differs
+# from the 4-bit checkpoint in two ways: 16-bit rather than 4-bit, and not
+# quantisation-aware-trained. The clean control would be
+# gemma-4-12B-it-qat-q4_0-unquantized — the same QAT weights at BF16 — which is
+# not on this host. So the outcome is asymmetric:
+#
+#   no better  -> strong evidence AGAINST quantisation. A model that is both
+#                 higher-precision and non-QAT, failing the same way, points
+#                 somewhere else entirely.
+#   better     -> precision OR QAT training, and these two runs cannot say
+#                 which. Do not report it as "quantisation costs digit
+#                 fidelity"; that claims more than was measured.
+#
+# Every decoding and engine setting matches the 4-bit run, so nothing but the
+# checkpoint varies between them.
 #
 # One L40S, one engine, no sharding: ~24 GB of BF16 weights need a 48 GB card,
 # and will not fit either L4.
 
 set -euo pipefail
 
-SYSTEM=gemma-4-12B-it-qat-unquantized
+SYSTEM=gemma-4-12B-it
 OUT=${OUT:-runs_control}
 CORPUS=${CORPUS:-}
 
@@ -70,7 +82,9 @@ Send it back:
 
 The comparison is numeric fidelity on the 55 bank statements, where the 4-bit
 checkpoint gets 90.3% of amounts right and gets at least one amount wrong on 36
-of them. A BF16 run near MinerU's 100% confirms quantisation as the cause. A BF16
-run near 90% refutes it, and the errors are something else — resolution, the
-vision budget, or the model.
+of them.
+
+  near 90%  -> quantisation is NOT the cause, and that is a clean result.
+  near 100% -> precision or QAT training, unresolved between them until the
+               gemma-4-12B-it-qat-q4_0-unquantized checkpoint is available.
 NOTE
