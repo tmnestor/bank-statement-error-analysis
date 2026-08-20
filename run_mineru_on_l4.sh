@@ -121,6 +121,19 @@ fi
 
 pages=$(find "$CORPUS/transcripts" -name '*.md' | wc -l)
 echo "corpus: $CORPUS ($pages pages)   ->  $OUT/$SYSTEM"
+
+# A timing run must start from nothing. The runner resumes by skipping pages that
+# already exist, so a populated directory means it transcribes few pages or none
+# and the rate below is computed over whatever was left — a full directory
+# reports an absurd figure rather than an error, which is worse than failing.
+existing=$(find "$OUT/$SYSTEM" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l)
+if [[ $existing -gt 0 ]]; then
+    echo
+    echo "!! $OUT/$SYSTEM already holds $existing prediction(s)."
+    echo "   Resuming would time only the remainder. Clear it first:"
+    echo "     rm -rf $OUT/$SYSTEM .mineru_work_0 .mineru_work_1"
+    exit 1
+fi
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader 2>/dev/null || true
 echo
 
@@ -159,7 +172,11 @@ python - "$n" "$elapsed" <<'PYTHON'
 import sys
 
 pages, seconds = int(sys.argv[1]), int(sys.argv[2])
-if pages and seconds:
+if not pages or seconds < 30:
+    # Anything this fast transcribed nothing. Printing a rate would invite it
+    # to be quoted.
+    print(f"  no usable rate: {pages} pages in {seconds}s")
+else:
     print(f"  {60 * pages / seconds:.2f} images/min across 2 cards")
     print(f"  {60 * pages / seconds / 2:.2f} per card")
 PYTHON
