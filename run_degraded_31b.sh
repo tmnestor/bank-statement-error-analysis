@@ -41,15 +41,46 @@ print(hashlib.sha256((b if s else t).strip().encode()).hexdigest())
 [[ $digest == 38919c6a81ee959a4d43c0cf2d6de918fee72028317983a99f6a7cc55276db61 ]] ||
     fail "config/prompt.md sends ${digest:0:12}, not the 38919c6a every scored run used."
 
-cards=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)
-[[ $cards -ge 2 ]] || fail "tensor_parallel_size is 2 but $cards GPU(s) are visible"
-
+# Corpus completeness first, before the hardware check: it is cheaper, it does
+# not need a GPU to diagnose, and it is the failure that actually happens.
+# Check every corpus BEFORE loading a model. Each corpus is otherwise checked
+# only when its turn comes, so a truncated transfer surfaces six times, once per
+# tier, after however long the earlier tiers took. On 2026-08-22 that reported
+# six different diagnostics for one cause: the copy never finished.
 echo "system:  $SYSTEM"
 echo "corpora: ${#corpora[@]}"
+incomplete=()
 for c in "${corpora[@]}"; do
-    n=$(find "$c/images" -name '*.jpg' -o -name '*.png' 2>/dev/null | wc -l)
-    printf "  %-46s %3d page(s)\n" "$(basename "$c")" "$n"
+    name=$(basename "${c%/}")
+    images=$(find "$c/images" \( -name '*.jpg' -o -name '*.png' \) 2>/dev/null | wc -l | tr -d ' ')
+    transcripts=$(find "$c/transcripts" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    # The redirect fails before wc runs when the file is absent, so test first.
+    rows=0
+    [[ -f $c/manifest.jsonl ]] && rows=$(wc -l < "$c/manifest.jsonl" | tr -d ' ')
+    status="ok"
+    if [[ $images -ne $transcripts || $images -ne ${rows:-0} || $images -eq 0 ]]; then
+        status="INCOMPLETE"
+        incomplete+=("$name")
+    fi
+    printf "  %-46s img=%-4s tr=%-4s manifest=%-4s %s\n" \
+        "$name" "$images" "$transcripts" "${rows:-0}" "$status"
 done
+
+if [[ ${#incomplete[@]} -gt 0 ]]; then
+    echo
+    echo "!! ${#incomplete[@]} corpus/corpora are incomplete: ${incomplete[*]}"
+    echo "   Every tier must hold the same number of images, transcripts and manifest"
+    echo "   rows. A folder copy onto a network share truncates silently; an archive"
+    echo "   cannot. Re-transfer:"
+    echo
+    echo "     scp degraded_bank_statements.tgz <host>:$(pwd)/"
+    echo "     rm -rf $DEGRADED && mkdir -p $DEGRADED"
+    echo "     tar xzf degraded_bank_statements.tgz -C $DEGRADED"
+    exit 1
+fi
+
+cards=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)
+[[ $cards -ge 2 ]] || fail "tensor_parallel_size is 2 but $cards GPU(s) are visible"
 echo
 
 started=$SECONDS

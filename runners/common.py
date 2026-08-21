@@ -180,12 +180,33 @@ def corpus_images(corpus: Path) -> dict[str, Path]:
             missing.append(stem)
 
     if missing:
+        # How many images exist at all separates the two causes, which want
+        # opposite remedies. `export` never writes a transcript without its
+        # image, so a corpus with transcripts and NO images was not built wrong
+        # -- it was copied wrong, and re-running export on the machine holding
+        # this copy would do nothing. Sending someone to `export` for a truncated
+        # transfer cost an hour on 2026-08-22.
+        present = sum(1 for _ in images.glob("*")) if images.is_dir() else 0
+        if present == 0:
+            recover = (
+                f"{images} holds no image files at all, so this is an incomplete COPY "
+                "rather than an incomplete export — `export` never writes a transcript "
+                "without its image. Re-transfer the corpus as a single archive, which "
+                "cannot half-arrive silently:\n"
+                "                scp corpus.tgz <host>:<path>/ && tar xzf corpus.tgz"
+            )
+        else:
+            recover = (
+                f"{images} holds {present} file(s) but not these. Re-run "
+                "`python -m generators.pipeline export` if this corpus was assembled "
+                "here, or re-transfer it as a single archive if it was copied."
+            )
         raise runner_error(
             f"{len(missing)} transcript(s) have no page image: {_name_sample(missing)}.",
             where=str(images.resolve()),
-            expected="one .png per transcript stem, e.g.\n"
+            expected="one image per transcript stem, e.g.\n"
             "              parsing_20260818/images/CASE001_invoices.png",
-            recover="re-run `python -m generators.pipeline export` to assemble a complete corpus.",
+            recover=recover,
         )
     return paired
 
