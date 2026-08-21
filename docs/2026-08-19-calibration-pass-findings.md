@@ -293,6 +293,42 @@ fewer wrong amounts.** Which side is right is a costing question rather than a
 measurement one, and it turns on what a wrong amount costs to catch downstream
 and on whether the workload is bank statements alone.
 
+#### The 31B was re-measured on the configuration being proposed
+
+Its accuracy figures came from a run at `tensor_parallel_size: 1` on a 48 GB
+card, while the throughput came from a sharded pair on the 2×L4. Production is
+24 GB cards, so tp=2 is the deployment — and accuracy had never been measured on
+it. The two system entries differ only in that setting, so re-running isolated
+sharding and nothing else.
+
+**31 of 165 pages differ**, almost all by one to five bytes. That is expected:
+tensor parallelism all-reduces partial sums in a different order, floating-point
+addition is not associative, and a near-tied token occasionally flips. What
+matters is whether the aggregates move.
+
+| bank statements | tp=1 | tp=2 (proposed) |
+|---|---|---|
+| usable amounts | 1991/2011 (**99.0%**) | 1991/2011 (**99.0%**) |
+| amounts misfiled | 20 | 20 |
+| digit recall | 99.80% | 99.80% |
+| fragments + width breaks | 0 | 0 |
+| correct column count | 55/55 | 55/55 |
+| **rows aligned** | 1527/1612 (94.7%) | **1557/1612 (96.6%)** |
+
+**Every figure the deployment case rests on is identical, and row alignment is
+30 rows better.** Not a contradiction: rows are matched by content, so one
+recovered character can restore a whole group — the same mechanism finding 8
+describes, running forwards.
+
+Two figures move slightly the other way: 124 pages are character-perfect against
+128, while the mean normalised CER improves from 0.0016 to 0.0014. Both are the
+same handful of flipped tokens, and neither touches an amount.
+
+The tables in this document continue to quote the tp=1 run, so that all six
+systems are reported from one vintage. The deployment case quotes tp=2, because
+that is what would be deployed. They agree.
+
+
 CER does show this difference where it matters — 0.0202 against 0.0004 on bank
 statements, a fifty-fold ratio. It is over all 165 pages that it flattens, to
 0.0081 against 0.0000, because two thirds of the corpus is easy. Which median
