@@ -468,10 +468,10 @@ def _pair_predictions(corpus: Path, predictions: Path) -> dict[str, dict[str, Pa
             "that produced them.",
         )
 
-    expected_stems = {p.stem for p in (corpus / "transcripts").glob("*.md")}
+    expected_stems = {p.stem for p in (corpus / "transcripts").glob("*.md") if not is_sidecar(p)}
     paired: dict[str, dict[str, Path]] = {}
     for system in systems:
-        found = {p.stem: p for p in system.glob("*.md")}
+        found = {p.stem: p for p in system.glob("*.md") if not is_sidecar(p)}
         # A page the system declares it cannot produce is scored as a total
         # failure, not excused and not silently dropped: every system stays
         # averaged over the same transcripts, so the numbers remain comparable.
@@ -663,7 +663,7 @@ def score(
         rprint(f"[red]{exc}[/red]")
         raise typer.Exit(1) from None
 
-    transcripts = {p.stem: p for p in (corpus / "transcripts").glob("*.md")}
+    transcripts = {p.stem: p for p in (corpus / "transcripts").glob("*.md") if not is_sidecar(p)}
     systems: dict[str, dict] = {}
     hunks_by_system: dict[str, list] = {}
 
@@ -953,6 +953,28 @@ def _print_table_structure(systems: dict) -> None:
             recall,
         )
     rprint(structure)
+
+
+def is_sidecar(path: Path) -> bool:
+    """Whether a path is an OS sidecar rather than corpus content.
+
+    macOS stores extended attributes in an AppleDouble companion named
+    `._<file>` whenever it writes to a filesystem that cannot hold them,
+    including the NFS share corpora are staged on. `._CASE001_invoices.md` has
+    the right suffix and a plausible stem, so a 55-page corpus reads as 110 and
+    every added stem is missing its image and its prediction.
+
+    Deliberately duplicated from `runners.common._is_sidecar`: `generators/` does
+    not import `runners/`, which is what lets the runner tests run where no
+    parser is installed. Two copies of four lines is cheaper than that coupling.
+
+    Args:
+        path: A candidate corpus or prediction file.
+
+    Returns:
+        True when the file is an OS artefact to be ignored.
+    """
+    return path.name.startswith("._") or path.name == ".DS_Store"
 
 
 def _print_numeric_fidelity(systems: dict) -> None:

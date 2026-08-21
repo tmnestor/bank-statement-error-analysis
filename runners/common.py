@@ -99,11 +99,36 @@ def _read_json_or_none(path: Path) -> dict | None:
         return None
 
 
+def _is_sidecar(path: Path) -> bool:
+    """Whether a path is an OS sidecar rather than corpus content.
+
+    macOS stores a file's extended attributes in an AppleDouble companion named
+    `._<file>` whenever it writes to a filesystem that cannot hold them --
+    including the NFS share this project's corpora are staged on. They arrive
+    looking exactly like corpus files: `._CASE001_bank_statements.md` has the
+    `.md` suffix and a plausible stem, so a corpus of 55 pages reads as 110,
+    every added stem has no image, and the run aborts naming files nobody
+    created. That happened on 2026-08-22 and cost a transfer.
+
+    Filtering here rather than at the copy step because the copy is done by hand
+    on another machine, and a guard that depends on remembering a flag is not a
+    guard.
+
+    Args:
+        path: A candidate corpus file.
+
+    Returns:
+        True when the file is an OS artefact to be ignored.
+    """
+    return path.name.startswith("._") or path.name == ".DS_Store"
+
+
 def corpus_stems(corpus: Path) -> list[str]:
     """List the transcript stems of an exported corpus, sorted.
 
     The transcripts are the authority rather than the images, because they are
-    what `score` pairs predictions against.
+    what `score` pairs predictions against. OS sidecars are ignored -- see
+    `_is_sidecar`.
 
     Args:
         corpus: An exported `parsing_YYYYMMDD/` directory.
@@ -115,7 +140,11 @@ def corpus_stems(corpus: Path) -> list[str]:
         RunnerError: The transcripts directory is absent or empty.
     """
     transcripts = corpus / "transcripts"
-    stems = sorted(p.stem for p in transcripts.glob("*.md")) if transcripts.is_dir() else []
+    stems = (
+        sorted(p.stem for p in transcripts.glob("*.md") if not _is_sidecar(p))
+        if transcripts.is_dir()
+        else []
+    )
     if not stems:
         raise runner_error(
             f"{transcripts} holds no transcript.",
