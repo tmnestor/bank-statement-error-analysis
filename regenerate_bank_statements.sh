@@ -51,13 +51,48 @@ fail() { echo "!! $*" >&2; exit 1; }
 step() { echo; echo "=== $* ==="; }
 
 command -v conda >/dev/null || fail "conda is not on PATH"
-conda env list | grep -qE "^${ENV_NAME}\s" || fail "environment '$ENV_NAME' does not exist.
-   Create it:  conda env create -f environment.yml"
+
+# Find an environment that can actually run the pipeline, rather than demanding
+# one by name. The render steps need only Pillow, PyYAML, typer, rich and Faker,
+# and more than one environment here has them: the sandbox carries `synthetic`
+# and no `docparse`, and refusing to start there was pure friction.
+#
+# Membership is tested by importing the CLI, not by listing packages, because
+# the import is the thing that has to work.
+#
+# Verified 2026-08-22 that docparse (Pillow 12.3.0) and synthetic (12.2.0)
+# render all 55 statements BYTE-IDENTICALLY, so the choice does not change the
+# corpus. If a future environment diverges, the manifest hashes will say so.
+usable_env() {
+    local candidate
+    for candidate in "$@"; do
+        [[ -n $candidate ]] || continue
+        conda env list | grep -qE "^${candidate}\s" || continue
+        if conda run -n "$candidate" python -c             'import generators.pipeline' >/dev/null 2>&1; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [[ -n ${ENV_NAME_EXPLICIT:-} ]]; then
+    :
+elif found=$(usable_env "$ENV_NAME" synthetic docparse "${CONDA_DEFAULT_ENV:-}"); then
+    [[ $found == "$ENV_NAME" ]] || echo "note: using '$found' — '$ENV_NAME' is not available here"
+    ENV_NAME=$found
+else
+    fail "no environment here can import generators.pipeline.
+   Tried: $ENV_NAME, synthetic, docparse, ${CONDA_DEFAULT_ENV:-none}
+   It needs Pillow, PyYAML, typer, rich and Faker.
+   Create one:  conda env create -f environment.yml"
+fi
 
 [[ -f ground_truth/bank_statements.yml ]] ||
     fail "run this from the repository root — ground_truth/bank_statements.yml is not here"
 
-entries=$(grep -c '^- case_id:' ground_truth/bank_statements.yml || echo '?')
+# The file is a mapping keyed by case id, not a list of entries carrying one.
+entries=$(grep -cE '^CASE[0-9]+:' ground_truth/bank_statements.yml || true)
 echo "ground truth: $entries authored bank statements"
 echo "environments: $ENV_NAME (render) / $DEGRADE_ENV (degrade)"
 echo "date stamp:   $DATE_STAMP"
