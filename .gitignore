@@ -52,3 +52,4 @@ runs_degraded*.gz
 
 # Side-by-side comparison sheets, regenerable from compare_transcripts.py.
 comparisons/
+comparisons_degraded/

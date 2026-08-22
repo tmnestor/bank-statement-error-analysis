@@ -397,13 +397,20 @@ def compare(
     collected: list[tuple[str, str, list[Block]]] = []
     if truth:
         collected.append(("ground truth", "authored at render time", truth_blocks))
-    for directory in system:
+    # Panels are labelled by directory name, which collides when the same system
+    # is compared across corpora -- four tiers of one model would give four
+    # panels all called gemma-4-31B. Where leaf names repeat, the parent
+    # disambiguates, because that is what differs between them.
+    leaves = [d.name for d in system]
+    labels = [f"{d.parent.name} / {d.name}" if leaves.count(d.name) > 1 else d.name for d in system]
+
+    for directory, label in zip(system, labels, strict=True):
         candidate = next(directory.rglob(f"{stem}.md"), None)
         if candidate is None:
             rprint(f"[yellow]  no prediction for {stem} in {directory}[/yellow]")
             continue
         blocks = parse_blocks(candidate.read_text(encoding="utf-8"))
-        collected.append((directory.name, summarise(blocks, truth_tables), blocks))
+        collected.append((label, summarise(blocks, truth_tables), blocks))
 
     page = Image.open(image_path).convert("RGB")
     height = page.height
