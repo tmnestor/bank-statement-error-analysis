@@ -124,9 +124,74 @@ def report(frame: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+def paired_change(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> pd.DataFrame:
+    """Count, per tier, how many PAGES got worse, better and stayed the same.
+
+    A net change is not evidence on its own. Token-level perturbation moves
+    pages in both directions — the tp=1/tp=2 comparison on identical images
+    moved 31 of 165 — so a tier where 10 pages improve and 6 worsen has told you
+    nothing about degradation, whatever its total says. Only when the two
+    directions stop balancing is there a signal.
+
+    Args:
+        reports: Directory holding `scores_*.json`.
+        clean: The clean-corpus report to compare against.
+
+    Returns:
+        One row per tier with the three counts and the net.
+    """
+
+    def misfiled_by_stem(path: Path) -> dict[str, int]:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            d["stem"]: d["misfiled"]
+            for block in payload["systems"].values()
+            for d in block["documents"]
+            if d["stem"].endswith("_bank_statements")
+        }
+
+    baseline = misfiled_by_stem(reports / clean)
+    rows = []
+    for path in sorted(reports.glob("scores_*.json")):
+        match = _TIER.search(path.stem)
+        if not match:
+            continue
+        current = misfiled_by_stem(path)
+        deltas = [current[s] - baseline[s] for s in current if s in baseline]
+        rows.append(
+            {
+                **match.groupdict(),
+                "worse": sum(1 for d in deltas if d > 0),
+                "better": sum(1 for d in deltas if d < 0),
+                "same": sum(1 for d in deltas if d == 0),
+                "net": sum(deltas),
+            }
+        )
+    frame = pd.DataFrame(rows)
+    if not frame.empty:
+        frame["severity"] = pd.Categorical(frame.severity, categories=SEVERITIES, ordered=True)
+        frame = frame.sort_values(["family", "severity"])
+    return frame
+
+
 def main() -> None:
     frame = collect()
     print(report(frame))
+
+    changes = paired_change()
+    if not changes.empty:
+        print("Per-page change against clean — is a tier's total signal or noise?\n")
+        for _, row in changes.iterrows():
+            verdict = (
+                "noise: both directions, roughly balanced"
+                if min(row.worse, row.better) >= max(row.worse, row.better) / 2
+                else "one-directional — a real effect"
+            )
+            print(
+                f"  {row.family}-{row.severity:<9} worse {row.worse:2d}  better {row.better:2d}"
+                f"  same {row.same:2d}  net {row.net:+3d}   {verdict}"
+            )
+        print()
 
     # Where the curve bends matters more than where it ends: a cliff between two
     # adjacent tiers locates the image quality production must stay above, and
@@ -139,8 +204,13 @@ def main() -> None:
             step = ordered.loc[worst]
             previous = ordered.severity.shift().loc[worst]
             print(
-                f"{family}: the largest single drop is {previous} -> {step.severity}, "
-                f"{deltas.min() * 100:.1f} points"
+                f"{family}: the largest single drop in usable amounts is "
+                f"{previous} -> {step.severity}, {deltas.min() * 100:.1f} points"
+            )
+            rows_lost = (ordered.rows_aligned.iloc[0] - ordered.rows_aligned.iloc[-1]) * 100
+            print(
+                f"{family}: rows aligned falls {rows_lost:.1f} points over the same range "
+                "— structure and amount placement do not degrade together"
             )
 
 
