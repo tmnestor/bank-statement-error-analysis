@@ -50,6 +50,7 @@ print(hashlib.sha256((b if s else t).strip().encode()).hexdigest())
 echo "system:  $SYSTEM"
 echo "corpora: ${#corpora[@]}"
 incomplete=()
+runnable=()
 for c in "${corpora[@]}"; do
     name=$(basename "${c%/}")
     images=$(find "$c/images" \( -name '*.jpg' -o -name '*.png' \) 2>/dev/null | wc -l | tr -d ' ')
@@ -61,22 +62,35 @@ for c in "${corpora[@]}"; do
     if [[ $images -ne $transcripts || $images -ne ${rows:-0} || $images -eq 0 ]]; then
         status="INCOMPLETE"
         incomplete+=("$name")
+    else
+        runnable+=("$c")
     fi
     printf "  %-46s img=%-4s tr=%-4s manifest=%-4s %s\n" \
         "$name" "$images" "$transcripts" "${rows:-0}" "$status"
 done
 
+# A tier that is PRESENT but short is a broken upload and must stop the run: its
+# numbers would be a subset reported as a whole. A tier that is simply ABSENT is
+# not an error -- the archives are uploaded a few at a time, scan before photo,
+# so a scan-only run is the intended first step rather than a mistake.
 if [[ ${#incomplete[@]} -gt 0 ]]; then
     echo
-    echo "!! ${#incomplete[@]} corpus/corpora are incomplete: ${incomplete[*]}"
+    echo "!! ${#incomplete[@]} corpus/corpora arrived incomplete: ${incomplete[*]}"
     echo "   Every tier must hold the same number of images, transcripts and manifest"
-    echo "   rows. A folder copy onto a network share truncates silently; an archive"
-    echo "   cannot. Re-transfer:"
+    echo "   rows. A browser upload truncates silently above ~300 MB, which is what"
+    echo "   the single combined archive did. Re-upload just these tiers and verify"
+    echo "   the bytes arrived before unpacking:"
     echo
-    echo "     scp degraded_bank_statements.tgz <host>:$(pwd)/"
-    echo "     rm -rf $DEGRADED && mkdir -p $DEGRADED"
-    echo "     tar xzf degraded_bank_statements.tgz -C $DEGRADED"
+    echo "     sha256sum -c SHA256SUMS"
+    echo "     for f in <tier>.tgz; do tar xzf \"\$f\" -C $DEGRADED; done"
     exit 1
+fi
+
+[[ ${#runnable[@]} -gt 0 ]] || fail "no complete corpus in $DEGRADED/ — nothing to run"
+if [[ ${#runnable[@]} -lt 6 ]]; then
+    echo
+    echo "   ${#runnable[@]} of 6 tiers present. Running those; upload the rest and"
+    echo "   re-run — completed tiers resume rather than repeat."
 fi
 
 cards=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)
@@ -85,7 +99,7 @@ echo
 
 started=$SECONDS
 failed=()
-for corpus in "${corpora[@]}"; do
+for corpus in "${runnable[@]}"; do
     name=$(basename "${corpus%/}")
     echo "=== $name ==="
     # --out per corpus: score treats every subdirectory of a predictions root as
