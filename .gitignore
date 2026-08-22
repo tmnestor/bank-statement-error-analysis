@@ -38,3 +38,14 @@ parsing_probe/
 runs_probe/
 runs_throughput/
 .mineru_work_*/
+
+# Degradation: corpora, predictions and the archives they are shipped in.
+# All derived from a committed config plus a committed corpus, and all large --
+# the six tiers are ~360 MB of JPEG and the transfer archives another ~700 MB.
+# `degraded/` is listed even though `parsing_*/` already matches its children at
+# any depth, so the intent is visible rather than accidental.
+degraded/
+upload/
+degraded_*.tgz
+runs_degraded*.tgz
+runs_degraded*.gz
