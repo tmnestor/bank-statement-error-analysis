@@ -367,6 +367,13 @@ def compare(
     scale: Annotated[
         int, typer.Option("--scale", help="Base font size in px; 0 fits it to the page height.")
     ] = 0,
+    truth: Annotated[
+        bool,
+        typer.Option(
+            "--truth/--no-truth",
+            help="Draw a ground-truth panel. It is always used for the diff either way.",
+        ),
+    ] = True,
 ) -> None:
     """Write one image: the page, the truth, then each system beside them."""
     image_path = next((corpus / "images").glob(f"{stem}.*"), None)
@@ -384,9 +391,12 @@ def compare(
     truth_blocks = parse_blocks(transcript_path.read_text(encoding="utf-8"))
     truth_tables = [block.rows for block in truth_blocks if block.kind == "table"]
 
-    collected: list[tuple[str, str, list[Block]]] = [
-        ("ground truth", "authored at render time", truth_blocks)
-    ]
+    # The truth panel is optional; the truth itself is not. Every fill below is
+    # a comparison against it, so --no-truth buys panel width for another
+    # system without changing a single verdict.
+    collected: list[tuple[str, str, list[Block]]] = []
+    if truth:
+        collected.append(("ground truth", "authored at render time", truth_blocks))
     for directory in system:
         candidate = next(directory.rglob(f"{stem}.md"), None)
         if candidate is None:
