@@ -95,9 +95,15 @@ def degrade_page(image: "Image.Image", tier: Tier, seed: int) -> "Image.Image":
     from generators.degradation.geometry import (
         apply_marks,
         apply_photometrics,
+        check_opencv,
         skew_on_platen,
         warp_to_photo,
     )
+
+    # Before any work: a wrong OpenCV produces a corpus that looks right and
+    # hashes differently, which is the failure this whole package is built to
+    # avoid.
+    check_opencv()
 
     augmented = apply_augraphy(image, tier, seed)
     rng = np.random.default_rng(seed)
