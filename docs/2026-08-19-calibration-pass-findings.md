@@ -56,6 +56,11 @@ Four things qualify that, and they are the substance of this document:
 4. **Ground truth and prompt are a matched pair, and both are components under
    test.** Two defects in this corpus were found only by asking whether it
    treated the same visual device the same way everywhere.
+5. **Scanning costs nothing that matters, and that is not the same as costing
+   nothing.** Across a scanner ladder from clean to barely legible, usable
+   amounts move 0.8 points and not monotonically — noise. Over the same range
+   mean CER rises thirteenfold and a quarter of all rows stop aligning. The
+   transcript falls apart while the numbers stay put.
 
 ---
 
@@ -80,8 +85,12 @@ variants. Every page is **synthetic and authored**: the ground truth is written
 by the renderer at the moment it draws the page, not annotated afterwards.
 Nothing is estimated or OCR'd, so label error is zero by construction.
 
-Pages are pristine renders, not scans. The benchmark measures parsing on clean
-input.
+Pages are pristine renders. A parallel set of **degraded** corpora derives from
+them — two intake channels, scanner and phone camera, three declared severities
+each — so the benchmark measures clean input by default and scanned input on
+demand. The degraded images alter legibility only; their transcripts are copied
+byte for byte from the clean corpus, so a score difference is attributable to
+image quality alone. See finding 10.
 
 ### Terms used throughout
 
@@ -886,6 +895,65 @@ small CER as evidence that a page's numbers can be used.
 
 ---
 
+### 10. Scanning costs nothing that matters, and the transcript still falls apart
+
+Every number above was measured on pristine renders. Production receives
+scanned documents, so the figure the deployment rests on — 99.0% of
+bank-statement amounts usable — described a condition production does not have.
+
+The 55 statements were re-rendered through a declared degradation ladder and
+read again by the same system, same prompt, same tp=2 configuration. Only the
+images differ; the transcripts are copied byte for byte, so any change is
+attributable to image quality alone.
+
+| scan tier | usable | misfiled | rows aligned | digit recall | mean nCER |
+|---|---|---|---|---|---|
+| clean | **99.01%** | 20 | 96.6% | 99.80% | 0.0038 |
+| light | 99.40% | 12 | 92.2% | 99.96% | 0.0179 |
+| moderate | 99.15% | 17 | 90.8% | **100.00%** | 0.0192 |
+| heavy | **98.61%** | 28 | **73.6%** | 99.80% | 0.0496 |
+
+*55 statements, 2,011 amounts, 1,612 rows, 2,507 figures.*
+
+**Usable amounts do not move.** Not "degrade gracefully" — do not move. The
+spread across the whole ladder is 0.8 points, and it is not even monotonic.
+
+**It would have been easy to report that scanning helps.** `scan-light` scores
+0.4 points *above* clean, and the first reading of this table said so. It is
+noise: per page, 6 got worse, 10 got better and 39 were unchanged; `moderate` is
+7/9/39 and `heavy` 9/8/38. Both directions, roughly balanced, at every severity.
+The same token-level perturbation moved 31 of 165 pages between tp=1 and tp=2 on
+*identical* images, so this is the known noise floor of the measurement rather
+than an effect. **A net total is not evidence; only when the two directions stop
+balancing is there a signal.**
+
+**What does move, monotonically and far outside that noise, is everything about
+the transcript.** Mean normalised CER rises thirteenfold, 0.0038 to 0.0496. Rows
+aligned falls **23 points**, 1,557 to 1,187 of 1,612 — at `scan-heavy` the model
+loses a quarter of its rows.
+
+**So structure and amount placement decouple.** At `scan-heavy` the 31B produces
+a measurably worse transcript, loses a quarter of its rows, and still files
+98.6% of amounts under the right heading with 99.8% of the digits right. The
+mechanism is the one finding 8 describes, running the other way: rows are matched
+by *content*, so a smudged merchant name fails its whole row — while the amount
+in that row still lands in the correct column.
+
+This is the sharpest form of the argument in finding 9. Here CER degrades
+thirteenfold while the number a consumer acts on does not change at all. A
+system selected on transcript quality would be rejected at `scan-heavy`; a
+system selected on usable amounts would be kept.
+
+**Structure never broke at any severity**: zero fragments, zero width breaks and
+the correct column count on 55 of 55 statements at every tier, including heavy.
+
+Two things this does not establish. The ladder **never found a floor** —
+`scan-heavy` is as severe as it was built and the number held, so the claim is
+"no degradation this corpus models breaks it", not "no scanner breaks it". And
+it is one model on 55 statements of one document type.
+
+---
+
 ## Limits
 
 **Coverage.** All four gemma checkpoints produced all 165 pages. InternVL
@@ -915,7 +983,8 @@ segmentation alone.
 misplaced if it is absent from its column for *any* reason, including a misread
 digit. It is not purely structural.
 
-**Synthetic and pristine.** Clean renders, not photographs or scans. No claim is
+**Synthetic.** Clean renders, plus a declared degradation ladder over them
+(finding 10) rather than real scans. No claim is
 made about degraded documents.
 
 **"Capacity" is shorthand.** The 31B is a differently trained model, not a
