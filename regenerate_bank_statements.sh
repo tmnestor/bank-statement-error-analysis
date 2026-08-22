@@ -129,6 +129,15 @@ step "degrade — six corpora, two intake channels"
 conda run -n "$DEGRADE_ENV" python -m generators.degradation.cli \
     --corpus "$corpus" --out "$TARGET" --type bank_statements || fail "degradation failed"
 
+step "eval-export — the layout LMM_POC's extractor reads"
+# A second projection of the SAME render, not a second generation, so the two
+# consumers cannot drift. Flat images plus ground_truth.{jsonl,csv}, mirroring
+# evaluation_data/degraded_20260812; verified byte-identical against LMM_POC's
+# own records for all 55 cases.
+conda run -n "$ENV_NAME" python -m generators.eval_export_cli \
+    --corpus "$corpus" --degraded "$TARGET" --out "$EVAL_ROOT" \
+    --date "$DATE_STAMP" || fail "eval export failed"
+
 echo
 echo "=== done: $TARGET ==="
 find "$TARGET" -maxdepth 1 -mindepth 1 -type d | sort | while read -r d; do
