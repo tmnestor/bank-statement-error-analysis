@@ -30,7 +30,22 @@ OUT=${OUT:-runs_degraded}
 CHUNK=${CHUNK:-25}
 MODEL=${MODEL:-/home/jovyan/nfs_share/models/MinerU2.5-Pro-2605-1.2B}
 
+ENV_NAME=${ENV_NAME:-mineru_cuda}
+
 fail() { echo "!! $*" >&2; exit 1; }
+
+# The environment first, because everything below depends on it and the three
+# exports live in it. MinerU has its own env: its mlx-vlm range is disjoint from
+# the VLM envs', so vllm_env3 cannot run it however the exports are set.
+[[ ${CONDA_DEFAULT_ENV:-} == "$ENV_NAME" ]] || fail "active env is '${CONDA_DEFAULT_ENV:-none}', expected '$ENV_NAME'.
+
+   conda activate $ENV_NAME
+   export LD_LIBRARY_PATH="\$CONDA_PREFIX/lib:\$LD_LIBRARY_PATH"
+   export MINERU_MODEL_SOURCE=local
+   export MINERU_TOOLS_CONFIG_JSON=~/mineru.json
+
+   All four are needed, and none survives a new shell."
+command -v mineru >/dev/null || fail "the mineru CLI is not on PATH in $ENV_NAME"
 
 [[ -d $DEGRADED ]] || fail "no $DEGRADED/ directory"
 [[ -d $MODEL ]] || fail "checkpoint not found: $MODEL (set MODEL=)"
