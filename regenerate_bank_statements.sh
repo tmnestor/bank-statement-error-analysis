@@ -41,9 +41,13 @@ DEGRADE=${DEGRADE:-yes}
 # the clean corpus and every degraded variant, so a run is a single self-
 # describing artefact that can be moved, archived or deleted as one thing.
 #
-# Override EVAL_ROOT on a host with a different layout — PROD keeps this under
-# the NFS share rather than on a desktop.
-EVAL_ROOT=${EVAL_ROOT:-$HOME/Desktop/evaluation_data}
+# `../evaluation_data`, beside the repository rather than inside it, which is
+# where it sits on every host: ~/nfs_share/tod_2026/evaluation_data on the
+# sandbox and in PROD, ~/Desktop/evaluation_data locally. Derived from the
+# SCRIPT's location, not the working directory, so it resolves the same however
+# the script is invoked.
+REPO_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+EVAL_ROOT=${EVAL_ROOT:-$(cd -- "$REPO_DIR/.." && pwd)/evaluation_data}
 RUN_NAME=${RUN_NAME:-bank_statements_$DATE_STAMP}
 TARGET="$EVAL_ROOT/$RUN_NAME"
 
