@@ -105,10 +105,15 @@ def collect(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> pd.Data
 
 
 def report(frame: pd.DataFrame) -> str:
-    """Render the answer as text, per channel."""
+    """Render the answer as text, per system and per channel.
+
+    Grouped by system as well as family, because more than one system can be run
+    against the same tiers and their rows would otherwise interleave under one
+    heading — reading as a single system with two contradictory results.
+    """
     lines = ["Usable bank-statement amounts by image quality", ""]
-    for family, group in frame.groupby("family", observed=True):
-        lines.append(f"  {family}")
+    for (name, family), group in frame.groupby(["system", "family"], observed=True):
+        lines.append(f"  {name}  |  {family}")
         clean = group[group.severity == "clean"]
         origin = clean.usable.iloc[0] if len(clean) else None
         for _, row in group.iterrows():
@@ -141,32 +146,44 @@ def paired_change(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> p
         One row per tier with the three counts and the net.
     """
 
-    def misfiled_by_stem(path: Path) -> dict[str, int]:
+    def misfiled_by_stem(path: Path) -> dict[str, dict[str, int]]:
+        """system -> stem -> misfiled, so two systems never merge into one."""
         payload = json.loads(path.read_text(encoding="utf-8"))
         return {
-            d["stem"]: d["misfiled"]
-            for block in payload["systems"].values()
-            for d in block["documents"]
-            if d["stem"].endswith("_bank_statements")
+            name: {
+                d["stem"]: d["misfiled"]
+                for d in block["documents"]
+                if d["stem"].endswith("_bank_statements")
+            }
+            for name, block in payload["systems"].items()
         }
 
-    baseline = misfiled_by_stem(reports / clean)
+    baselines = misfiled_by_stem(reports / clean)
     rows = []
     for path in sorted(reports.glob("scores_*.json")):
         match = _TIER.search(path.stem)
         if not match:
             continue
-        current = misfiled_by_stem(path)
-        deltas = [current[s] - baseline[s] for s in current if s in baseline]
-        rows.append(
-            {
-                **match.groupdict(),
-                "worse": sum(1 for d in deltas if d > 0),
-                "better": sum(1 for d in deltas if d < 0),
-                "same": sum(1 for d in deltas if d == 0),
-                "net": sum(deltas),
-            }
-        )
+        for name, current in misfiled_by_stem(path).items():
+            # A system with no clean run has nothing to be compared against, and
+            # inventing a baseline from another system would be worse than
+            # saying nothing.
+            baseline = baselines.get(name) or (
+                next(iter(baselines.values())) if len(baselines) == 1 else {}
+            )
+            deltas = [current[s] - baseline[s] for s in current if s in baseline]
+            if not deltas:
+                continue
+            rows.append(
+                {
+                    "system": name,
+                    **match.groupdict(),
+                    "worse": sum(1 for d in deltas if d > 0),
+                    "better": sum(1 for d in deltas if d < 0),
+                    "same": sum(1 for d in deltas if d == 0),
+                    "net": sum(deltas),
+                }
+            )
     frame = pd.DataFrame(rows)
     if not frame.empty:
         frame["severity"] = pd.Categorical(frame.severity, categories=SEVERITIES, ordered=True)
@@ -181,14 +198,15 @@ def main() -> None:
     changes = paired_change()
     if not changes.empty:
         print("Per-page change against clean — is a tier's total signal or noise?\n")
-        for _, row in changes.iterrows():
+        for _, row in changes.sort_values(["system", "family", "severity"]).iterrows():
             verdict = (
                 "noise: both directions, roughly balanced"
                 if min(row.worse, row.better) >= max(row.worse, row.better) / 2
                 else "one-directional — a real effect"
             )
             print(
-                f"  {row.family}-{row.severity:<9} worse {row.worse:2d}  better {row.better:2d}"
+                f"  {row.system[:26]:26} {row.family}-{row.severity:<9} "
+                f"worse {row.worse:2d}  better {row.better:2d}"
                 f"  same {row.same:2d}  net {row.net:+3d}   {verdict}"
             )
         print()
@@ -196,7 +214,7 @@ def main() -> None:
     # Where the curve bends matters more than where it ends: a cliff between two
     # adjacent tiers locates the image quality production must stay above, and
     # that is the number an intake pipeline can be specified against.
-    for family, group in frame.groupby("family", observed=True):
+    for (name, family), group in frame.groupby(["system", "family"], observed=True):
         ordered = group.sort_values("severity")
         deltas = ordered.usable.diff().dropna()
         if len(deltas):
@@ -204,13 +222,13 @@ def main() -> None:
             step = ordered.loc[worst]
             previous = ordered.severity.shift().loc[worst]
             print(
-                f"{family}: the largest single drop in usable amounts is "
+                f"{name} / {family}: the largest single drop in usable amounts is "
                 f"{previous} -> {step.severity}, {deltas.min() * 100:.1f} points"
             )
             rows_lost = (ordered.rows_aligned.iloc[0] - ordered.rows_aligned.iloc[-1]) * 100
             print(
-                f"{family}: rows aligned falls {rows_lost:.1f} points over the same range "
-                "— structure and amount placement do not degrade together"
+                f"{name} / {family}: rows aligned falls {rows_lost:.1f} points over the same "
+                "range — structure and amount placement do not degrade together"
             )
 
 
