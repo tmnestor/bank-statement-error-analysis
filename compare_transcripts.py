@@ -35,6 +35,7 @@ import typer
 from PIL import Image, ImageDraw, ImageFont
 from rich import print as rprint
 
+from generators.columns import table_rows
 from generators.tables import row_signature
 
 REPO = Path(__file__).resolve().parent
@@ -60,6 +61,7 @@ EDGE_CHANGED = (196, 110, 44)
 EDGE_EXTRA = (74, 143, 190)
 
 _SEPARATOR = re.compile(r"^\s*\|?[\s:-]*-{2,}[\s:|-]*\|?\s*$")
+_HTML_BLOCK = re.compile(r"<table.*?</table>", re.DOTALL | re.IGNORECASE)
 
 
 Table = list[list[str]]
@@ -116,6 +118,21 @@ def parse_blocks(markdown: str) -> list[Block]:
         if rows:
             blocks.append(Block("table", rows=[list(r) for r in rows]))
             rows.clear()
+
+    # MinerU emits HTML tables rather than pipe tables on most pages, and it is
+    # the system that fragments rows -- so the one output this tool most needs
+    # to show is the one a pipe-only parser cannot see. Rather than write a
+    # second dialect reader, hand the whole document to the scorer's own
+    # , which already reads both for exactly this reason. Two
+    # readers of the same dialects would be free to disagree, and the viewer
+    # disagreeing with the scorer is the worst of the available bugs.
+    if "<t" in markdown.lower():
+        html_rows = table_rows(markdown)
+        if html_rows:
+            prose = _HTML_BLOCK.sub("", markdown)
+            blocks = [b for b in parse_blocks(prose) if b.kind != "table"]
+            blocks.append(Block("table", rows=html_rows))
+            return blocks
 
     for line in markdown.splitlines():
         stripped = line.strip()
