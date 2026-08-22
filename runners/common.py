@@ -157,6 +157,14 @@ def corpus_stems(corpus: Path) -> list[str]:
     return stems
 
 
+# A clean corpus renders PNG, losslessly, because it is the ground truth. A
+# degraded corpus writes JPEG, because every intake channel it models -- scanner
+# or phone -- delivers a compressed file, and handing a system a lossless image
+# would measure a condition production never produces. PNG is tried first so the
+# clean corpus costs one stat call.
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
+
+
 def corpus_images(corpus: Path) -> dict[str, Path]:
     """Pair every transcript stem with the page image the parser must read.
 
@@ -167,15 +175,18 @@ def corpus_images(corpus: Path) -> dict[str, Path]:
         Stem -> image path, for every transcript stem.
 
     Raises:
-        RunnerError: Any transcript has no matching image.
+        RunnerError: Any transcript has no matching image in any accepted
+            format.
     """
     images = corpus / "images"
     paired: dict[str, Path] = {}
     missing: list[str] = []
     for stem in corpus_stems(corpus):
-        image = images / f"{stem}.png"
-        if image.exists():
-            paired[stem] = image
+        for suffix in _IMAGE_SUFFIXES:
+            image = images / f"{stem}{suffix}"
+            if image.exists():
+                paired[stem] = image
+                break
         else:
             missing.append(stem)
 
@@ -196,16 +207,28 @@ def corpus_images(corpus: Path) -> dict[str, Path]:
                 "                scp corpus.tgz <host>:<path>/ && tar xzf corpus.tgz"
             )
         else:
-            recover = (
-                f"{images} holds {present} file(s) but not these. Re-run "
-                "`python -m generators.pipeline export` if this corpus was assembled "
-                "here, or re-transfer it as a single archive if it was copied."
-            )
+            suffixes = sorted({p.suffix for p in images.glob("*") if not _is_sidecar(p)})
+            unsupported = [s for s in suffixes if s not in _IMAGE_SUFFIXES]
+            if unsupported:
+                recover = (
+                    f"{images} holds {present} file(s), with suffix(es) {suffixes} — and "
+                    f"{unsupported} is not among the {list(_IMAGE_SUFFIXES)} this runner "
+                    "reads. The images are present and named right; only the format is "
+                    "unexpected. Add the suffix to _IMAGE_SUFFIXES in runners/common.py, "
+                    "or re-encode the images."
+                )
+            else:
+                recover = (
+                    f"{images} holds {present} file(s) but not these. Re-run "
+                    "`python -m generators.pipeline export` if this corpus was "
+                    "assembled here, or re-transfer it as a single archive if it was "
+                    "copied."
+                )
         raise runner_error(
             f"{len(missing)} transcript(s) have no page image: {_name_sample(missing)}.",
             where=str(images.resolve()),
-            expected="one image per transcript stem, e.g.\n"
-            "              parsing_20260818/images/CASE001_invoices.png",
+            expected=f"one image per transcript stem, in any of {list(_IMAGE_SUFFIXES)}, "
+            "e.g.\n              parsing_20260818/images/CASE001_invoices.png",
             recover=recover,
         )
     return paired
