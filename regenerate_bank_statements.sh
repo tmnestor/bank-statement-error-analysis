@@ -36,6 +36,17 @@ DEGRADE_ENV=${DEGRADE_ENV:-synthetic}
 DATE_STAMP=${DATE_STAMP:-$(date +%Y%m%d)}
 DEGRADE=${DEGRADE:-yes}
 
+# WHERE THE CORPORA LAND. Deliberately outside the repository: they are data,
+# not source, and the repo tracks no images at all. One dated directory holds
+# the clean corpus and every degraded variant, so a run is a single self-
+# describing artefact that can be moved, archived or deleted as one thing.
+#
+# Override EVAL_ROOT on a host with a different layout — PROD keeps this under
+# the NFS share rather than on a desktop.
+EVAL_ROOT=${EVAL_ROOT:-$HOME/Desktop/evaluation_data}
+RUN_NAME=${RUN_NAME:-bank_statements_$DATE_STAMP}
+TARGET="$EVAL_ROOT/$RUN_NAME"
+
 fail() { echo "!! $*" >&2; exit 1; }
 step() { echo; echo "=== $* ==="; }
 
@@ -50,6 +61,20 @@ entries=$(grep -c '^- case_id:' ground_truth/bank_statements.yml || echo '?')
 echo "ground truth: $entries authored bank statements"
 echo "environments: $ENV_NAME (render) / $DEGRADE_ENV (degrade)"
 echo "date stamp:   $DATE_STAMP"
+echo "destination:  $TARGET"
+
+# Refuse to overwrite a previous run. A corpus is identified by the hashes in
+# its manifest, and quietly writing over one would leave any predictions already
+# scored against it pointing at images that no longer exist.
+if [[ -e $TARGET ]]; then
+    fail "$TARGET already exists.
+   A regenerated corpus is byte-identical to the one already there, so there is
+   nothing to gain by overwriting it — and predictions scored against the old
+   images would silently point at new ones.
+   Either use it as it stands, or pass RUN_NAME= / DATE_STAMP= for a new
+   directory, or remove it deliberately."
+fi
+mkdir -p "$TARGET" || fail "cannot create $TARGET"
 
 step "validate — ground truth, layouts, budgets"
 conda run -n "$ENV_NAME" python -m generators.pipeline validate ||
@@ -63,10 +88,10 @@ step "serialise — events to Markdown"
 conda run -n "$ENV_NAME" python -m generators.pipeline serialise || fail "serialisation failed"
 
 step "export — the shippable corpus"
-conda run -n "$ENV_NAME" python -m generators.pipeline export --date "$DATE_STAMP" ||
-    fail "export failed"
+conda run -n "$ENV_NAME" python -m generators.pipeline export \
+    --date "$DATE_STAMP" --target "$TARGET" || fail "export failed"
 
-corpus="parsing_${DATE_STAMP}"
+corpus="$TARGET/parsing_${DATE_STAMP}"
 pages=$(find "$corpus/images" -name '*.png' | wc -l | tr -d ' ')
 echo "  $corpus: $pages page(s)"
 
@@ -102,13 +127,13 @@ fi
 
 step "degrade — six corpora, two intake channels"
 conda run -n "$DEGRADE_ENV" python -m generators.degradation.cli \
-    --corpus "$corpus" --out degraded --type bank_statements || fail "degradation failed"
+    --corpus "$corpus" --out "$TARGET" --type bank_statements || fail "degradation failed"
 
 echo
-echo "=== done ==="
-echo "  clean:    $corpus/"
-find degraded -maxdepth 1 -mindepth 1 -type d | sort | while read -r d; do
-    echo "  degraded: $d/ ($(find "$d/images" -type f | wc -l | tr -d ' ') pages)"
+echo "=== done: $TARGET ==="
+find "$TARGET" -maxdepth 1 -mindepth 1 -type d | sort | while read -r d; do
+    printf "  %-46s %3s page(s)\n" "$(basename "$d")" \
+        "$(find "$d/images" -type f | wc -l | tr -d ' ')"
 done
 cat <<'NOTE'
 
