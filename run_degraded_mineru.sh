@@ -62,11 +62,30 @@ corpora=()
 incomplete=()
 for c in "$DEGRADED"/*/; do
     name=$(basename "${c%/}")
-    images=$(find "$c/images" \( -name '*.jpg' -o -name '*.png' \) 2>/dev/null | wc -l | tr -d ' ')
-    transcripts=$(find "$c/transcripts" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-    printf "  %-46s img=%-4s tr=%-4s\n" "$name" "$images" "$transcripts"
-    if [[ $images -ne $transcripts || $images -eq 0 ]]; then
-        incomplete+=("$name")
+    # Compare STEMS, not file counts. The property that matters is that every
+    # transcript has an image; a spare image is a leftover from an interrupted
+    # transfer and the runner ignores it, because it pairs by transcript stem.
+    # Counting files made a harmless leftover block the whole run.
+    # -maxdepth 1 prunes \, which Jupyter creates inside any
+    # directory opened on the share. Its contents are copies of the corpus
+    # images, so a recursive count reported 59 images against 55 transcripts and
+    # blocked the run. The runners never saw them -- corpus_images builds a
+    # direct path per stem rather than globbing -- so this was only ever a
+    # problem for a check that counted files.
+    transcript_stems=$(find "$c/transcripts" -maxdepth 1 -name '*.md' 2>/dev/null |
+        sed 's|.*/||; s|\.md$||' | sort)
+    image_stems=$(find "$c/images" -maxdepth 1 -type f ! -name '._*' 2>/dev/null |
+        sed 's|.*/||; s|\.[^.]*$||' | sort -u)
+    transcripts=$(echo "$transcript_stems" | grep -c . || true)
+    images=$(echo "$image_stems" | grep -c . || true)
+    orphans=$(comm -23 <(echo "$transcript_stems") <(echo "$image_stems") | grep -c . || true)
+    spare=$(comm -13 <(echo "$transcript_stems") <(echo "$image_stems") | grep -c . || true)
+
+    note=""
+    [[ $spare -gt 0 ]] && note="  ($spare image(s) with no transcript, ignored)"
+    printf "  %-46s img=%-4s tr=%-4s%s\n" "$name" "$images" "$transcripts" "$note"
+    if [[ $transcripts -eq 0 || $orphans -gt 0 ]]; then
+        incomplete+=("$name ($orphans transcript(s) with no image)")
     else
         corpora+=("${c%/}")
     fi

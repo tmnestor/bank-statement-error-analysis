@@ -53,8 +53,14 @@ incomplete=()
 runnable=()
 for c in "${corpora[@]}"; do
     name=$(basename "${c%/}")
-    images=$(find "$c/images" \( -name '*.jpg' -o -name '*.png' \) 2>/dev/null | wc -l | tr -d ' ')
-    transcripts=$(find "$c/transcripts" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    # -maxdepth 1 prunes \, which Jupyter creates inside any
+    # directory opened on the share and fills with copies of the corpus images.
+    # Counting recursively reported 59 images against 55 transcripts and blocked
+    # a complete corpus. The runners never saw them: corpus_images builds a
+    # direct path per stem rather than globbing.
+    images=$(find "$c/images" -maxdepth 1 \( -name '*.jpg' -o -name '*.png' \) 2>/dev/null |
+        wc -l | tr -d ' ')
+    transcripts=$(find "$c/transcripts" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
     # The redirect fails before wc runs when the file is absent, so test first.
     rows=0
     [[ -f $c/manifest.jsonl ]] && rows=$(wc -l < "$c/manifest.jsonl" | tr -d ' ')
