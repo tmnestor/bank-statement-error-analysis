@@ -56,11 +56,12 @@ Four things qualify that, and they are the substance of this document:
 4. **Ground truth and prompt are a matched pair, and both are components under
    test.** Two defects in this corpus were found only by asking whether it
    treated the same visual device the same way everywhere.
-5. **Scanning costs nothing that matters, and that is not the same as costing
-   nothing.** Across a scanner ladder from clean to barely legible, usable
-   amounts move 0.8 points and not monotonically — noise. Over the same range
-   mean CER rises thirteenfold and a quarter of all rows stop aligning. The
-   transcript falls apart while the numbers stay put.
+5. **The intake channel decides whether degradation costs anything.** Across a
+   scanner ladder from clean to barely legible, usable amounts move 0.8 points
+   and not monotonically — noise. Across a phone-camera ladder over the same
+   pages they fall **9.6 points**. Scanned intake is free; photographed intake
+   needs a quality gate. On both ladders the transcript falls apart while the
+   numbers stay put far longer than it does.
 
 ---
 
@@ -895,7 +896,7 @@ small CER as evidence that a page's numbers can be used.
 
 ---
 
-### 10. Scanning costs nothing that matters, and the transcript still falls apart
+### 10. The intake channel decides everything; scanning is free, photography is not
 
 Every number above was measured on pristine renders. Production receives
 scanned documents, so the figure the deployment rests on — 99.0% of
@@ -906,51 +907,83 @@ read again by the same system, same prompt, same tp=2 configuration. Only the
 images differ; the transcripts are copied byte for byte, so any change is
 attributable to image quality alone.
 
-| scan tier | usable | misfiled | rows aligned | digit recall | mean nCER |
+Two ladders, because a flatbed scanner and a phone camera damage a page
+differently and one severity scale would make the difference unanswerable.
+
+| tier | usable | misfiled | rows aligned | digit recall | median nCER |
 |---|---|---|---|---|---|
-| clean | **99.01%** | 20 | 96.6% | 99.80% | 0.0038 |
-| light | 99.40% | 12 | 92.2% | 99.96% | 0.0179 |
-| moderate | 99.15% | 17 | 90.8% | **100.00%** | 0.0192 |
-| heavy | **98.61%** | 28 | **73.6%** | 99.80% | 0.0496 |
+| *clean* | ***99.01%*** | *20* | *96.6%* | *99.80%* | *0.0005* |
+| scan-light | 99.40% | 12 | 92.2% | 99.96% | 0.0009 |
+| scan-moderate | 99.15% | 17 | 90.8% | **100.00%** | 0.0045 |
+| scan-heavy | **98.61%** | 28 | 73.6% | 99.80% | 0.0186 |
+| photo-light | 98.81% | 24 | 78.0% | 99.84% | 0.0226 |
+| photo-moderate | 97.36% | 53 | 46.4% | 99.52% | 0.0929 |
+| photo-heavy | **89.41%** | **213** | **25.9%** | 96.45% | 0.1692 |
 
-*55 statements, 2,011 amounts, 1,612 rows, 2,507 figures.*
+*55 statements, 2,011 amounts, 1,612 rows, 2,507 figures. The clean row is the
+shared origin of both ladders.*
 
-**Usable amounts do not move.** Not "degrade gracefully" — do not move. The
-spread across the whole ladder is 0.8 points, and it is not even monotonic.
+**The channel matters more than the severity.** Scanning costs nothing across
+its whole range — 0.8 points of spread, not monotonic. Photography costs
+**9.6 points** by its heaviest tier, ten times the entire scan ladder. These are
+the same pages, the same system, the same prompt, and the same three severity
+labels.
 
 **It would have been easy to report that scanning helps.** `scan-light` scores
 0.4 points *above* clean, and the first reading of this table said so. It is
-noise: per page, 6 got worse, 10 got better and 39 were unchanged; `moderate` is
-7/9/39 and `heavy` 9/8/38. Both directions, roughly balanced, at every severity.
-The same token-level perturbation moved 31 of 165 pages between tp=1 and tp=2 on
-*identical* images, so this is the known noise floor of the measurement rather
-than an effect. **A net total is not evidence; only when the two directions stop
-balancing is there a signal.**
+noise, and counting the direction of every page's change is what shows it:
 
-**What does move, monotonically and far outside that noise, is everything about
-the transcript.** Mean normalised CER rises thirteenfold, 0.0038 to 0.0496. Rows
-aligned falls **23 points**, 1,557 to 1,187 of 1,612 — at `scan-heavy` the model
-loses a quarter of its rows.
+| tier | pages worse | better | unchanged | net |
+|---|---|---|---|---|
+| scan-light | 6 | 10 | 39 | −8 |
+| scan-moderate | 7 | 9 | 39 | −3 |
+| scan-heavy | 9 | 8 | 38 | +8 |
+| photo-light | 10 | 9 | 36 | +4 |
+| **photo-moderate** | **19** | 7 | 29 | **+33** |
+| **photo-heavy** | **41** | 2 | 12 | **+193** |
 
-**So structure and amount placement decouple.** At `scan-heavy` the 31B produces
-a measurably worse transcript, loses a quarter of its rows, and still files
-98.6% of amounts under the right heading with 99.8% of the digits right. The
-mechanism is the one finding 8 describes, running the other way: rows are matched
-by *content*, so a smudged merchant name fails its whole row — while the amount
-in that row still lands in the correct column.
+Every scan tier moves pages in both directions in roughly equal numbers — the
+signature of the token-level perturbation that moved 31 of 165 pages between
+tp=1 and tp=2 on *identical* images. `photo-moderate` and `photo-heavy` do not:
+41 pages worse against 2 better is not a coin landing badly.
 
-This is the sharpest form of the argument in finding 9. Here CER degrades
-thirteenfold while the number a consumer acts on does not change at all. A
-system selected on transcript quality would be rejected at `scan-heavy`; a
-system selected on usable amounts would be kept.
+**A net total is not evidence; only when the two directions stop balancing is
+there a signal.** The test earns its keep by disagreeing — it calls the entire
+scan ladder noise and the photo tail a real effect, on the same data and the
+same threshold.
 
-**Structure never broke at any severity**: zero fragments, zero width breaks and
-the correct column count on 55 of 55 statements at every tier, including heavy.
+**The transcript degrades on both ladders, and on the scan ladder it degrades
+for nothing.** Median CER rises 37-fold from clean to `scan-heavy` and rows
+aligned falls 23 points — while usable amounts do not move. A system chosen on
+transcript quality would be rejected at `scan-heavy`; the same system chosen on
+usable amounts would be kept. **This is the sharpest form of finding 9's
+argument**: the metric everyone reaches for moves a great deal and the number a
+consumer acts on does not move at all.
 
-Two things this does not establish. The ladder **never found a floor** —
-`scan-heavy` is as severe as it was built and the number held, so the claim is
-"no degradation this corpus models breaks it", not "no scanner breaks it". And
-it is one model on 55 statements of one document type.
+**The mechanism is finding 8 running backwards.** Rows are matched by *content*,
+so a smudged merchant name fails its whole row while the amount in that row
+still lands in the correct column. Row alignment is a legibility measure wearing
+a structural costume, in exactly the way it was a digit measure before.
+
+**Reading is not what fails on the photo ladder either.** At `photo-heavy` the
+31B still reads **96.5%** of figures correctly; only 89.4% are usable. The gap
+is placement, and the cause is visible on the page: the heavy photo tier casts a
+shadow across part of the sheet and blurs it, so column boundaries — which these
+layouts never draw — become unrecoverable while the digits themselves survive.
+**Occlusion is not degradation.** No amount of model capability recovers a
+column edge that is not in the image.
+
+**Structure never broke on the scan ladder**: zero fragments, zero width breaks
+and the correct column count on 55 of 55 statements at every scan severity.
+
+**The ladder found a floor, and it is in the photo channel.** That is the
+actionable result: an intake pipeline can be specified against it. Scanned
+documents need no quality gate that this corpus can detect; photographed ones
+need capture guidance or a legibility check before parsing, and `photo-moderate`
+is where the cost becomes real rather than statistical.
+
+What this does not establish: it is one model, on 55 statements, of one document
+type, against modelled degradation rather than real scans.
 
 ---
 
