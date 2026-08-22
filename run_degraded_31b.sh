@@ -53,7 +53,7 @@ incomplete=()
 runnable=()
 for c in "${corpora[@]}"; do
     name=$(basename "${c%/}")
-    # -maxdepth 1 prunes \, which Jupyter creates inside any
+    # -maxdepth 1 prunes .ipynb_checkpoints/, which Jupyter creates inside any
     # directory opened on the share and fills with copies of the corpus images.
     # Counting recursively reported 59 images against 55 transcripts and blocked
     # a complete corpus. The runners never saw them: corpus_images builds a

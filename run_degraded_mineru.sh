@@ -66,7 +66,7 @@ for c in "$DEGRADED"/*/; do
     # transcript has an image; a spare image is a leftover from an interrupted
     # transfer and the runner ignores it, because it pairs by transcript stem.
     # Counting files made a harmless leftover block the whole run.
-    # -maxdepth 1 prunes \, which Jupyter creates inside any
+    # -maxdepth 1 prunes .ipynb_checkpoints/, which Jupyter creates inside any
     # directory opened on the share. Its contents are copies of the corpus
     # images, so a recursive count reported 59 images against 55 transcripts and
     # blocked the run. The runners never saw them -- corpus_images builds a
