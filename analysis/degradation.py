@@ -129,7 +129,21 @@ def report(frame: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def paired_change(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> pd.DataFrame:
+# Where each system's CLEAN run lives. A degraded tier is only interpretable
+# against the same system on the same pages undegraded, so these are looked up by
+# system name and never substituted for one another.
+#
+# The 31B appears under two names: `...-2xL4-tp2` in the degraded runs and
+# `gemma-4-31B-it-qat-w4a16-ct` in its clean tp=2 report, because the system name
+# is the vlm_systems.yml key and the clean re-run used the plain entry. That
+# aliasing is declared rather than guessed.
+CLEAN_REPORTS = ("scores_31b_tp2.json", "scores_parsers.json", "scores_v4.json")
+CLEAN_ALIASES = {
+    "gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2": "gemma-4-31B-it-qat-w4a16-ct",
+}
+
+
+def paired_change(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
     """Count, per tier, how many PAGES got worse, better and stayed the same.
 
     A net change is not evidence on its own. Token-level perturbation moves
@@ -158,19 +172,28 @@ def paired_change(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> p
             for name, block in payload["systems"].items()
         }
 
-    baselines = misfiled_by_stem(reports / clean)
+    baselines: dict[str, dict[str, int]] = {}
+    for name in (clean,) if clean else CLEAN_REPORTS:
+        path = reports / name
+        if path.exists():
+            baselines.update(misfiled_by_stem(path))
+
     rows = []
     for path in sorted(reports.glob("scores_*.json")):
         match = _TIER.search(path.stem)
         if not match:
             continue
         for name, current in misfiled_by_stem(path).items():
-            # A system with no clean run has nothing to be compared against, and
-            # inventing a baseline from another system would be worse than
-            # saying nothing.
-            baseline = baselines.get(name) or (
-                next(iter(baselines.values())) if len(baselines) == 1 else {}
-            )
+            # A system with no clean run has nothing to compare against, and
+            # borrowing another system's baseline is worse than saying nothing:
+            # it silently reports one system's degradation as another's. An
+            # earlier version fell back to "the only baseline present" when just
+            # one clean report was loaded, which compared MinerU's degraded
+            # pages against the 31B's clean ones and called every tier a real
+            # effect.
+            baseline = baselines.get(name) or baselines.get(CLEAN_ALIASES.get(name, ""), {})
+            if not baseline:
+                continue
             deltas = [current[s] - baseline[s] for s in current if s in baseline]
             if not deltas:
                 continue
