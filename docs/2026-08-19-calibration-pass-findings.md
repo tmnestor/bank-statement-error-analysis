@@ -35,7 +35,7 @@ statement rows recovered, and **1.0%** filed under the wrong heading. It is the
 first system here that reads the tables, gets the digits right, and follows the
 house style at once.
 
-Four things qualify that, and they are the substance of this document:
+Six things qualify that, and they are the substance of this document:
 
 1. **Steerability is a property of the model, not the prompt.** The same three
    conventions, identically worded, moved the 12B and barely moved an 8B from
@@ -56,7 +56,12 @@ Four things qualify that, and they are the substance of this document:
 4. **Ground truth and prompt are a matched pair, and both are components under
    test.** Two defects in this corpus were found only by asking whether it
    treated the same visual device the same way everywhere.
-5. **Robustness to a bad scan is a property of the system, not of scanning.**
+5. **A wrong number and a missing number are not the same failure.** Ranked by
+   what reaches a consumer as plausible-but-wrong, the 31B is at 2.0% and MinerU
+   at 37.2% — and MinerU misreads *no* digits at all, losing 596 correctly-read
+   amounts to rows with no date. "Which system fabricates numbers?" and "which
+   system delivers wrong data?" have different answers.
+6. **Robustness to a bad scan is a property of the system, not of scanning.**
    Across a scanner ladder from clean to barely legible, the 31B's usable
    amounts move 0.8 points and not monotonically — noise. MinerU loses **10.8
    points** on the same images. Degradation *widens* the gap between two systems
@@ -1072,6 +1077,59 @@ What this does not establish: it is two systems, on 55 statements of one
 document type, against modelled degradation rather than real scans. Two is
 enough to show that robustness differs between systems, and not enough to
 predict where a third would fall.
+
+---
+
+### A wrong number and a missing number are not the same failure
+
+Every measure so far counts amounts that did not arrive correctly. It does not
+distinguish the two ways they fail, and downstream those could hardly be more
+different:
+
+- **silently wrong** — a plausible number reaches the consumer. A misread digit,
+  an amount under the wrong heading, or one orphaned in a row that identifies
+  nothing. `$1,982.56` for `$1,182.56` passes every validation a consumer is
+  likely to run.
+- **visibly missing** — the amount is absent. A gap can be counted, alerted on,
+  and routed to a human.
+
+Bank statements, 2,011 amounts:
+
+| System | misread | mis-column | orphaned | **silently wrong** | dropped |
+|---|---|---|---|---|---|
+| **gemma 31B 4-bit** | 3 | 11 | 26 | **2.0%** | 0.1% |
+| gemma 12B BF16 | 52 | 16 | 26 | 4.7% | 3.5% |
+| gemma 12B BF16 QAT | 74 | 6 | 48 | 6.4% | 2.6% |
+| gemma 12B 4-bit | **101** | 24 | 61 | 9.2% | 5.7% |
+| InternVL3.5-8B | 2 | **192** | 247 | **21.9%** | 3.0% |
+| MinerU | **0** | 152 | **596** | **37.2%** | 0.6% |
+
+**Two questions, and they rank the systems differently:**
+
+> **"Which system fabricates numbers?"**
+> gemma 12B 4-bit is the worst tested — 101 misread amounts — and MinerU is
+> perfect, misreading **none** of 2,507 figures.
+
+> **"Which system delivers wrong data?"**
+> MinerU is the worst by a distance at 37.2%, and the 12B 4-bit is mid-table at
+> 9.2%.
+
+Both are legitimate; they are not the same question. The second is the
+deployment question, because a consumer cannot tell how a wrong number became
+wrong. The first is a separate and real indictment of the 12B that the aggregate
+hides, and it is what finding 8 is about: capacity takes misreads from 101 to
+**3**.
+
+**A misread digit is the most insidious failure here**, whatever the totals say.
+A mis-columned amount has some chance of failing a debit/credit reconciliation
+downstream; an orphaned one is missing its date and may be caught as malformed.
+A wrong digit in the right field of the right row is indistinguishable from a
+correct answer.
+
+**Note what this does to MinerU's best number.** It misreads nothing at all —
+the cleanest digit fidelity of any system here — and has the highest
+silently-wrong rate of any system here, because it puts 596 correctly-read
+amounts in rows with no date. Reading perfectly is not a defence.
 
 ---
 
