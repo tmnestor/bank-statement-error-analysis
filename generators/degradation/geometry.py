@@ -26,6 +26,49 @@ import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
+# The OpenCV the degraded corpora were built with. `warpPerspective` and
+# `GaussianBlur` are not bit-stable across major versions, so this is corpus
+# data, not a preference: a different build silently produces a different corpus
+# under the same seed, and the manifest hashes then disagree with every
+# prediction already scored against them.
+#
+# Measured 2026-08-22: installing environment-degrade.yml as written leaves BOTH
+# opencv-python-headless 4.13.0.92 and opencv-python 5.0.0.93 present, because
+# augraphy declares the GUI build as a hard requirement and pip honours it. `cv2`
+# then resolves to 5.0.0.93, and 2 of 9 degraded images came out different. The
+# environment file documents the uninstall that fixes it; this check is here
+# because a documented step is one that can be skipped.
+_PINNED_CV2 = "4.13.0"
+
+
+class OpenCVVersionError(RuntimeError):
+    """Raised when the active OpenCV cannot reproduce the shipped corpus."""
+
+
+def check_opencv() -> None:
+    """Refuse to degrade with an OpenCV that would produce a different corpus.
+
+    Raises:
+        OpenCVVersionError: The active cv2 is not the pinned build.
+    """
+    active = cv2.__version__
+    if active.startswith(_PINNED_CV2):
+        return
+    raise OpenCVVersionError(
+        "Cannot degrade: the active OpenCV would produce a different corpus.\n"
+        f"  What:     cv2 resolves to {active}, not the pinned {_PINNED_CV2}. Geometry "
+        "is not bit-stable across OpenCV versions, so the same seed yields different "
+        "images — measured at 2 of 9 pages differing between 4.13.0 and 5.0.0.\n"
+        "  Where:    the active conda environment; check with\n"
+        "              pip list | grep -i opencv\n"
+        "  Expected: ONLY opencv-python-headless==4.13.0.92. augraphy declares the GUI "
+        "build opencv-python as a hard requirement, so a plain install of "
+        "environment-degrade.yml leaves both present and the GUI build wins.\n"
+        "  Recover:  pip uninstall -y opencv-python && pip install --no-deps "
+        "augraphy==8.2.6\n"
+        "            then re-check that pip list shows only the headless build."
+    )
+
 
 def _rot(point: list[float], cx: float, cy: float, degrees: float) -> list[float]:
     """Rotate a point about (cx, cy) by `degrees`."""
