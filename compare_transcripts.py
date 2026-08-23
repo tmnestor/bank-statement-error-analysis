@@ -506,12 +506,22 @@ def compare(
                 panel_stats(truth_text, truth_text, truth_blocks, truth_tables),
             )
         )
-    # Panels are labelled by directory name, which collides when the same system
-    # is compared across corpora -- four tiers of one model would give four
-    # panels all called gemma-4-31B. Where leaf names repeat, the parent
-    # disambiguates, because that is what differs between them.
+    # Panels are labelled by directory name. Show the parent whenever the panels
+    # come from DIFFERENT prediction roots, not only when the leaf names
+    # collide.
+    #
+    # A sheet comparing one system on a clean corpus against the same system on
+    # a degraded one has two distinct leaf names — the clean run is
+    # `...-w4a16-ct` at tp=1 on the L40S, the degraded one `...-2xL4-tp2` — so a
+    # collision test stays silent and the two panels read as one model giving
+    # two answers. What actually differs is the IMAGE, which is the entire point
+    # of the sheet, and the label disclosed neither that nor the hardware.
+    parents = {d.parent.name for d in system}
     leaves = [d.name for d in system]
-    labels = [f"{d.parent.name} / {d.name}" if leaves.count(d.name) > 1 else d.name for d in system]
+    labels = [
+        f"{d.parent.name} / {d.name}" if len(parents) > 1 or leaves.count(d.name) > 1 else d.name
+        for d in system
+    ]
 
     for directory, label in zip(system, labels, strict=True):
         candidate = next(directory.rglob(f"{stem}.md"), None)
