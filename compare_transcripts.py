@@ -130,7 +130,7 @@ def parse_blocks(markdown: str) -> list[Block]:
     # the system that fragments rows -- so the one output this tool most needs
     # to show is the one a pipe-only parser cannot see. Rather than write a
     # second dialect reader, hand the whole document to the scorer's own
-    # , which already reads both for exactly this reason. Two
+    # table_rows, which already reads both for exactly this reason. Two
     # readers of the same dialects would be free to disagree, and the viewer
     # disagreeing with the scorer is the worst of the available bugs.
     if "<t" in markdown.lower():
@@ -201,6 +201,40 @@ def align_tables(truth: Table, prediction: Table) -> list[tuple[str, list[str], 
     return drawn
 
 
+def _short_system(name: str) -> str:
+    """A panel heading names the model, not the checkpoint filename.
+
+    `gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2` is precise and unreadable at a
+    glance; the quantisation and the deployment belong in the caption, not the
+    heading. What a reader needs is which model this is.
+    """
+    for prefix, short in (
+        ("gemma-4-31B", "gemma-4-31B"),
+        ("gemma-4-12B", "gemma-4-12B"),
+        ("InternVL", "InternVL3.5-8B"),
+        ("mineru", "MinerU"),
+        ("docling", "Docling"),
+    ):
+        if name.lower().startswith(prefix.lower()):
+            return short
+    return name
+
+
+def _short_condition(name: str) -> str:
+    """`parsing_20260820_photo-heavy` is `photo-heavy`; a run directory is `clean`."""
+    for tier in (
+        "scan-light",
+        "scan-moderate",
+        "scan-heavy",
+        "photo-light",
+        "photo-moderate",
+        "photo-heavy",
+    ):
+        if name.endswith(tier):
+            return tier
+    return "clean"
+
+
 def _fit(text: str, font: ImageFont.FreeTypeFont, width: int, draw: ImageDraw.ImageDraw) -> str:
     """Truncate to fit, so a long description never overruns its cell."""
     if draw.textlength(text, font=font) <= width:
@@ -227,6 +261,9 @@ class Panel:
         self.mono = ImageFont.truetype(str(MONO), cell)
         self.sans = ImageFont.truetype(str(SANS), cell)
         self.head = ImageFont.truetype(str(SANS_BOLD), cell)
+        # The truth line is smaller than the prediction it sits under, so the
+        # prediction stays the thing being read and the truth is the reference.
+        self.truth = ImageFont.truetype(str(MONO), max(8, int(scale * 0.58)))
         self.title_font = ImageFont.truetype(str(SANS_BOLD), int(scale * 1.8))
         self.caption = ImageFont.truetype(str(MONO), int(scale * 0.92))
 
@@ -254,7 +291,12 @@ class Panel:
         if overflow > 0:  # give it back from the widest column
             col_w[col_w.index(max(col_w))] -= overflow
 
-        row_h = int(self.scale * 1.75)
+        # Room for two lines in a cell: the prediction, and beneath it the truth
+        # wherever they differ. Without that a failed row is a coloured band that
+        # says something is wrong and not what — and on a page where the model
+        # has slipped a column, every cell is coloured and the fill carries no
+        # information at all.
+        row_h = int(self.scale * 2.5)
         for position, (verdict, cells, truth_cells) in enumerate(rows):
             x = pad
             row_fill = {
@@ -285,12 +327,29 @@ class Panel:
 
                 font = self.head if position == 0 else self.mono
                 colour = MUTED if verdict == "missing" else INK
+                inset = x + int(self.scale * 0.35)
+                room = width - int(self.scale * 0.7)
                 draw.text(
-                    (x + int(self.scale * 0.35), y + int(self.scale * 0.32)),
-                    _fit(cell, font, width - int(self.scale * 0.7), draw),
+                    (inset, y + int(self.scale * 0.28)),
+                    _fit(cell, font, room, draw),
                     font=font,
                     fill=colour,
                 )
+
+                # The truth, beneath, wherever this cell diverges — so a reader
+                # can see WHY the row failed rather than only that it did.
+                if (
+                    verdict == "changed"
+                    and expected is not None
+                    and cell.strip() != expected.strip()
+                    and position > 0
+                ):
+                    draw.text(
+                        (inset, y + int(self.scale * 1.35)),
+                        _fit(expected.strip() or "(blank)", self.truth, room, draw),
+                        font=self.truth,
+                        fill=EDGE_CHANGED,
+                    )
                 x += width
             y += row_h
         return y + int(self.scale * 0.6)
@@ -519,7 +578,9 @@ def compare(
     parents = {d.parent.name for d in system}
     leaves = [d.name for d in system]
     labels = [
-        f"{d.parent.name} / {d.name}" if len(parents) > 1 or leaves.count(d.name) > 1 else d.name
+        f"{_short_system(d.name)} · {_short_condition(d.parent.name)}"
+        if len(parents) > 1 or leaves.count(d.name) > 1
+        else _short_system(d.name)
         for d in system
     ]
 
@@ -548,7 +609,7 @@ def compare(
             sum(len(block.rows) if block.kind == "table" else 1 for block in blocks)
             for _, _, blocks, _ in collected
         )
-        scale = max(10, min(30, int(height / ((longest + 8) * 1.75))))
+        scale = max(10, min(30, int(height / ((longest + 8) * 2.5))))
 
     panel_width = int(scale * 52)
     panels = [page] + [
