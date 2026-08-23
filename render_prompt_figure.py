@@ -28,6 +28,36 @@ REPO = Path(__file__).resolve().parent
 PROMPT = REPO / "config" / "prompt.md"
 
 
+def _ascii_safe(svg: str) -> str:
+    """Make an SVG safe to embed in a notebook rendered by GitHub.
+
+    Pygments substitutes U+00A0 for every space so that runs of them survive in
+    SVG, and the terminal builder escapes those to `&#160;`. Both are correct
+    XML. GitHub's notebook viewer nevertheless renders non-ASCII inside a
+    <text> element as escaped UTF-8 bytes, so a prompt reads
+    `Transcribe\xc2\xa0this\xc2\xa0document` and is unusable.
+
+    Spacing survives the substitution because every <text> the builder emits
+    carries `xml:space="preserve"`, which is what actually keeps runs of
+    ordinary spaces from collapsing. The NBSP was belt and braces, and it is the
+    braces that broke.
+
+    Args:
+        svg: The rendered SVG.
+
+    Returns:
+        The same SVG with no character above U+007F.
+    """
+    return (
+        svg.replace("&#160;", " ")
+        .replace("\u00a0", " ")
+        .replace("\u2014", "-")
+        .replace("\u2019", "'")
+        .replace("\u201c", '"')
+        .replace("\u201d", '"')
+    )
+
+
 def load_renderer():
     """Import the skill's renderer by path; it is not an installed package."""
     if not SKILL.exists():
@@ -110,7 +140,7 @@ def main() -> None:
     for index, (title, text) in enumerate(sections, 1):
         highlighted = renderer.pygmentize_svg(text, "text")
         lines = renderer.parse_pygments_svg(highlighted)
-        svg = renderer.build_terminal_svg(lines, f"prompt.md — {title}")
+        svg = _ascii_safe(renderer.build_terminal_svg(lines, f"prompt.md - {title}"))
         path = args.out / f"prompt-{index:02d}-{renderer.slugify(title)}.svg"
         path.write_text(svg, encoding="utf-8")
         written.append(path)
@@ -119,7 +149,7 @@ def main() -> None:
     if args.whole:
         highlighted = renderer.pygmentize_svg(body, "text")
         lines = renderer.parse_pygments_svg(highlighted)
-        svg = renderer.build_terminal_svg(lines, "config/prompt.md — the whole prompt")
+        svg = _ascii_safe(renderer.build_terminal_svg(lines, "config/prompt.md - the whole prompt"))
         path = args.out / "prompt-00-whole.svg"
         path.write_text(svg, encoding="utf-8")
         written.append(path)
