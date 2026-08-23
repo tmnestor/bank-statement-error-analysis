@@ -49,7 +49,11 @@ SHORT = {
     "gemma-4-12B-it-qat-w4a16-ct": "gemma 12B 4-bit",
     "gemma-4-12B-it-qat-q4_0-unquantized": "gemma 12B BF16 QAT",
     "gemma-4-12B-it": "gemma 12B BF16",
+    # Both names are the same model. The tp=2 run on the 2xL4 is what production
+    # will deploy and is what every figure quotes; the single-card L40S run is
+    # kept as the control that says the choice costs nothing.
     "gemma-4-31B-it-qat-w4a16-ct": "gemma 31B 4-bit",
+    "gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2": "gemma 31B 4-bit",
     "InternVL3.5-8B": "InternVL3.5-8B",
     # The L4/vLLM run, not the Mac/MLX one. Production is a 24 GB cluster, so a
     # figure from Apple Silicon is not the figure to quote — and the two are not
@@ -421,8 +425,12 @@ def pareto(
     """
     measured = throughput(timing_dir)
     selected = documents[documents.doc_type == doc_type]
-    grouped = selected.groupby("system", observed=True)[["misfiled", "amounts"]].sum()
-    grouped["usable"] = 1 - grouped.misfiled / grouped.amounts
+    # ATTRIBUTABLE, not placed. This chart is what a deployment is chosen on, so
+    # the y axis must be the figure a consumer receives: an amount under the
+    # right heading in a row that identifies nothing is not one of them. Using
+    # placed put MinerU 8.7 points behind the 31B where it is really 37.
+    grouped = selected.groupby("system", observed=True)[["attributable", "amounts"]].sum()
+    grouped["usable"] = grouped.attributable / grouped.amounts
 
     points = [
         (
@@ -494,7 +502,7 @@ def pareto(
     ax.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(0.05))
     floor_note = "  (≥ = rate is a floor, model load included)" if any(p[4] for p in points) else ""
     ax.set_xlabel(f"images per minute per card  →  cheaper{floor_note}")
-    ax.set_ylabel("amounts usable: right value, right heading  →  better")
+    ax.set_ylabel("amounts usable: right value, right column, right row  →  better")
     ax.margins(0.28)
     # A share cannot exceed 1. The default margin pushed the axis to 103%, which
     # invites the reader to think there is headroom above the best system.
