@@ -54,4 +54,5 @@ runs_degraded*.gz
 comparisons/
 comparisons_degraded/
 comparisons_scan-heavy/
+comparisons_photo-light/
 comparisons_photo-heavy/

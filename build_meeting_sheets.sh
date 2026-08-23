@@ -73,7 +73,13 @@ build comparisons "$CORPUS" "${CLEAN_SYSTEMS[@]}"
 # each system's clean output against its degraded output. That is the comparison
 # the tier exists to support: the same system, the same page, two image
 # qualities, one truth — because degradation never changes the transcript.
-for tier in scan-heavy photo-heavy; do
+# photo-LIGHT as well as the heavy tiers. photo-heavy pushes both systems past
+# the point where they discriminate -- the 31B drops to 38.5% usable on CASE012
+# and MinerU to 0% -- which makes it a good demonstration of a limit and a poor
+# demonstration of a difference. photo-light is the realistic phone condition and
+# is where a room can see one system holding and another slipping.
+TIERS=${TIERS:-"scan-heavy photo-light photo-heavy"}
+for tier in $TIERS; do
     corpus="$DEGRADED/${CORPUS}_${tier}"
     [[ -d $corpus/images ]] || { echo "=== $tier: absent, skipped ==="; continue; }
     echo "=== $tier: clean vs degraded, both systems ==="
