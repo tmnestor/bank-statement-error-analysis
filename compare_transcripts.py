@@ -65,6 +65,14 @@ FILL_CHANGED = (250, 219, 219)  # content differs from the truth
 FILL_EXTRA = (214, 233, 246)
 FILL_MISSING = (232, 232, 230)  # the truth has this and the system did not
 EDGE_CHANGED = (192, 84, 84)
+
+# In a diverging cell the two lines say different things and must not look
+# alike: the top line is what the system produced -- the mistake -- and the
+# bottom is what the page says. Red for the error and green for the truth reads
+# the right way round without a legend; drawing the mistake in ordinary ink and
+# the truth in red read backwards, which is how it shipped first.
+TEXT_WRONG = (176, 52, 52)
+TEXT_TRUTH = (38, 116, 74)
 EDGE_EXTRA = (74, 143, 190)
 
 _SEPARATOR = re.compile(r"^\s*\|?[\s:-]*-{2,}[\s:|-]*\|?\s*$")
@@ -326,7 +334,13 @@ class Panel:
                     draw.rectangle([x, y, x + width, y + row_h], outline=GRID, width=1)
 
                 font = self.head if position == 0 else self.mono
-                colour = MUTED if verdict == "missing" else INK
+                diverges = (
+                    verdict == "changed"
+                    and expected is not None
+                    and cell.strip() != expected.strip()
+                    and position > 0
+                )
+                colour = MUTED if verdict == "missing" else (TEXT_WRONG if diverges else INK)
                 inset = x + int(self.scale * 0.35)
                 room = width - int(self.scale * 0.7)
                 draw.text(
@@ -338,17 +352,12 @@ class Panel:
 
                 # The truth, beneath, wherever this cell diverges — so a reader
                 # can see WHY the row failed rather than only that it did.
-                if (
-                    verdict == "changed"
-                    and expected is not None
-                    and cell.strip() != expected.strip()
-                    and position > 0
-                ):
+                if diverges:
                     draw.text(
                         (inset, y + int(self.scale * 1.35)),
-                        _fit(expected.strip() or "(blank)", self.truth, room, draw),
+                        _fit((expected or "").strip() or "(blank)", self.truth, room, draw),
                         font=self.truth,
-                        fill=EDGE_CHANGED,
+                        fill=TEXT_TRUTH,
                     )
                 x += width
             y += row_h
