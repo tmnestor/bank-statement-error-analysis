@@ -55,7 +55,13 @@ RULE = (215, 215, 215)
 # Fills, not text colours. Each says what happened to a cell or a row, and they
 # are kept pale enough that the value inside stays the thing you read.
 FILL_CHANGED = (253, 226, 200)  # content differs from the truth
-FILL_EXTRA = (214, 233, 246)  # the system produced this and the truth has not
+# Blue is 'in the system's table, with no counterpart in truth's' -- which is
+# NOT the same as invented. MinerU wraps a whole page into one HTML table, so on
+# a Westpac page its rewards-summary panel becomes seven table rows that truth
+# keeps as paragraphs. The content is on the page and read correctly; only its
+# structure differs. Labelling that 'invented' would accuse a system of
+# fabricating text it actually read.
+FILL_EXTRA = (214, 233, 246)
 FILL_MISSING = (232, 232, 230)  # the truth has this and the system did not
 EDGE_CHANGED = (196, 110, 44)
 EDGE_EXTRA = (74, 143, 190)
@@ -350,7 +356,7 @@ def summarise(blocks: list[Block], truth_tables: list[Table]) -> str:
     shape = f"{min(columns)}-{max(columns)}" if len(columns) > 1 else str(next(iter(columns), 0))
     return (
         f"{counts['same']}/{total} rows exact   {counts['changed']} changed   "
-        f"{counts['extra']} invented   {counts['missing']} missed   |  {shape} columns"
+        f"{counts['extra']} unmatched   {counts['missing']} missed   |  {shape} columns"
     )
 
 
