@@ -36,8 +36,13 @@ CASES=(
     CASE041   # westpac_standard   — strongest date grouping in the corpus
 )
 
+# The 31B is quoted from the 2xL4 tp=2 run throughout, because that is the
+# deployment PROD will have -- there is no L40S there. The tp=1 run on the L40S
+# is kept only as the control that says the choice costs nothing: placed 99.01%
+# and attributable 97.71% under both, 20 amounts misfiled under both, and row
+# alignment 1.9 points BETTER under tp=2.
 CLEAN_SYSTEMS=(
-    "runs_31b/gemma-4-31B-it-qat-w4a16-ct"
+    "runs_31b_tp2/gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2"
     "runs_v4/gemma-4-12B-it-qat-w4a16-ct"
     "runs_v4/InternVL3.5-8B"
     "runs_parsers_l4/mineru-vllm"
@@ -73,7 +78,7 @@ for tier in scan-heavy photo-heavy; do
     [[ -d $corpus/images ]] || { echo "=== $tier: absent, skipped ==="; continue; }
     echo "=== $tier: clean vs degraded, both systems ==="
     build "comparisons_${tier}" "$corpus" \
-        "runs_31b/gemma-4-31B-it-qat-w4a16-ct" \
+        "runs_31b_tp2/gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2" \
         "runs_degraded/${CORPUS}_${tier}/gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2" \
         "runs_parsers_l4/mineru-vllm" \
         "runs_degraded/${CORPUS}_${tier}/mineru-vllm"

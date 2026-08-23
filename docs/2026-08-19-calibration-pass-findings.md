@@ -303,6 +303,29 @@ fewer wrong amounts.** Which side is right is a costing question rather than a
 measurement one, and it turns on what a wrong amount costs to catch downstream
 and on whether the workload is bank statements alone.
 
+#### Every 31B figure in this document is the 2xL4 tp=2 deployment
+
+Production has no L40S, so the number quoted must be the one the deployed
+configuration produces. The single-card run on the 48 GB L40S is kept only as
+the control that says the choice costs nothing.
+
+| bank statements | tp=1 (L40S) | **tp=2 (2xL4)** |
+|---|---|---|
+| amounts placed | 99.01% | **99.01%** |
+| amounts attributable | 97.71% | **97.71%** |
+| amounts misfiled | 20 | **20** |
+| rows aligned | 94.73% | **96.59%** |
+
+**Sharding costs nothing measurable and helps the one metric it moves.** 31 of
+165 pages differ by a handful of bytes -- tensor parallelism all-reduces partial
+sums in a different order and float addition is not associative -- but no
+aggregate the deployment rests on changes, and row alignment is 1.9 points
+better under tp=2.
+
+That was worth measuring rather than assuming. Two version differences in this
+study did change results: an OpenCV bump altered 2 of 9 degraded images, and
+MinerU on Apple Silicon differs from MinerU on CUDA on 41 of 165 pages.
+
 #### The 31B was re-measured on the configuration being proposed
 
 Its accuracy figures came from a run at `tensor_parallel_size: 1` on a 48 GB
