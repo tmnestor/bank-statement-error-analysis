@@ -688,6 +688,12 @@ def score(
             "placed": 0,
             "misfiled": 0,
             "usable": 0,
+            # Right value, right column, and in a row carrying the date that
+            # identifies it. `usable` discards the row, which flatters exactly
+            # the systems whose failure is row segmentation -- MinerU scores 56
+            # of 56 placed and 0 attributable on CASE015, because every amount
+            # sits under the correct heading in a row with an empty date.
+            "attributable": 0,
             "documents_mismatched": 0,
         }
         # Table structure, scored apart from CER and apart from column
@@ -745,6 +751,7 @@ def score(
             # Read correctly AND filed correctly. The only one of these numbers
             # a downstream consumer can act on.
             columns["usable"] += integrity["amounts"] - integrity["misfiled"]
+            columns["attributable"] += integrity["attributable"]
             columns["documents_mismatched"] += 0 if integrity["columns_match"] else 1
 
             figures = numeric_fidelity(truth, prediction)
@@ -778,6 +785,7 @@ def score(
             row["read"] = integrity["read"]
             row["placed"] = integrity["placed"]
             row["usable"] = integrity["amounts"] - integrity["misfiled"]
+            row["attributable"] = integrity["attributable"]
             row["columns_match"] = integrity["columns_match"]
             row["truth_rows"] = structure["truth_rows"]
             row["aligned"] = structure["aligned"]
@@ -895,6 +903,7 @@ def _print_column_integrity(systems: dict) -> None:
     integrity.add_column("1. read", justify="right")
     integrity.add_column("2. placed", justify="right")
     integrity.add_column("usable", justify="right")
+    integrity.add_column("attributable", justify="right")
     integrity.add_column("docs with wrong column count", justify="right")
 
     for system, scores in sorted(systems.items()):
@@ -907,12 +916,14 @@ def _print_column_integrity(systems: dict) -> None:
         # placement rather than of reading.
         placed = (counts["placed"] / counts["read"] * 100) if counts["read"] else None
         usable = (counts["usable"] / total * 100) if total else 0.0
+        attributable = (counts["attributable"] / total * 100) if total else 0.0
         integrity.add_row(
             system,
             f"{total}",
             f"{read:.1f}%",
             f"{placed:.1f}%" if placed is not None else "-",
             f"{usable:.1f}%",
+            f"{attributable:.1f}%",
             f"{counts['documents_mismatched']}",
         )
     rprint(integrity)

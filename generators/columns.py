@@ -120,6 +120,41 @@ def amount_placements(rows: list[list[str]]) -> Counter:
     return placements
 
 
+def attributable_placements(rows: list[list[str]]) -> Counter:
+    """Count each amount by column AND by the row key that identifies it.
+
+    `amount_placements` discards the row, so an amount counts as correctly
+    placed when it sits under the right heading in *any* row. That is the right
+    question for placement and the wrong one for usability: a downstream
+    consumer reading rows as records cannot act on a figure it cannot attribute
+    to a transaction.
+
+    MinerU is the case that forces the distinction. It emits a group's date as a
+    row of its own and the transaction beneath it with an empty date cell, so
+    every amount is under the correct heading in a row that identifies nothing.
+    On CASE015 that scores 56 of 56 amounts placed and 0 attributable.
+
+    The key is the row's FIRST cell — the date on every layout in this corpus.
+    Deliberately not the description as well: a misread merchant name would then
+    fail the amount beside it, folding reading accuracy into a placement measure,
+    which is the conflation `read` and `placed` were separated to avoid.
+
+    Args:
+        rows: Rows from `table_rows`. The header is skipped, since its cells are
+            headings rather than amounts.
+
+    Returns:
+        Counter of `(amount, column_index, row_key)`.
+    """
+    placements: Counter = Counter()
+    for row in rows[1:]:
+        key = row[0].strip() if row else ""
+        for index, cell in enumerate(row):
+            if _AMOUNT.match(cell):
+                placements[(cell, index, key)] += 1
+    return placements
+
+
 def column_integrity(truth: str, prediction: str) -> dict:
     """Score the two independent ways an extracted amount can be wrong.
 
@@ -158,6 +193,9 @@ def column_integrity(truth: str, prediction: str) -> dict:
     truth_placements = amount_placements(truth_rows)
     prediction_placements = amount_placements(prediction_rows)
 
+    truth_attributable = attributable_placements(truth_rows)
+    prediction_attributable = attributable_placements(prediction_rows)
+
     # Multiset difference: an amount the truth shows twice in one column must
     # appear twice there to count as filed.
     missing = truth_placements - prediction_placements
@@ -175,6 +213,10 @@ def column_integrity(truth: str, prediction: str) -> dict:
     # where the page puts it.
     placed = sum((truth_placements & prediction_placements).values())
 
+    # The figure a consumer reading rows as records can act on: correct value,
+    # correct column, and in a row carrying the date that identifies it.
+    attributable = sum((truth_attributable & prediction_attributable).values())
+
     return {
         "truth_columns": column_width(truth_rows),
         "prediction_columns": column_width(prediction_rows),
@@ -183,5 +225,6 @@ def column_integrity(truth: str, prediction: str) -> dict:
         "read": read,
         "placed": placed,
         "placement_rate": (placed / read) if read else None,
+        "attributable": attributable,
         "misfiled": sum(missing.values()),
     }

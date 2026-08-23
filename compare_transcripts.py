@@ -35,7 +35,7 @@ import typer
 from PIL import Image, ImageDraw, ImageFont
 from rich import print as rprint
 
-from generators.columns import table_rows
+from generators.columns import column_integrity, table_rows
 from generators.tables import row_signature
 
 REPO = Path(__file__).resolve().parent
@@ -51,10 +51,11 @@ PAPER = (255, 255, 255)
 HEADER_BG = (244, 244, 241)
 GRID = (198, 198, 194)
 RULE = (215, 215, 215)
+RULE_FIRM = (176, 176, 172)
 
 # Fills, not text colours. Each says what happened to a cell or a row, and they
 # are kept pale enough that the value inside stays the thing you read.
-FILL_CHANGED = (253, 226, 200)  # content differs from the truth
+FILL_CHANGED = (250, 219, 219)  # content differs from the truth
 # Blue is 'in the system's table, with no counterpart in truth's' -- which is
 # NOT the same as invented. MinerU wraps a whole page into one HTML table, so on
 # a Westpac page its rewards-summary panel becomes seven table rows that truth
@@ -63,7 +64,7 @@ FILL_CHANGED = (253, 226, 200)  # content differs from the truth
 # fabricating text it actually read.
 FILL_EXTRA = (214, 233, 246)
 FILL_MISSING = (232, 232, 230)  # the truth has this and the system did not
-EDGE_CHANGED = (196, 110, 44)
+EDGE_CHANGED = (192, 84, 84)
 EDGE_EXTRA = (74, 143, 190)
 
 _SEPARATOR = re.compile(r"^\s*\|?[\s:-]*-{2,}[\s:|-]*\|?\s*$")
@@ -295,6 +296,42 @@ class Panel:
         return y + int(self.scale * 0.6)
 
 
+def draw_footer(draw: ImageDraw.ImageDraw, stats: dict, size: tuple[int, int], scale: int) -> None:
+    """Print the panel's two headline numbers along the bottom.
+
+    At the bottom rather than only in the header, because these sheets are read
+    at a distance and by people scrolling a very tall image: the numbers must be
+    reachable without returning to the top.
+    """
+    width, height = size
+    band = int(scale * 4.4)
+    top = height - band
+    draw.rectangle([0, top, width, height], fill=HEADER_BG)
+    draw.line([0, top, width, top], fill=RULE_FIRM, width=2)
+
+    label = ImageFont.truetype(str(SANS), int(scale * 0.85))
+    figure = ImageFont.truetype(str(SANS_BOLD), int(scale * 1.5))
+    pad = int(scale * 1.1)
+
+    def cell(x: int, name: str, rate: float | None, detail: str) -> None:
+        draw.text((x, top + int(scale * 0.55)), name, font=label, fill=MUTED)
+        draw.text(
+            (x, top + int(scale * 1.6)),
+            "—" if rate is None else f"{rate * 100:.1f}%",
+            font=figure,
+            fill=INK,
+        )
+        draw.text((x, top + int(scale * 3.2)), detail, font=label, fill=MUTED)
+
+    cell(pad, "ROWS ALIGNED", stats["aligned_rate"], f"{stats['aligned']} of {stats['truth_rows']}")
+    cell(
+        width // 2,
+        "AMOUNTS USABLE",
+        stats["usable_rate"],
+        f"{stats['usable']} of {stats['amounts']}   right value, right column, right row",
+    )
+
+
 def render_panel(
     title: str,
     subtitle: str,
@@ -302,6 +339,7 @@ def render_panel(
     truth_tables: list[Table],
     size: tuple[int, int],
     scale: int,
+    stats: dict | None = None,
 ) -> Image.Image:
     """Draw a whole transcript panel: headings, paragraphs and tables."""
     width, height = size
@@ -316,10 +354,13 @@ def render_panel(
     draw.text((pad, int(scale * 0.8)), title, font=panel.title_font, fill=INK)
     draw.text((pad, int(scale * 2.9)), subtitle, font=panel.caption, fill=MUTED)
 
+    # Leave the footer band clear, or a long table draws through it.
+    floor = height - (int(scale * 4.4) + scale if stats else scale * 3)
+
     y = header_h + scale
     table_index = 0
     for block in blocks:
-        if y > height - scale * 3:
+        if y > floor:
             draw.text((pad, y), "… truncated", font=panel.caption, fill=MUTED)
             break
         if block.kind == "heading":
@@ -338,7 +379,61 @@ def render_panel(
             truth_rows = truth_tables[table_index] if table_index < len(truth_tables) else []
             y = panel.draw_table(draw, align_tables(truth_rows, block.rows), y, pad)
             table_index += 1
+
+    if stats:
+        draw_footer(draw, stats, size, scale)
     return image
+
+
+def panel_stats(
+    truth_text: str, prediction_text: str, blocks: list[Block], truth_tables: list[Table]
+) -> dict:
+    """The two numbers a reader of these sheets actually needs.
+
+    **rows aligned** is all-or-nothing per row: a truth row counts only if its
+    whole content matches, so one wrong character anywhere fails the row. It
+    falls long before anything a consumer feels, which makes it a sensitive
+    early warning and a misleading headline.
+
+    **usable** counts amounts with the right value under the right heading —
+    what a downstream consumer receives. Computed by `generators.columns`, the
+    same code `score` uses, so a sheet cannot disagree with the report.
+
+    Args:
+        truth_text: The ground-truth transcript.
+        prediction_text: The system's output.
+        blocks: The prediction's parsed blocks.
+        truth_tables: The truth's tables.
+
+    Returns:
+        Counts and rates for both measures.
+    """
+    aligned = matched = 0
+    tables = [block.rows for block in blocks if block.kind == "table"]
+    for index, rows in enumerate(tables):
+        truth_rows = truth_tables[index] if index < len(truth_tables) else []
+        matched += len(truth_rows)
+        aligned += sum(1 for verdict, _, _ in align_tables(truth_rows, rows) if verdict == "same")
+    for extra in truth_tables[len(tables) :]:
+        matched += len(extra)
+
+    integrity = column_integrity(truth_text, prediction_text)
+    amounts = integrity.get("amounts") or 0
+    # ATTRIBUTABLE, not placed. An amount under the correct heading in a row
+    # whose date cell is empty cannot be attributed to a transaction, and a
+    # consumer reading rows as records cannot act on it. MinerU scores 56 of 56
+    # placed and 0 attributable on CASE015 -- reporting the former on a sheet
+    # meant to explain the failure would hide it.
+    usable = integrity.get("attributable", 0)
+
+    return {
+        "aligned": aligned,
+        "truth_rows": matched,
+        "aligned_rate": (aligned / matched) if matched else None,
+        "usable": usable,
+        "amounts": amounts,
+        "usable_rate": (usable / amounts) if amounts else None,
+    }
 
 
 def summarise(blocks: list[Block], truth_tables: list[Table]) -> str:
@@ -400,9 +495,17 @@ def compare(
     # The truth panel is optional; the truth itself is not. Every fill below is
     # a comparison against it, so --no-truth buys panel width for another
     # system without changing a single verdict.
-    collected: list[tuple[str, str, list[Block]]] = []
+    truth_text = transcript_path.read_text(encoding="utf-8")
+    collected: list[tuple[str, str, list[Block], dict | None]] = []
     if truth:
-        collected.append(("ground truth", "authored at render time", truth_blocks))
+        collected.append(
+            (
+                "ground truth",
+                "authored at render time",
+                truth_blocks,
+                panel_stats(truth_text, truth_text, truth_blocks, truth_tables),
+            )
+        )
     # Panels are labelled by directory name, which collides when the same system
     # is compared across corpora -- four tiers of one model would give four
     # panels all called gemma-4-31B. Where leaf names repeat, the parent
@@ -415,8 +518,16 @@ def compare(
         if candidate is None:
             rprint(f"[yellow]  no prediction for {stem} in {directory}[/yellow]")
             continue
-        blocks = parse_blocks(candidate.read_text(encoding="utf-8"))
-        collected.append((label, summarise(blocks, truth_tables), blocks))
+        prediction_text = candidate.read_text(encoding="utf-8")
+        blocks = parse_blocks(prediction_text)
+        collected.append(
+            (
+                label,
+                summarise(blocks, truth_tables),
+                blocks,
+                panel_stats(truth_text, prediction_text, blocks, truth_tables),
+            )
+        )
 
     page = Image.open(image_path).convert("RGB")
     height = page.height
@@ -425,21 +536,14 @@ def compare(
         # Rows are the tall thing; fit the longest panel's rows to the height.
         longest = max(
             sum(len(block.rows) if block.kind == "table" else 1 for block in blocks)
-            for _, _, blocks in collected
+            for _, _, blocks, _ in collected
         )
         scale = max(10, min(30, int(height / ((longest + 8) * 1.75))))
 
     panel_width = int(scale * 52)
     panels = [page] + [
-        render_panel(
-            title,
-            subtitle if title != "ground truth" else subtitle,
-            blocks,
-            truth_tables,
-            (panel_width, height),
-            scale,
-        )
-        for title, subtitle, blocks in collected
+        render_panel(title, subtitle, blocks, truth_tables, (panel_width, height), scale, stats)
+        for title, subtitle, blocks, stats in collected
     ]
 
     gap = 14
