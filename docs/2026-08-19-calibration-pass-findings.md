@@ -742,6 +742,47 @@ dropped against 2 misread, and 99.8% of what it does emit is right. **The 12B's
 is corruption**: 106 misread and 132 invented, so roughly one amount in fourteen
 that it prints is not on the page at all.
 
+### An amount you cannot attribute to a row is not usable
+
+`usable` counted an amount as good when it sat under the right heading in *any*
+row. That is the right question for placement and the wrong one for usability: a
+consumer reading rows as records cannot act on a figure it cannot tie to a
+transaction.
+
+MinerU forces the distinction. It emits a group's date as a row of its own and
+the transaction beneath it with an empty date cell, so on `CASE015` it scores
+**56 of 56 amounts placed and 0 of 56 attributable** — every figure under the
+correct heading, not one of them attached to a date.
+
+**attributable** = right value, right column, and in a row carrying the date
+that identifies it. Bank statements, 2,011 amounts:
+
+| System | placed | **attributable** | cost |
+|---|---|---|---|
+| **gemma 31B 4-bit** | 99.0% | **97.7%** | 1.3 |
+| gemma 12B BF16 | 94.4% | 93.1% | 1.3 |
+| gemma 12B BF16 QAT | 93.6% | 91.2% | 2.4 |
+| gemma 12B 4-bit | 88.3% | 85.3% | 3.0 |
+| InternVL3.5-8B | 85.3% | 73.0% | 12.3 |
+| MinerU | 90.3% | **60.7%** | **29.6** |
+
+**The ordering inverts.** MinerU beats both the 12B and InternVL on placement
+and is *last* once the amount must identify itself. The measure flattered
+exactly the systems whose failure is row segmentation.
+
+**The cost column is a row-segmentation measure in its own right**, and a
+cheaper one than table structure: it is the share of amounts a system files
+correctly and then orphans. Every gemma pays 1–3 points; InternVL 12; MinerU 30.
+
+The row key is the **date** cell and deliberately not the description as well.
+Requiring both would fail an amount because a merchant name was misread, folding
+reading accuracy into a placement measure — the conflation `read` and `placed`
+exist to keep apart. Under the stricter form the figures are 93.3%, 59.5%,
+57.0% and 55.0%; the ordering is unchanged.
+
+Both are reported. `placed` remains the placement diagnostic; `attributable` is
+what a consumer receives.
+
 ### But digits alone are not the deployment number
 
 An amount read perfectly and filed under the wrong heading is as wrong as one
