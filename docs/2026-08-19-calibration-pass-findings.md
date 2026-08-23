@@ -383,8 +383,6 @@ and quoting means alone misdescribes every system here.
 | System | median nCER | median sCER | **median gap** | mean nCER | told? |
 |---|---|---|---|---|---|
 | **gemma 31B 4-bit** | **0.0000** | 0.0161 | **+0.0134** | **0.0016** | yes |
-| gemma 12B BF16 | 0.0026 | 0.0317 | +0.0139 | 0.0082 | yes |
-| gemma 12B BF16 QAT | 0.0050 | 0.0359 | +0.0138 | 0.0101 | yes |
 | gemma 12B 4-bit | 0.0081 | 0.0382 | +0.0136 | 0.0178 | yes |
 | MinerU | 0.0403 | 0.4277 | **+0.3917** | 0.0495 | no |
 | InternVL3.5-8B | 0.0420 | 0.2119 | **+0.1630** | 0.0743 | yes |
@@ -435,8 +433,6 @@ Across all 165 pages:
 | System | rows aligned | fragments | width breaks | content recall |
 |---|---|---|---|---|
 | **gemma 31B 4-bit** | **1919/2005 (95.7%)** | **0** | 6 | **0.987** |
-| gemma 12B BF16 | 1528/2005 (76.2%) | 4 | 66 | 0.925 |
-| gemma 12B BF16 QAT | 1486/2005 (74.1%) | **0** | **3** | 0.917 |
 | gemma 12B 4-bit | 1359/2005 (67.8%) | 9 | 15 | 0.888 |
 | InternVL3.5-8B | 1343/2005 (67.0%) | **0** | 8 | 0.867 |
 | MinerU | 1251/2005 (62.4%) | 276 | 152 | 0.881 |
@@ -446,8 +442,6 @@ Amounts filed under the correct heading:
 | System | misfiled | **rate** | wrong column count | **correct width** |
 |---|---|---|---|---|
 | **gemma 31B 4-bit** | 20/2503 | **0.8%** | 3 | 162/165 |
-| gemma 12B BF16 | 116/2503 | 4.6% | 8 | 157/165 |
-| gemma 12B BF16 QAT | 131/2503 | 5.2% | **0** | **165/165** |
 | gemma 12B 4-bit | 242/2503 | 9.7% | 2 | 163/165 |
 | MinerU | 379/2503 | 15.1% | 56 | 109/165 |
 | InternVL3.5-8B | 330/2503 | 13.2% | 13 | 152/165 |
@@ -463,7 +457,6 @@ genuinely hard tables here:
 | misfiled | bank statements | invoices | receipts |
 |---|---|---|---|
 | **gemma 31B 4-bit** | **1.0%** | **0.0%** | **0.0%** |
-| gemma 12B BF16 | 5.6% | 1.0% | **0.0%** |
 | gemma 12B 4-bit | 11.7% | 2.3% | **0.0%** |
 | InternVL3.5-8B | 14.7% | 1.0% | 16.8% |
 | MinerU | 9.7% | **0.0%** | 100% |
@@ -479,8 +472,6 @@ The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.
 | System | rows aligned | fragments | width breaks | misfiled | **width ok** |
 |---|---|---|---|---|---|
 | **gemma 31B 4-bit** | **1527/1612 (94.7%)** | **0** | **0** | **1.0%** | **55/55** |
-| gemma 12B BF16 | 1137/1612 (70.5%) | **0** | **0** | 5.6% | **55/55** |
-| gemma 12B BF16 QAT | 1095/1612 (67.9%) | **0** | **0** | 6.4% | **55/55** |
 | MinerU | 1042/1612 (64.6%) | 276 | 152 | 9.7% | 54/55 |
 | InternVL3.5-8B | 987/1612 (61.2%) | **0** | 8 | 14.7% | 51/55 |
 | gemma 12B 4-bit | 971/1612 (60.2%) | **0** | **0** | 11.7% | **55/55** |
@@ -785,11 +776,14 @@ correct heading, not one of them attached to a date.
 **attributable** = right value, right column, and in a row carrying the date
 that identifies it. Bank statements, 2,011 amounts:
 
+Only deployable systems are listed. The two BF16 12B checkpoints need 48 GB
+and fit no card production has; they appear in finding 8, where they are the
+precision control that the argument rests on, and nowhere that reads as a
+shortlist.
+
 | System | placed | **attributable** | cost |
 |---|---|---|---|
 | **gemma 31B 4-bit** | 99.0% | **97.7%** | 1.3 |
-| gemma 12B BF16 | 94.4% | 93.1% | 1.3 |
-| gemma 12B BF16 QAT | 93.6% | 91.2% | 2.4 |
 | gemma 12B 4-bit | 88.3% | 85.3% | 3.0 |
 | InternVL3.5-8B | 85.3% | 73.0% | 12.3 |
 | MinerU | 90.3% | **60.7%** | **29.6** |
@@ -1093,13 +1087,11 @@ different:
 - **visibly missing** — the amount is absent. A gap can be counted, alerted on,
   and routed to a human.
 
-Bank statements, 2,011 amounts:
+Bank statements, 2,011 amounts, deployable systems only:
 
 | System | misread | mis-column | orphaned | **silently wrong** | dropped |
 |---|---|---|---|---|---|
 | **gemma 31B 4-bit** | 3 | 11 | 26 | **2.0%** | 0.1% |
-| gemma 12B BF16 | 52 | 16 | 26 | 4.7% | 3.5% |
-| gemma 12B BF16 QAT | 74 | 6 | 48 | 6.4% | 2.6% |
 | gemma 12B 4-bit | **101** | 24 | 61 | 9.2% | 5.7% |
 | InternVL3.5-8B | 2 | **192** | 247 | **21.9%** | 3.0% |
 | MinerU | **0** | 152 | **596** | **37.2%** | 0.6% |
