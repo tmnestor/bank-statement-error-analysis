@@ -62,11 +62,15 @@ Six things qualify that, and they are the substance of this document:
    amounts to rows with no date. "Which system fabricates numbers?" and "which
    system delivers wrong data?" have different answers.
 6. **Robustness to a bad scan is a property of the system, not of scanning.**
-   Across a scanner ladder from clean to barely legible, the 31B's usable
-   amounts move 0.8 points and not monotonically — noise. MinerU loses **10.8
-   points** on the same images. Degradation *widens* the gap between two systems
-   rather than costing them alike: 9 points apart on clean input, 19 at
-   scan-heavy, 21 at photo-heavy. A clean benchmark cannot see that.
+   Over two degradation ladders and all four systems, the 31B leads at every
+   tier and the margin *widens* as intake worsens — 17.7 points clear of the
+   next system at scan-light, 33.7 clear at photo-heavy. A clean benchmark
+   cannot see that. And what degradation destroys is **attribution, not
+   placement**: the 31B keeps 89–99% of amounts under the correct heading all
+   the way down, while the share that can be tied to a transaction falls from
+   97.7% to 44.6%, because the *date cell* is what fails. Measured as placement,
+   scanning looked free; measured as what a consumer can act on, `scan-heavy`
+   costs 9.1 points.
 
 ---
 
@@ -962,115 +966,176 @@ small CER as evidence that a page's numbers can be used.
 ### 10. Robustness to a bad scan is a property of the system, not of scanning
 
 Every number above was measured on pristine renders. Production receives
-scanned documents, so the figure the deployment rests on — 99.0% of
-bank-statement amounts usable — described a condition production does not have.
+scanned documents, so the figure the deployment rests on described a condition
+production does not have.
 
 The 55 statements were re-rendered through a declared degradation ladder and
-read again by the same system, same prompt, same tp=2 configuration. Only the
-images differ; the transcripts are copied byte for byte, so any change is
-attributable to image quality alone.
+read again — same prompts, same configurations. Only the images differ; the
+transcripts are copied byte for byte, so any change is attributable to image
+quality alone. Two ladders, because a flatbed scanner and a phone camera damage
+a page differently and one severity scale would make the difference
+unanswerable.
 
-Two ladders, because a flatbed scanner and a phone camera damage a page
-differently and one severity scale would make the difference unanswerable.
+**All four systems, 2026-08-25.** Earlier versions of this finding covered the
+31B and MinerU only, and said so. The two prompted models have now been run over
+every tier, which is what makes the claim in the title testable rather than
+asserted.
 
-Two systems, because one cannot answer the question. Usable amounts —
-right value, under the right heading — on 55 statements and 2,011 amounts:
+**The metric here is `attributable`, not `placed`.** An earlier version of this
+section quoted 99.0% clean for the 31B, which is the share of amounts under the
+right heading. This one quotes the share that are *also* in a row carrying its
+identifying date — the figure the rest of this document and the deployment case
+use, because a consumer reads rows as records. On clean input the two differ by
+1.3 points and the choice hardly matters. **Under degradation it matters more
+than anything else in this section**, and a reader comparing against an older
+copy should expect every number to have moved down.
 
-| tier | gemma-4-31B | MinerU |
-|---|---|---|
-| *clean* | ***99.0%*** | ***90.3%*** |
-| scan-light | 99.4% | 90.5% |
-| scan-moderate | 99.2% | **80.7%** |
-| scan-heavy | **98.6%** | **79.5%** |
-| photo-light | 98.8% | 90.4% |
-| photo-moderate | 97.4% | 80.3% |
-| photo-heavy | **89.4%** | **68.6%** |
+Usable — right value, right column, in an attributable row — over 55 statements:
 
-**Scanning is free for the 31B and costs MinerU 10.8 points, on the same
-images.** The whole of the 31B's scan ladder is noise by the per-page test
-below; MinerU's scan-moderate and scan-heavy are one-directional and real. So
-the first version of this finding — *scanning is free* — was a claim about one
-system wearing the clothes of a claim about scanning.
+| tier | gemma-4-31B | gemma-4-12B | InternVL3.5-8B | MinerU |
+|---|---|---|---|---|
+| *clean* | ***97.7%*** | ***85.3%*** | ***73.0%*** | ***60.7%*** |
+| scan-light | **98.6%** | 80.9% | 70.4% | 61.4% |
+| scan-moderate | **96.7%** | 88.1% | 72.5% | 47.3% |
+| scan-heavy | **88.6%** | 67.1% | 59.5% | 42.8% |
+| photo-light | **91.1%** | 61.8% | 69.4% | 56.6% |
+| photo-moderate | **69.8%** | 39.5% | 42.5% | 45.4% |
+| photo-heavy | **44.6%** | 10.9% | 18.0% | 31.4% |
 
-**Degradation widens the gap rather than costing both alike.** Clean, the two
-are 9 points apart. At scan-heavy, 19. At photo-heavy, 21. Where intake quality
-varies, that is an argument for the 31B independent of its clean accuracy —
-and it is invisible from a clean benchmark.
+**The 31B leads at every tier, and the margin widens as conditions worsen** —
+17.7 points clear of the next system at scan-light, 33.7 clear at photo-heavy.
+It is not merely the better system; it is differentially better where intake is
+worst. That is an argument for it which a clean benchmark cannot make.
 
-**It would have been easy to report that scanning helps.** `scan-light` scores
-0.4 points *above* clean for the 31B, and the first reading of that said so. It
-is noise, and counting the direction of every page's change is what shows it —
-pages worse / better / unchanged against the same system's own clean run:
+#### What degradation actually destroys is attribution, not placement
 
-| tier | gemma-4-31B | MinerU |
-|---|---|---|
-| scan-light | 6 / 10 / 39 — noise | 3 / 2 / 50 — noise |
-| scan-moderate | 7 / 9 / 39 — noise | **11 / 3 / 41 — real** |
-| scan-heavy | 9 / 8 / 38 — noise | **15 / 1 / 39 — real** |
-| photo-light | 10 / 9 / 36 — noise | 4 / 2 / 49 — noise |
-| photo-moderate | **19 / 7 / 29 — real** | **22 / 4 / 29 — real** |
-| photo-heavy | **41 / 2 / 12 — real** | **37 / 3 / 15 — real** |
+The single most useful result in this section comes from scoring both metrics
+along the same ladder, for the 31B:
+
+| tier | placed | attributable | gap |
+|---|---|---|---|
+| *clean* | 99.0% | 97.7% | 1.3 |
+| scan-light | 99.4% | 98.6% | 0.8 |
+| scan-moderate | 99.2% | 96.7% | 2.5 |
+| scan-heavy | 98.6% | **88.6%** | **10.0** |
+| photo-light | 98.8% | 91.1% | 7.7 |
+| photo-moderate | 97.4% | **69.8%** | **27.5** |
+| photo-heavy | 89.4% | **44.6%** | **44.8** |
+
+**Placement barely moves; attribution collapses.** Across the whole ladder the
+31B keeps 89–99% of amounts under the correct heading, and the share that can be
+tied to a transaction falls from 97.7% to 44.6%. The mechanism is that the *date
+cell* is what fails: the amount is read correctly and filed correctly, and the
+row it sits in can no longer be identified, so a consumer reading rows as records
+receives a number it cannot use.
+
+This revises the previous headline. **"Scanning is free for the 31B" was true of
+placement and false of attribution** — on the same images, at `scan-heavy`,
+placement costs 0.4 points and attribution costs 9.1. The earlier claim was not
+a measurement error; it was the wrong measurement, and it flattered the system
+in exactly the direction a deployment decision is sensitive to.
+
+#### Reading is not what fails — except for the 12B
+
+At `photo-heavy` the 31B still reads **96.4%** of figures correctly while only
+44.6% are usable. The gap is placement and attribution, not perception: the heavy
+photo tier casts a shadow across part of the sheet and blurs it, so column
+boundaries — which these layouts never draw — become unrecoverable while the
+digits themselves survive. **Occlusion is not degradation.** No amount of model
+capability recovers a column edge that is not in the image.
+
+The 12B fails the opposite way, and this is finding 8 reappearing under load:
+
+| tier | 31B digits | 12B digits | InternVL digits | MinerU digits |
+|---|---|---|---|---|
+| scan-light | **100.0%** | 88.6% | 96.4% | 99.1% |
+| scan-heavy | **99.8%** | 78.5% | 95.4% | 97.0% |
+| photo-moderate | **99.5%** | 63.0% | 91.9% | 94.0% |
+| photo-heavy | 96.4% | **39.4%** | 74.0% | 87.3% |
+
+The 12B stops *reading*, down to 39.4% of amounts correct, with 69.8% of what it
+does read landing under the wrong heading. Capacity buys legibility under noise,
+and the deficit that was visible as a few digit substitutions on clean pages
+becomes the dominant failure on a bad one.
+
+#### Photo is the harder channel, and it is where the floor is
+
+`photo-moderate` is worse than `scan-heavy` for **every** system. If production
+accepts phone photographs, that is the column to plan against, and the ladder
+has found the floor: scanned documents need no quality gate this corpus can
+detect, photographed ones need capture guidance or a legibility check before
+parsing, and `photo-moderate` is where the cost becomes real rather than
+statistical.
+
+#### A net change is not evidence
+
+Pages worse / better / unchanged against each system's own clean run:
+
+| tier | gemma-4-31B | gemma-4-12B | InternVL3.5-8B | MinerU |
+|---|---|---|---|---|
+| scan-light | 6/10/39 noise | 21/17/17 noise | 24/17/14 noise | 3/2/50 noise |
+| scan-moderate | 7/9/39 noise | 17/20/18 noise | 15/25/15 noise | **11/3/41 real** |
+| scan-heavy | 9/8/38 noise | **30/15/10 real** | 18/22/15 noise | **15/1/39 real** |
+| photo-light | 10/9/36 noise | **35/11/9 real** | 20/21/14 noise | 4/2/49 noise |
+| photo-moderate | **19/7/29 real** | **47/2/6 real** | **33/13/9 real** | **22/4/29 real** |
+| photo-heavy | **41/2/12 real** | **53/1/1 real** | **41/10/4 real** | **37/3/15 real** |
 
 Balanced directions are the signature of the token-level perturbation that moved
 31 of 165 pages between tp=1 and tp=2 on *identical* images. **A net total is not
-evidence; only when the two directions stop balancing is there a signal.**
+evidence; only when the two directions stop balancing is there a signal.** The
+test earns its keep by disagreeing on the same data at the same threshold — it
+calls the 31B's whole scan ladder noise and MinerU's scan tail real.
 
-The test earns its keep by disagreeing on the same data at the same threshold:
-it calls the 31B's whole scan ladder noise and MinerU's scan tail real.
+**It would have been easy to report that scanning helps.** `scan-light` scores
+above clean for the 31B, and the first reading of that said so. It is noise, and
+counting the direction of every page's change is what shows it.
 
-**A system must be compared against its own clean run.** An earlier version of
-this table fell back to the only baseline loaded and compared MinerU's degraded
-pages against the *31B's* clean ones, which reported every MinerU tier as a real
-effect — including `scan-light`, where MinerU moves 90.3% to 90.5%. Borrowing a
-baseline is worse than having none: it reports one system's degradation as
-another's, and the output looks entirely normal.
+**A system must be compared against its own clean run.** An earlier version fell
+back to the only baseline loaded and compared MinerU's degraded pages against the
+*31B's* clean ones, reporting every MinerU tier as a real effect — including
+`scan-light`, where MinerU barely moves. Borrowing a baseline is worse than
+having none: it reports one system's degradation as another's, and the output
+looks entirely normal. The same fault recurred in `collect()`, which read a
+single clean report and so gave three of four systems no clean point at all.
 
-**The transcript degrades on both ladders, and on the scan ladder it degrades
-for nothing.** Median CER rises 37-fold from clean to `scan-heavy` and rows
-aligned falls 23 points — while usable amounts do not move. A system chosen on
-transcript quality would be rejected at `scan-heavy`; the same system chosen on
-usable amounts would be kept. **This is the sharpest form of finding 9's
-argument**: the metric everyone reaches for moves a great deal and the number a
-consumer acts on does not move at all.
+#### Two things the ladder found that were not being looked for
 
-**The mechanism is finding 8 running backwards.** Rows are matched by *content*,
-so a smudged merchant name fails its whole row while the amount in that row
-still lands in the correct column. Row alignment is a legibility measure wearing
-a structural costume, in exactly the way it was a digit measure before.
+**The transcript degrades on the scan ladder while placement does not.** Median
+CER rises sharply from clean to `scan-heavy` and rows aligned falls 23 points,
+while amounts under the right heading barely move. A system chosen on transcript
+quality would be rejected at `scan-heavy`; the same system chosen on placement
+would be kept. **This is the sharpest form of finding 9's argument** — and note
+that `attributable` sits between the two, which is why it is the metric to
+deploy on.
 
-**Reading is not what fails on the photo ladder either.** At `photo-heavy` the
-31B still reads **96.5%** of figures correctly; only 89.4% are usable. The gap
-is placement, and the cause is visible on the page: the heavy photo tier casts a
-shadow across part of the sheet and blurs it, so column boundaries — which these
-layouts never draw — become unrecoverable while the digits themselves survive.
-**Occlusion is not degradation.** No amount of model capability recovers a
-column edge that is not in the image.
+**Fragmentation falls as the image worsens.** MinerU splits 276 rows on clean
+input and fewer as the picture degrades: 251 at scan-heavy, 204 at photo-heavy.
+The prediction going in was the opposite, since fragmentation is a
+row-segmentation failure and blur ought to attack segmentation. The obvious
+artefact was ruled out first — MinerU emits the *same* number of table rows at
+every severity, 1,876 clean against 1,945 at photo-heavy, on all 55 pages — so it
+is not fragmenting less because it is producing less table. Blur appears to merge
+the two visual lines of a wrapped description so they read as one. It falls while
+everything that matters collapses.
 
-**Structure never broke on the scan ladder** for the 31B: zero fragments, zero
-width breaks and the correct column count on 55 of 55 statements at every scan
-severity.
+#### Limits
 
-**Fragmentation is not a degradation failure — it falls as the image worsens.**
-MinerU splits 276 rows on clean input, and fewer as the picture gets worse: 251
-at scan-heavy, 204 at photo-heavy. The prediction going in was the opposite,
-since fragmentation is a row-segmentation failure and blur ought to attack
-segmentation. The obvious artefact was ruled out first — MinerU emits the *same*
-number of table rows at every severity, 1,876 clean against 1,945 at
-photo-heavy, on all 55 pages — so it is not fragmenting less because it is
-producing less table. Fragmentation is a judgement about a wrapped description,
-and blur appears to merge the two visual lines so they read as one. It falls
-while everything that matters collapses.
+**25 pages are declared unproducible and scored as total failures** — token-cap
+repetition loops, each evidenced by a file kept under `_truncated/`. They fall
+entirely on the 12B (16) and InternVL (9); the 31B and MinerU produced all 330.
+Declaring rather than dropping keeps every system averaged over the same 55
+transcripts; dropping would have averaged the two failing systems over fewer,
+easier pages. The ranking does not depend on the choice — excluding them lifts
+the 12B's photo-heavy figure only to roughly 12%.
 
-**The ladder found a floor, and it is in the photo channel.** That is the
-actionable result: an intake pipeline can be specified against it. Scanned
-documents need no quality gate that this corpus can detect; photographed ones
-need capture guidance or a legibility check before parsing, and `photo-moderate`
-is where the cost becomes real rather than statistical.
+Docling was never run on a degraded tier and is absent rather than shown with a
+clean point alone, which would read as a system that held up perfectly.
 
-What this does not establish: it is two systems, on 55 statements of one
-document type, against modelled degradation rather than real scans. Two is
-enough to show that robustness differs between systems, and not enough to
-predict where a third would fall.
+What this does not establish: 55 statements of one document type, against
+modelled degradation rather than real scans. Four systems are enough to show that
+robustness differs sharply between systems and that the difference is not
+predictable from clean accuracy; they are not enough to predict where a fifth
+would fall.
 
 ---
 

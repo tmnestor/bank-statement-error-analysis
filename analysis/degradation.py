@@ -32,14 +32,24 @@ _TIER = re.compile(r"_(?P<family>scan|photo)-(?P<severity>light|moderate|heavy)$
 
 
 def _usable(documents: list[dict]) -> dict:
-    """Reduce one system's per-document rows to the figures the case quotes."""
+    """Reduce one system's per-document rows to the figures the case quotes.
+
+    **`usable` here is `attributable`** — right value, right column, and in a row
+    carrying its identifying date — which is what the case document ranks by and
+    what the comparison sheets print. The report also carries a per-document
+    `usable` field meaning `amounts - misfiled`, i.e. merely "not in the wrong
+    column"; reading that made this module report InternVL at 87.1% on
+    scan-light where the sheets showed 70.4%, because an amount misread or
+    stranded in an undated row still counted. Two numbers under one word, and
+    the more generous one was winning.
+    """
     amounts = sum(d["amounts"] for d in documents)
     truth_amounts = sum(d["truth_amounts"] for d in documents)
     truth_rows = sum(d["truth_rows"] for d in documents)
     return {
         "pages": len(documents),
         "amounts": amounts,
-        "usable": sum(d["usable"] for d in documents) / amounts if amounts else None,
+        "usable": sum(d["attributable"] for d in documents) / amounts if amounts else None,
         "misfiled": sum(d["misfiled"] for d in documents),
         "read": sum(d["read"] for d in documents) / amounts if amounts else None,
         "digit_recall": (
@@ -51,28 +61,45 @@ def _usable(documents: list[dict]) -> dict:
     }
 
 
-def collect(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> pd.DataFrame:
-    """Gather every degraded tier's report, plus the clean baseline.
+def collect(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
+    """Gather every degraded tier's report, plus each system's clean baseline.
 
     The clean run is the shared origin of both ladders: the same 55 statements,
     the same system, the same prompt, differing only in image quality. Without
     it the curves have no zero and the cost cannot be read off them.
 
+    **Every system's own clean report, never one shared origin.** The four
+    systems are scored in three different clean reports, so reading only one
+    left three ladders starting at their light tier and made the 12B look like
+    it began the run already degraded. This is the same reasoning that
+    `paired_change` records for baselines: borrowing another system's clean
+    point silently reports one system's degradation as another's.
+
     Args:
         reports: Directory holding `scores_*.json`.
-        clean: The clean-corpus report both ladders start from.
+        clean: A single clean report to use instead of `CLEAN_REPORTS`. Empty
+            reads them all, which is what a multi-system ladder needs.
 
     Returns:
-        One row per (family, severity), ordered light to heavy.
+        One row per (system, family, severity), ordered light to heavy.
     """
     rows: list[dict] = []
+    seen: set[str] = set()
 
-    baseline = reports / clean
-    if baseline.exists():
+    for name in (clean,) if clean else CLEAN_REPORTS:
+        baseline = reports / name
+        if not baseline.exists():
+            continue
         payload = json.loads(baseline.read_text(encoding="utf-8"))
         for system, block in payload["systems"].items():
+            # First report wins: CLEAN_REPORTS is ordered, and a system present
+            # in two of them takes the one declared for it rather than whichever
+            # sorted last.
+            if system in seen:
+                continue
             statements = [d for d in block["documents"] if d["stem"].endswith("_bank_statements")]
             if statements:
+                seen.add(system)
                 # The clean point belongs to both ladders; it is duplicated
                 # rather than drawn once, so each curve is readable alone.
                 for family in ("scan", "photo"):
@@ -100,8 +127,20 @@ def collect(reports: Path = REPO, clean: str = "scores_31b_tp2.json") -> pd.Data
         )
 
     frame = pd.DataFrame(rows)
+
+    # A system present in a clean report but in no degraded tier has a point,
+    # not a ladder -- docling is scored clean in scores_parsers.json and was
+    # never run degraded. Plotting its lone clean point draws a stub that reads
+    # as a system which held up perfectly, which is the opposite of true.
+    laddered = set(frame.loc[frame.severity != "clean", "system"])
+    dropped = sorted(set(frame.system) - laddered)
+    if dropped:
+        frame = frame[frame.system.isin(laddered)]
+
     frame["severity"] = pd.Categorical(frame.severity, categories=SEVERITIES, ordered=True)
-    return frame.sort_values(["family", "severity"]).reset_index(drop=True)
+    frame = frame.sort_values(["family", "severity"]).reset_index(drop=True)
+    frame.attrs["clean_only"] = dropped
+    return frame
 
 
 def report(frame: pd.DataFrame) -> str:
