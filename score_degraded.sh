@@ -30,12 +30,21 @@ for d in "$DEGRADED"/*/; do
         echo "  skip $name — no predictions in $predictions"
         continue
     fi
-    echo "=== $name ==="
-    conda run -n "$ENV_NAME" python -m generators.pipeline score \
+    echo "=== $name ($(find "$predictions" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') system(s)) ==="
+    # Output goes to a log rather than /dev/null. `score` refuses a corpus whose
+    # manifest does not verify and names the offending stem when it does; hiding
+    # that leaves "scoring failed" with no cause, which is the one message that
+    # cannot be acted on.
+    log="scores_${name}.log"
+    if conda run -n "$ENV_NAME" python -m generators.pipeline score \
         --corpus "${d%/}" --predictions "$predictions" \
-        --report "scores_${name}.json" >/dev/null 2>&1 &&
-        { echo "  -> scores_${name}.json"; scored=$((scored + 1)); } ||
-        echo "  !! scoring failed for $name"
+        --report "scores_${name}.json" > "$log" 2>&1; then
+        echo "  -> scores_${name}.json"
+        scored=$((scored + 1))
+    else
+        echo "  !! scoring failed for $name — last lines of $log:"
+        tail -12 "$log" | sed 's/^/     /'
+    fi
 done
 
 echo

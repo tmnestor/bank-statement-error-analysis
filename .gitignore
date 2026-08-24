@@ -10,6 +10,9 @@ parsing_*/
 # Parser scratch and scoring reports: both regenerate from what is tracked.
 .mineru_work/
 scores*.json
+# score_degraded.sh keeps each tier's console output beside its report, so a
+# failure names its cause instead of just "scoring failed".
+scores*.log
 
 # Predictions and excluded runs: large, machine-specific, and transferred out
 # of band rather than versioned.
