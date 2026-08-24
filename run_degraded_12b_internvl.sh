@@ -29,8 +29,13 @@ set -uo pipefail
 
 DEGRADED=${DEGRADED:-degraded}
 OUT=${OUT:-runs_degraded}
-ENV_NAME=${ENV_NAME:-vllm_env}
 SYSTEMS=${SYSTEMS:-"gemma-4-12B-it-qat-w4a16-ct InternVL3.5-8B"}
+# The ACTIVE environment runs the model, exactly as run_degraded_31b.sh does.
+# An earlier version wrapped every call in `conda run -n vllm_env`, which is a
+# guess at a name that varies by host -- the sandbox has vllm_env2 -- and the
+# guess failed twelve times in a row before the script gave up. Set ENV_NAME to
+# wrap the calls in `conda run` if you need a different env from the active one.
+ENV_NAME=${ENV_NAME:-}
 # Every tier by default. Set TIERS to a space-separated list of directory names
 # to trim the run -- the sheets need scan-heavy, photo-light and photo-heavy.
 TIERS=${TIERS:-}
@@ -92,17 +97,64 @@ echo "  -> $((total * systems_count)) inference(s) across $((${#corpora[@]} * sy
 cards=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)
 [[ $cards -ge 1 ]] || fail "no GPU visible"
 
+# THE ENVIRONMENT IS CHECKED HERE, BEFORE ANY MODEL LOADS -- for the same
+# reason the corpora are. A wrong environment is not a per-tier fault: it fails
+# identically for all twelve combinations, and discovering that twelve times
+# tells you nothing the first one did not.
+if [[ -n $ENV_NAME ]]; then
+    RUN=(conda run -n "$ENV_NAME" --no-capture-output)
+    where="conda env '$ENV_NAME'"
+else
+    RUN=()
+    where="active env '${CONDA_DEFAULT_ENV:-none}'"
+fi
+
+"${RUN[@]}" python -c "
+import importlib.util, sys
+missing = [m for m in ('vllm', 'PIL', 'yaml') if importlib.util.find_spec(m) is None]
+sys.exit('missing: ' + ', '.join(missing) if missing else 0)
+" || fail "$where cannot run the VLM runner.
+  What:    that interpreter has no vLLM (or no Pillow / PyYAML), or the named
+           environment does not exist.
+  Where:   run this from the environment that holds vLLM. The sandbox shows it
+           in the shell prompt -- e.g. (vllm_env2).
+  Example: conda activate vllm_env2
+           ./$(basename "$0")
+           -- or wrap the calls instead of activating:
+           ENV_NAME=vllm_env2 ./$(basename "$0")
+  Recover: \`conda env list\` shows the candidates; the right one is whichever
+           makes \`python -c 'import vllm'\` succeed."
+
+echo "running in: $where"
+
 failed=()
 for system in $SYSTEMS; do
     for c in "${corpora[@]}"; do
         name=$(basename "${c%/}")
         echo
         echo "=== $system / $name ==="
-        conda run -n "$ENV_NAME" --no-capture-output \
-            python -u -m runners.run_vlm --corpus "${c%/}" --system "$system" \
+        "${RUN[@]}" python -u -m runners.run_vlm --corpus "${c%/}" --system "$system" \
             --out "$OUT/$name" || {
             echo "!! $system / $name failed"
             failed+=("$system/$name")
+            # A tier that produced nothing at all is an environment, checkpoint
+            # or config fault, and it will repeat identically for the remaining
+            # combinations. Stop and say so rather than restating it twelve
+            # times -- which is exactly what this script did on 2026-08-24.
+            # A tier that produced SOME pages is a data or memory fault worth
+            # continuing past, since the run is resumable and the rest may be
+            # fine.
+            produced=$(find "$OUT/$name/$system" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+            [[ $produced -gt 0 ]] || fail "$system / $name produced no predictions at all.
+  What:    the failure above is not specific to this tier -- it will repeat for
+           the remaining $((${#corpora[@]} * systems_count - ${#failed[@]})) combination(s).
+  Where:   read the error above; the usual causes are a checkpoint path in
+           config/vlm_systems.yml that does not exist on this host, or too
+           little free VRAM.
+  Example: nvidia-smi                       # is a card already occupied?
+           ls \$(python -c \"import yaml;print(yaml.safe_load(open('config/vlm_systems.yml'))['systems']['$system']['model'])\")
+  Recover: fix the cause, then re-run this script -- finished pages are kept
+           and only the gaps are redone."
         }
     done
 done
