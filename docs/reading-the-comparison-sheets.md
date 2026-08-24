@@ -41,6 +41,42 @@ table that the truth keeps outside one. Two things produce it:
 Calling blue "invented" would accuse a system of fabricating text it in fact
 read off the page. Keep the two words apart: **red is wrong, blue is elsewhere.**
 
+### The blue row you will be asked about first
+
+The `Totals at end of period` row at the foot of a statement is blue on some
+panels. **The system read it perfectly** — same five columns, same values, in
+the same cells as the truth:
+
+```
+truth : |  | Totals at end of period | $18,173.17 | $9,045.49 |  |
+31B   : |  | Totals at end of period | $18,173.17 | $9,045.49 |  |
+```
+
+The corpus records that row as a **separate table**, and these systems kept it
+in the transaction table. Nothing on the page marks the boundary — the totals
+sit under the Debits and Credits columns, aligned to them — and `prompt.md`
+never mentions totals or starting a new table. So the systems were not told, and
+arguably have the better reading.
+
+It affects **14 of 55** statements, and the systems split on it:
+
+| system | merges into the transaction table | keeps it separate |
+|---|---|---|
+| gemma-4-12B | 14 | 0 |
+| gemma-4-31B | 10 | 4 |
+| InternVL3.5-8B | 0 | 13 (1 absent) |
+| MinerU | 0 | 14 |
+
+The 31B disagreeing with **itself** — 10 one way, 4 the other — is the tell that
+this is an undefined rule rather than a model behaviour.
+
+**Cost: one row of ROWS ALIGNED per affected page, and nothing at all on AMOUNTS
+USABLE.** Column integrity does not care which table a row lives in, which is
+why the 31B still reads 100% usable on `CASE002` while showing this row in blue.
+
+Known and deliberately left as is for now; fixing it would change ground truth
+rather than any image.
+
 ## The caption under each panel
 
 ```
