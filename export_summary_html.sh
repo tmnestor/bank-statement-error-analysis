@@ -18,6 +18,11 @@
 #
 # The result is checked, not asserted: the script greps the output for any
 # http(s) reference and fails if one survives.
+#
+# A general version of this lives in the `standalone-notebook` skill and works
+# on any notebook. This copy is kept because it is self-contained: the repo's
+# reproducibility must not depend on a skill installed in one developer's home
+# directory. Keep the two in step when either changes.
 
 set -uo pipefail
 
@@ -38,7 +43,12 @@ fail() {
 
 target="$OUT_DIR/$(basename "${NOTEBOOK%.ipynb}").html"
 
+# --embed-images covers images ATTACHED to markdown cells. Cell OUTPUTS inline
+# regardless, because they already live in the .ipynb; a `![](diagram.png)` in a
+# markdown cell does not, and without this it stays a relative path that breaks
+# the moment the file is moved.
 conda run -n "$ENV_NAME" jupyter nbconvert --to html \
+    --embed-images \
     --output-dir "$OUT_DIR" \
     --HTMLExporter.mathjax_url= \
     --HTMLExporter.require_js_url= \
