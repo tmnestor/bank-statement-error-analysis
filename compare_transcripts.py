@@ -594,16 +594,35 @@ def compare(
     ]
 
     for directory, label in zip(system, labels, strict=True):
-        candidate = next(directory.rglob(f"{stem}.md"), None)
+        # glob, NOT rglob -- one level deep, exactly as `score` reads a
+        # prediction directory. rglob descends into `_truncated/`, whose whole
+        # purpose is to hold generations that were REFUSED as predictions: a
+        # page that ran to the token cap is a repetition loop, and
+        # runners/common.py sets it aside precisely so it cannot masquerade as
+        # an answer. Reading it back rendered InternVL's 64 KB runaway on
+        # CASE002 as that system's output -- a wall of 308 unmatched rows -- and
+        # made the sheet contradict the score report, which counts that page as
+        # no prediction at all.
+        candidate = next(directory.glob(f"{stem}.md"), None)
         if candidate is None:
-            rprint(f"[yellow]  no prediction for {stem} in {directory}[/yellow]")
-            continue
-        prediction_text = candidate.read_text(encoding="utf-8")
+            # A refused page is not the same as an absent one, and dropping the
+            # panel would make a system that FAILED look merely unrun. Draw it
+            # with the reason instead.
+            refused = (directory / "_truncated" / f"{stem}.md").exists()
+            note = (
+                "refused: ran to the token cap (repetition loop)" if refused else "no prediction produced"
+            )
+            rprint(f"[yellow]  {label}: {note} for {stem}[/yellow]")
+            prediction_text = ""
+        else:
+            note = None
+            prediction_text = candidate.read_text(encoding="utf-8")
+
         blocks = parse_blocks(prediction_text)
         collected.append(
             (
                 label,
-                summarise(blocks, truth_tables),
+                note if note is not None else summarise(blocks, truth_tables),
                 blocks,
                 panel_stats(truth_text, prediction_text, blocks, truth_tables),
             )
