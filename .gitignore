@@ -57,6 +57,11 @@ degraded_*.tgz
 runs_degraded*.tgz
 runs_degraded*.gz
 
+# The shareable HTML export, regenerable from the notebook by
+# export_summary_html.sh. Committing it would put ~758 KB of base64 in every
+# clone and produce a diff on every re-execution that no one can read.
+analysis/summary.html
+
 # Side-by-side comparison sheets, regenerable from compare_transcripts.py.
 comparisons/
 comparisons_degraded/
