@@ -62,7 +62,7 @@ build() {
         [[ -f $corpus/transcripts/${case}_bank_statements.md ]] || continue
         conda run -n "$ENV_NAME" python compare_transcripts.py "${case}_bank_statements" \
             --corpus "$corpus" --no-truth "${flags[@]}" --out "$out" 2>&1 |
-            grep -E "^comparisons|no prediction" || true
+            grep -E "^comparisons|no prediction|refused" || true
     done
 }
 
