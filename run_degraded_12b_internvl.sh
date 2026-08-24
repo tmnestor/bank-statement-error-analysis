@@ -8,8 +8,15 @@
 # the four-system degraded comparison becomes available both as sheets and as
 # corpus-wide numbers.
 #
-# ONE CARD. Both systems declare tensor_parallel_size: 1 in config/vlm_systems.yml,
-# unlike run_degraded_31b.sh which requires two. This will run on a single L4.
+# ONE ENVIRONMENT PER SYSTEM, AND THEY ARE NOT INTERCHANGEABLE. gemma-4-12B is
+# a `gemma4_unified` checkpoint, whose floor is vLLM >= 0.23.0 (see the comment
+# at config/vlm_systems.yml:100); InternVL3.5-8B runs under the older vLLM in
+# vllm_env2, measured at 0.19.0 on 2026-08-24. A single-env run of both is
+# impossible on this host, which is why each system carries its own env below
+# rather than the script taking one ENV_NAME.
+#
+# ONE CARD. Both systems declare tensor_parallel_size: 1 in
+# config/vlm_systems.yml, unlike run_degraded_31b.sh which requires two.
 #
 # OUTPUT LANDS IN runs_degraded/, beside the 31B and MinerU, because `score`
 # treats every subdirectory of a predictions root as a system -- so putting the
@@ -18,9 +25,7 @@
 # subdirectory.
 #
 # RESUMABLE. A re-run transcribes only the stems with no non-empty prediction,
-# so a crash four hours in costs the current tier and not the run. That matters
-# here more than on any previous run: twelve engine loads over ~660 pages is a
-# long window for the share to hiccup.
+# so a crash four hours in costs the current tier and not the run.
 #
 # EACH TIER IS SCORED SEPARATELY AND NEVER MERGED. A mean over six severities
 # would describe an image quality that does not exist.
@@ -30,19 +35,33 @@ set -uo pipefail
 DEGRADED=${DEGRADED:-degraded}
 OUT=${OUT:-runs_degraded}
 SYSTEMS=${SYSTEMS:-"gemma-4-12B-it-qat-w4a16-ct InternVL3.5-8B"}
-# The ACTIVE environment runs the model, exactly as run_degraded_31b.sh does.
-# An earlier version wrapped every call in `conda run -n vllm_env`, which is a
-# guess at a name that varies by host -- the sandbox has vllm_env2 -- and the
-# guess failed twelve times in a row before the script gave up. Set ENV_NAME to
-# wrap the calls in `conda run` if you need a different env from the active one.
-ENV_NAME=${ENV_NAME:-}
 # Every tier by default. Set TIERS to a space-separated list of directory names
-# to trim the run -- the sheets need scan-heavy, photo-light and photo-heavy.
+# to trim the run -- the meeting sheets need scan-heavy, photo-light, photo-heavy.
 TIERS=${TIERS:-}
+
+GEMMA_ENV=${GEMMA_ENV:-vllm_env3}
+INTERNVL_ENV=${INTERNVL_ENV:-vllm_env2}
 
 fail() {
     echo "!! $*" >&2
     exit 1
+}
+
+# Which environment loads which checkpoint. Wrong here means a run that fails at
+# the first engine load, or worse, one that loads and is quietly degraded.
+env_for() {
+    case "$1" in
+        gemma-4-12B-it-qat-w4a16-ct) echo "$GEMMA_ENV" ;;
+        InternVL3.5-8B) echo "$INTERNVL_ENV" ;;
+        *) fail "no environment declared for system '$1'.
+  What:    every system must name the conda env whose vLLM can load it; this
+           script has no default, because guessing one produced twelve
+           identical failures on 2026-08-24.
+  Where:   the env_for() case block in $(basename "$0").
+  Example: $1) echo \"\${MY_ENV:-vllm_env3}\" ;;
+  Recover: add the branch, or run only the declared systems with
+           SYSTEMS='gemma-4-12B-it-qat-w4a16-ct InternVL3.5-8B'." ;;
+    esac
 }
 
 [[ -d $DEGRADED ]] || fail "no $DEGRADED/ directory. Unpack the degraded corpora into it."
@@ -72,7 +91,6 @@ print(hashlib.sha256((b if s else t).strip().encode()).hexdigest())
 # a truncated transfer once per tier, after however long the earlier tiers took;
 # on 2026-08-22 that produced six diagnostics for one cause, a copy that never
 # finished.
-echo "systems: $SYSTEMS"
 echo "corpora: ${#corpora[@]}"
 total=0
 for c in "${corpora[@]}"; do
@@ -80,8 +98,6 @@ for c in "${corpora[@]}"; do
     [[ -d $c ]] || fail "$name: no such tier under $DEGRADED/"
     # -maxdepth 1 prunes .ipynb_checkpoints/, which Jupyter creates inside any
     # directory opened on the share and fills with copies of the corpus images.
-    # Counting recursively once reported 59 images against 55 transcripts and
-    # blocked a complete corpus.
     images=$(find "${c}images" -maxdepth 1 -type f | wc -l | tr -d ' ')
     transcripts=$(find "${c}transcripts" -maxdepth 1 -type f | wc -l | tr -d ' ')
     records=$(wc -l < "${c}manifest.jsonl" | tr -d ' ')
@@ -97,62 +113,89 @@ echo "  -> $((total * systems_count)) inference(s) across $((${#corpora[@]} * sy
 cards=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)
 [[ $cards -ge 1 ]] || fail "no GPU visible"
 
-# THE ENVIRONMENT IS CHECKED HERE, BEFORE ANY MODEL LOADS -- for the same
-# reason the corpora are. A wrong environment is not a per-tier fault: it fails
-# identically for all twelve combinations, and discovering that twelve times
+# EVERY ENVIRONMENT IS PROVEN BEFORE ANY MODEL LOADS, for the same reason the
+# corpora are: a broken environment is not a per-tier fault. It fails
+# identically for all six of that system's tiers, and discovering it six times
 # tells you nothing the first one did not.
-if [[ -n $ENV_NAME ]]; then
-    RUN=(conda run -n "$ENV_NAME" --no-capture-output)
-    where="conda env '$ENV_NAME'"
-else
-    RUN=()
-    where="active env '${CONDA_DEFAULT_ENV:-none}'"
-fi
+#
+# vLLM is IMPORTED, not merely located. `find_spec` finds a vllm whose shared
+# objects cannot load, so on 2026-08-24 a find_spec check passed and the run
+# died at the first engine load -- which is the failure the check exists to
+# prevent.
+#
+# LD_LIBRARY_PATH is prepended with the env's own lib directory. vLLM's compiled
+# extensions link against the environment's libstdc++, and when the system one
+# is found first the import fails with a missing CXXABI/GLIBCXX symbol. That is
+# what happened on 2026-08-24, on a shell whose prompt read
+# `(vllm_env2) (vllm_env2)` -- a doubled activation leaves the ordering wrong.
+# Prepending is what a clean activation would have done, so this repairs the
+# ordering rather than overriding it.
+declare -A ENV_OF PREFIX_OF
+echo
+for system in $SYSTEMS; do
+    env_name=$(env_for "$system") || exit 1
+    ENV_OF[$system]=$env_name
 
-"${RUN[@]}" python -c "
-import importlib.util, sys
-missing = [m for m in ('vllm', 'PIL', 'yaml') if importlib.util.find_spec(m) is None]
-sys.exit('missing: ' + ', '.join(missing) if missing else 0)
-" || fail "$where cannot run the VLM runner.
-  What:    that interpreter has no vLLM (or no Pillow / PyYAML), or the named
-           environment does not exist.
-  Where:   run this from the environment that holds vLLM. The sandbox shows it
-           in the shell prompt -- e.g. (vllm_env2).
-  Example: conda activate vllm_env2
-           ./$(basename "$0")
-           -- or wrap the calls instead of activating:
-           ENV_NAME=vllm_env2 ./$(basename "$0")
-  Recover: \`conda env list\` shows the candidates; the right one is whichever
-           makes \`python -c 'import vllm'\` succeed."
+    prefix=$(conda run -n "$env_name" python -c "import sys; print(sys.prefix)" 2>/dev/null | tail -1)
+    [[ -n $prefix && -d $prefix ]] || fail "conda env '$env_name' (for $system) not found.
+  What:    \`conda run -n $env_name\` could not report a prefix, so the
+           environment does not exist or is not usable.
+  Where:   this host's conda installation.
+  Example: conda env list
+  Recover: set the override to the env that holds a vLLM able to load
+           $system, e.g.
+             GEMMA_ENV=vllm_env3 INTERNVL_ENV=vllm_env2 ./$(basename "$0")"
+    PREFIX_OF[$system]=$prefix
 
-echo "running in: $where"
+    # `conda run` appends its own "... failed. (See above for error)" line on a
+    # non-zero exit, which is the LAST line and says nothing. Drop it so the
+    # diagnostic quotes the actual ImportError.
+    version=$(conda run -n "$env_name" env "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}" \
+        python -c "import vllm; print(vllm.__version__)" 2>&1 |
+        grep -vE '^ERROR conda\.|^\(See above|^$' | tail -1)
+    [[ $version =~ ^[0-9]+\.[0-9]+ ]] || fail "conda env '$env_name' cannot load vLLM for $system.
+  What:    importing vllm there failed: $version
+  Where:   conda env '$env_name', prefix $prefix
+  Example: a missing CXXABI/GLIBCXX symbol means the system libstdc++ is found
+           before the environment's; this script already prepends
+             $prefix/lib
+           so a failure here is a genuinely broken or wrong environment.
+  Recover: conda env list, then point the override at the right one:
+             GEMMA_ENV=... INTERNVL_ENV=... ./$(basename "$0")"
+
+    echo "  $system"
+    echo "      env $env_name, vLLM $version"
+done
 
 failed=()
 for system in $SYSTEMS; do
+    env_name=${ENV_OF[$system]}
+    prefix=${PREFIX_OF[$system]}
     for c in "${corpora[@]}"; do
         name=$(basename "${c%/}")
         echo
-        echo "=== $system / $name ==="
-        "${RUN[@]}" python -u -m runners.run_vlm --corpus "${c%/}" --system "$system" \
+        echo "=== $system ($env_name) / $name ==="
+        conda run -n "$env_name" --no-capture-output \
+            env "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}" \
+            python -u -m runners.run_vlm --corpus "${c%/}" --system "$system" \
             --out "$OUT/$name" || {
             echo "!! $system / $name failed"
             failed+=("$system/$name")
             # A tier that produced nothing at all is an environment, checkpoint
             # or config fault, and it will repeat identically for the remaining
             # combinations. Stop and say so rather than restating it twelve
-            # times -- which is exactly what this script did on 2026-08-24.
-            # A tier that produced SOME pages is a data or memory fault worth
-            # continuing past, since the run is resumable and the rest may be
-            # fine.
+            # times -- which is what this script did on 2026-08-24. A tier that
+            # produced SOME pages is a data or memory fault worth continuing
+            # past, since the run is resumable and the rest may be fine.
             produced=$(find "$OUT/$name/$system" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
             [[ $produced -gt 0 ]] || fail "$system / $name produced no predictions at all.
   What:    the failure above is not specific to this tier -- it will repeat for
-           the remaining $((${#corpora[@]} * systems_count - ${#failed[@]})) combination(s).
-  Where:   read the error above; the usual causes are a checkpoint path in
-           config/vlm_systems.yml that does not exist on this host, or too
-           little free VRAM.
+           this system's remaining tier(s).
+  Where:   read the error above; with the environment already proven, the usual
+           causes are a checkpoint path in config/vlm_systems.yml that does not
+           exist on this host, or too little free VRAM.
   Example: nvidia-smi                       # is a card already occupied?
-           ls \$(python -c \"import yaml;print(yaml.safe_load(open('config/vlm_systems.yml'))['systems']['$system']['model'])\")
+           conda run -n $env_name python -c \"import yaml;print(yaml.safe_load(open('config/vlm_systems.yml'))['systems']['$system']['model'])\"
   Recover: fix the cause, then re-run this script -- finished pages are kept
            and only the gaps are redone."
         }
