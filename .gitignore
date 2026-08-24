@@ -45,6 +45,10 @@ runs_throughput/
 # `degraded/` is listed even though `parsing_*/` already matches its children at
 # any depth, so the intent is visible rather than accidental.
 degraded/
+# The eight-case cut of the above, built by make_meeting_subsets.sh for the
+# four-system degraded sheets. Same reasoning: `parsing_*/` already matches its
+# children, and listing it says so on purpose.
+degraded_meeting/
 upload/
 degraded_*.tgz
 runs_degraded*.tgz
