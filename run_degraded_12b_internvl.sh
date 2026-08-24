@@ -130,29 +130,46 @@ cards=$(nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | wc -l)
 # `(vllm_env2) (vllm_env2)` -- a doubled activation leaves the ordering wrong.
 # Prepending is what a clean activation would have done, so this repairs the
 # ordering rather than overriding it.
+# THE ENVIRONMENT'S OWN python IS INVOKED DIRECTLY, never through `conda run`.
+# On this sandbox `conda run` returns nothing on stdout -- a probe of three envs
+# printed three blank lines on 2026-08-24, including the env that demonstrably
+# works -- so anything that reads its output sees an empty string and concludes
+# the environment is missing. Calling $prefix/bin/python with the library path
+# set is what activation would have produced anyway, and it is observable.
 declare -A ENV_OF PREFIX_OF
+
+# `conda env list` prints "name  [*]  /path"; the path is the last field. Parse
+# it rather than executing anything, so a broken interpreter still resolves.
+prefix_of_env() {
+    conda env list 2>/dev/null | awk -v n="$1" '!/^#/ && $1 == n { print $NF; exit }'
+}
+available_envs() {
+    conda env list 2>/dev/null | awk '!/^#/ && NF > 1 { printf "%s ", $1 }'
+}
+
 echo
 for system in $SYSTEMS; do
     env_name=$(env_for "$system") || exit 1
     ENV_OF[$system]=$env_name
 
-    prefix=$(conda run -n "$env_name" python -c "import sys; print(sys.prefix)" 2>/dev/null | tail -1)
-    [[ -n $prefix && -d $prefix ]] || fail "conda env '$env_name' (for $system) not found.
-  What:    \`conda run -n $env_name\` could not report a prefix, so the
-           environment does not exist or is not usable.
+    prefix=$(prefix_of_env "$env_name")
+    [[ -n $prefix && -x $prefix/bin/python ]] || fail "conda env '$env_name' (for $system) is not usable.
+  What:    $(
+        [[ -z $prefix ]] &&
+            echo "\`conda env list\` has no environment called '$env_name'." ||
+            echo "'$env_name' resolves to $prefix, which has no executable bin/python."
+    )
   Where:   this host's conda installation.
-  Example: conda env list
-  Recover: set the override to the env that holds a vLLM able to load
-           $system, e.g.
-             GEMMA_ENV=vllm_env3 INTERNVL_ENV=vllm_env2 ./$(basename "$0")"
+           Available: $(available_envs)
+  Example: GEMMA_ENV=<env with vLLM >= 0.23.0> INTERNVL_ENV=<env with vLLM> \\
+             ./$(basename "$0")
+  Recover: pick from the list above the env that can load $system, and pass it
+           as the override. gemma4_unified needs vLLM >= 0.23.0; see the comment
+           at config/vlm_systems.yml:100."
     PREFIX_OF[$system]=$prefix
 
-    # `conda run` appends its own "... failed. (See above for error)" line on a
-    # non-zero exit, which is the LAST line and says nothing. Drop it so the
-    # diagnostic quotes the actual ImportError.
-    version=$(conda run -n "$env_name" env "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}" \
-        python -c "import vllm; print(vllm.__version__)" 2>&1 |
-        grep -vE '^ERROR conda\.|^\(See above|^$' | tail -1)
+    version=$(env "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}" \
+        "$prefix/bin/python" -c "import vllm; print(vllm.__version__)" 2>&1 | tail -1)
     [[ $version =~ ^[0-9]+\.[0-9]+ ]] || fail "conda env '$env_name' cannot load vLLM for $system.
   What:    importing vllm there failed: $version
   Where:   conda env '$env_name', prefix $prefix
@@ -160,7 +177,8 @@ for system in $SYSTEMS; do
            before the environment's; this script already prepends
              $prefix/lib
            so a failure here is a genuinely broken or wrong environment.
-  Recover: conda env list, then point the override at the right one:
+           Available: $(available_envs)
+  Recover: point the override at an env whose vLLM imports:
              GEMMA_ENV=... INTERNVL_ENV=... ./$(basename "$0")"
 
     echo "  $system"
@@ -175,9 +193,8 @@ for system in $SYSTEMS; do
         name=$(basename "${c%/}")
         echo
         echo "=== $system ($env_name) / $name ==="
-        conda run -n "$env_name" --no-capture-output \
-            env "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}" \
-            python -u -m runners.run_vlm --corpus "${c%/}" --system "$system" \
+        env "LD_LIBRARY_PATH=$prefix/lib:${LD_LIBRARY_PATH:-}" \
+            "$prefix/bin/python" -u -m runners.run_vlm --corpus "${c%/}" --system "$system" \
             --out "$OUT/$name" || {
             echo "!! $system / $name failed"
             failed+=("$system/$name")
@@ -195,7 +212,7 @@ for system in $SYSTEMS; do
            causes are a checkpoint path in config/vlm_systems.yml that does not
            exist on this host, or too little free VRAM.
   Example: nvidia-smi                       # is a card already occupied?
-           conda run -n $env_name python -c \"import yaml;print(yaml.safe_load(open('config/vlm_systems.yml'))['systems']['$system']['model'])\"
+           $prefix/bin/python -c \"import yaml;print(yaml.safe_load(open('config/vlm_systems.yml'))['systems']['$system']['model'])\"
   Recover: fix the cause, then re-run this script -- finished pages are kept
            and only the gaps are redone."
         }
