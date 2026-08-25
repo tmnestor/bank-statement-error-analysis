@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Reading the comparison sheets</title>
+  <style>
+
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+:root {
+--ink: #1a1a1a;
+--muted: #5c5f66;
+--paper: #ffffff;
+--panel: #f6f7f8;
+--rule: #d8dade;
+--rule-firm: #b9bcc2;
+--accent: #1f5c8b;
+--code-ink: #24292f;
+--measure: 46rem;
+}
+@media (prefers-color-scheme: dark) {
+:root {
+--ink: #e6e6e6;
+--muted: #9aa0a8;
+--paper: #16181c;
+--panel: #1e2126;
+--rule: #2f333a;
+--rule-firm: #454b54;
+--accent: #7fb3d9;
+--code-ink: #e6e6e6;
+}
+}
+* { box-sizing: border-box; }
+body {
+margin: 0 auto;
+padding: 3rem 1.5rem 6rem;
+max-width: var(--measure);
+background: var(--paper);
+color: var(--ink);
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+"Helvetica Neue", Arial, sans-serif;
+font-size: 17px;
+line-height: 1.65;
+-webkit-text-size-adjust: 100%;
+}
+h1, h2, h3, h4 { line-height: 1.25; margin: 2.2em 0 0.6em; text-wrap: balance; }
+h1 { font-size: 2rem; margin-top: 0; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; padding-bottom: 0.3em; border-bottom: 1px solid var(--rule); }
+h3 { font-size: 1.15rem; }
+h4 { font-size: 1rem; color: var(--muted); }
+p, ul, ol { margin: 0 0 1.1em; }
+li + li { margin-top: 0.25em; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+strong { font-weight: 650; }
+blockquote {
+margin: 1.4em 0;
+padding: 0.1em 1.1em;
+border-left: 3px solid var(--rule-firm);
+color: var(--muted);
+}
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5em 0; }
+
+code, pre, kbd, samp {
+font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+"Liberation Mono", monospace;
+font-size: 0.875em;
+}
+code {
+background: var(--panel);
+padding: 0.15em 0.35em;
+border-radius: 3px;
+color: var(--code-ink);
+}
+pre {
+background: var(--panel);
+border: 1px solid var(--rule);
+border-radius: 6px;
+padding: 0.9rem 1rem;
+overflow-x: auto; 
+line-height: 1.5;
+}
+pre code { background: none; padding: 0; }
+
+.table-wrap { overflow-x: auto; margin: 1.4em 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+font-size: 0.94em;
+font-variant-numeric: tabular-nums;
+}
+th, td {
+border: 1px solid var(--rule);
+padding: 0.45em 0.7em;
+text-align: left;
+vertical-align: top;
+}
+thead th { background: var(--panel); font-weight: 650; }
+tbody tr:nth-child(even) { background: color-mix(in srgb, var(--panel) 45%, transparent); }
+img, svg { max-width: 100%; height: auto; }
+
+.mermaid-figure { margin: 1.8em 0; text-align: center; }
+.mermaid-figure img { background: #ffffff; border-radius: 6px; padding: 0.5rem; }
+@media print {
+body { max-width: none; padding: 0; font-size: 11pt; }
+pre, .table-wrap { overflow: visible; }
+a { text-decoration: none; color: inherit; }
+}
+</style>
+</head>
+<body>
+<nav id="TOC" role="doc-toc">
+<h2 id="toc-title">Contents</h2>
+<ul>
+<li><a href="#reading-the-comparison-sheets" id="toc-reading-the-comparison-sheets">Reading the comparison sheets</a>
+<ul>
+<li><a href="#the-four-fills" id="toc-the-four-fills">The four fills</a></li>
+<li><a href="#red-and-blue-answer-different-questions" id="toc-red-and-blue-answer-different-questions">Red and blue answer different questions</a>
+<ul>
+<li><a href="#the-blue-row-you-will-be-asked-about-first" id="toc-the-blue-row-you-will-be-asked-about-first">The blue row you will be asked about first</a></li>
+</ul></li>
+<li><a href="#the-caption-under-each-panel" id="toc-the-caption-under-each-panel">The caption under each panel</a></li>
+<li><a href="#an-empty-panel" id="toc-an-empty-panel">An empty panel</a></li>
+<li><a href="#the-two-figures-at-the-foot" id="toc-the-two-figures-at-the-foot">The two figures at the foot</a></li>
+<li><a href="#the-one-line-version-if-asked" id="toc-the-one-line-version-if-asked">The one-line version, if asked</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="reading-the-comparison-sheets">Reading the comparison sheets</h1>
+<p>Each sheet is one bank statement. The leftmost panel is the page image; every
+panel to its right is one system&#39;s transcription, rendered back into a table so
+it can be compared row against row.</p>
+<p>There is <strong>no ground-truth panel</strong>. The truth is what the colours are measured
+against, not another column to read.</p>
+<h2 id="the-four-fills">The four fills</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Fill</th>
+<th>Means</th>
+<th>What it is evidence of</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>none</strong></td>
+<td>the row matches the truth exactly</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>pale red</strong></td>
+<td>this cell&#39;s content differs from the truth</td>
+<td>a <strong>reading error</strong></td>
+</tr>
+<tr>
+<td><strong>pale blue</strong></td>
+<td>in the system&#39;s table, with no counterpart in the truth&#39;s</td>
+<td>a <strong>structural</strong> difference</td>
+</tr>
+<tr>
+<td><strong>grey</strong></td>
+<td>the truth has this row and the system did not</td>
+<td>a <strong>dropped</strong> row</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="red-and-blue-answer-different-questions">Red and blue answer different questions</h2>
+<p><strong>Pale red is a misread value.</strong> The cell paired with a truth cell and the
+contents disagree. Inside a red cell there are two lines:</p>
+<ul>
+<li>the <strong>top line, in red</strong>, is what the system produced — the mistake</li>
+<li>the <strong>bottom line, in green</strong>, is what the page actually says</li>
+</ul>
+<p>So red text is never right and green text is never wrong. If a cell shows only
+one line, the system and the page agree on it.</p>
+<p><strong>Pale blue is not an invented value.</strong> It means the system put something in its
+table that the truth keeps outside one. Two things produce it:</p>
+<ul>
+<li><strong>A whole row in blue</strong> — the system emitted a table row that has no truth row
+to pair with. MinerU wraps an entire page into one HTML table, so a rewards
+summary the corpus keeps as paragraphs becomes seven extra table rows. <em>The
+text was read correctly; only its structure differs.</em></li>
+<li><strong>A single cell in blue</strong> — the row paired, but the system produced a column
+the truth does not have. This is the wrapped <code>Date of / Transaction</code> heading
+being read as two columns, which pushes every amount one place sideways.</li>
+</ul>
+<p>Calling blue &quot;invented&quot; would accuse a system of fabricating text it in fact
+read off the page. Keep the two words apart: <strong>red is wrong, blue is elsewhere.</strong></p>
+<h3 id="the-blue-row-you-will-be-asked-about-first">The blue row you will be asked about first</h3>
+<p>The <code>Totals at end of period</code> row at the foot of a statement is blue on some
+panels. <strong>The system read it perfectly</strong> — same five columns, same values, in
+the same cells as the truth:</p>
+<pre><code>truth : |  | Totals at end of period | $18,173.17 | $9,045.49 |  |
+31B   : |  | Totals at end of period | $18,173.17 | $9,045.49 |  |</code></pre>
+<p>The corpus records that row as a <strong>separate table</strong>, and these systems kept it
+in the transaction table. Nothing on the page marks the boundary — the totals
+sit under the Debits and Credits columns, aligned to them — and <code>prompt.md</code>
+never mentions totals or starting a new table. So the systems were not told, and
+arguably have the better reading.</p>
+<p>It affects <strong>14 of 55</strong> statements, and the systems split on it:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>system</th>
+<th>merges into the transaction table</th>
+<th>keeps it separate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gemma-4-12B</td>
+<td>14</td>
+<td>0</td>
+</tr>
+<tr>
+<td>gemma-4-31B</td>
+<td>10</td>
+<td>4</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>0</td>
+<td>13 (1 absent)</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>0</td>
+<td>14</td>
+</tr>
+</tbody>
+</table></div>
+<p>The 31B disagreeing with <strong>itself</strong> — 10 one way, 4 the other — is the tell that
+this is an undefined rule rather than a model behaviour.</p>
+<p><strong>Cost: one row of ROWS ALIGNED per affected page, and nothing at all on AMOUNTS
+USABLE.</strong> Column integrity does not care which table a row lives in, which is
+why the 31B still reads 100% usable on <code>CASE002</code> while showing this row in blue.</p>
+<p>Known and deliberately left as is for now; fixing it would change ground truth
+rather than any image.</p>
+<h2 id="the-caption-under-each-panel">The caption under each panel</h2>
+<pre><code>41/44 rows exact   2 changed   1 unmatched   0 missed   |  4 columns</code></pre>
+<ul>
+<li><strong>rows exact</strong> — matched the truth completely</li>
+<li><strong>changed</strong> — paired, but at least one cell differs (the red cells)</li>
+<li><strong>unmatched</strong> — the system&#39;s row had no truth row (the blue rows)</li>
+<li><strong>missed</strong> — the truth&#39;s row had no system row (the grey rows)</li>
+<li><strong>columns</strong> — the table&#39;s width, or a range if the system was inconsistent.
+Anything other than the truth&#39;s width is a structural failure on its own.</li>
+</ul>
+<h2 id="an-empty-panel">An empty panel</h2>
+<p>A panel with no table and a caption reading</p>
+<pre><code>refused: ran to the token cap (repetition loop)</code></pre>
+<p>is a page the system <strong>failed to produce</strong>, not one it was never asked. The
+generation ran to the output cap — a repetition loop — and the runner sets such
+output aside rather than scoring it, because scoring it would blame the model&#39;s
+reading for the operator&#39;s cap. It counts as 0% on both figures, which is what a
+consumer would receive. InternVL does this on <code>CASE002</code>.</p>
+<h2 id="the-two-figures-at-the-foot">The two figures at the foot</h2>
+<p><strong>ROWS ALIGNED</strong> is all-or-nothing per row: one wrong character anywhere fails
+the whole row. It falls long before anything a consumer would notice, which
+makes it a sensitive early warning and a poor headline. A low figure here does
+not by itself mean the output is unusable.</p>
+<p><strong>AMOUNTS USABLE</strong> is the one to quote — <em>right value, right column, right row</em>.
+It counts amounts a downstream consumer can actually act on, and it is computed
+by the same code as the scoring report, so a sheet cannot disagree with the
+numbers in the deck.</p>
+<p>The row condition is the part that matters. An amount can be correct and under
+the correct heading, yet sit in a row whose date is blank — so it cannot be
+attributed to a transaction. On <code>CASE015</code>, MinerU places <strong>56 of 56</strong> amounts
+correctly and <strong>0</strong> are attributable. Quoting placement alone would report that
+page as a success.</p>
+<h2 id="the-one-line-version-if-asked">The one-line version, if asked</h2>
+<blockquote>
+<p>Red is a value the system got wrong. Blue is a value it got right but filed in
+a structure the page does not have. Grey is a value it never produced. The
+figure to judge a system by is <em>amounts usable</em> — right value, right column,
+right row.</p>
+</blockquote>
+</body>
+</html>

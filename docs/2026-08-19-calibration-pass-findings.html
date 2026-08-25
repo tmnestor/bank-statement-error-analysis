@@ -1,0 +1,2315 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Can a prompted VLM be steered to a house style?</title>
+  <style>
+
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+:root {
+--ink: #1a1a1a;
+--muted: #5c5f66;
+--paper: #ffffff;
+--panel: #f6f7f8;
+--rule: #d8dade;
+--rule-firm: #b9bcc2;
+--accent: #1f5c8b;
+--code-ink: #24292f;
+--measure: 46rem;
+}
+@media (prefers-color-scheme: dark) {
+:root {
+--ink: #e6e6e6;
+--muted: #9aa0a8;
+--paper: #16181c;
+--panel: #1e2126;
+--rule: #2f333a;
+--rule-firm: #454b54;
+--accent: #7fb3d9;
+--code-ink: #e6e6e6;
+}
+}
+* { box-sizing: border-box; }
+body {
+margin: 0 auto;
+padding: 3rem 1.5rem 6rem;
+max-width: var(--measure);
+background: var(--paper);
+color: var(--ink);
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+"Helvetica Neue", Arial, sans-serif;
+font-size: 17px;
+line-height: 1.65;
+-webkit-text-size-adjust: 100%;
+}
+h1, h2, h3, h4 { line-height: 1.25; margin: 2.2em 0 0.6em; text-wrap: balance; }
+h1 { font-size: 2rem; margin-top: 0; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; padding-bottom: 0.3em; border-bottom: 1px solid var(--rule); }
+h3 { font-size: 1.15rem; }
+h4 { font-size: 1rem; color: var(--muted); }
+p, ul, ol { margin: 0 0 1.1em; }
+li + li { margin-top: 0.25em; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+strong { font-weight: 650; }
+blockquote {
+margin: 1.4em 0;
+padding: 0.1em 1.1em;
+border-left: 3px solid var(--rule-firm);
+color: var(--muted);
+}
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5em 0; }
+
+code, pre, kbd, samp {
+font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+"Liberation Mono", monospace;
+font-size: 0.875em;
+}
+code {
+background: var(--panel);
+padding: 0.15em 0.35em;
+border-radius: 3px;
+color: var(--code-ink);
+}
+pre {
+background: var(--panel);
+border: 1px solid var(--rule);
+border-radius: 6px;
+padding: 0.9rem 1rem;
+overflow-x: auto; 
+line-height: 1.5;
+}
+pre code { background: none; padding: 0; }
+
+.table-wrap { overflow-x: auto; margin: 1.4em 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+font-size: 0.94em;
+font-variant-numeric: tabular-nums;
+}
+th, td {
+border: 1px solid var(--rule);
+padding: 0.45em 0.7em;
+text-align: left;
+vertical-align: top;
+}
+thead th { background: var(--panel); font-weight: 650; }
+tbody tr:nth-child(even) { background: color-mix(in srgb, var(--panel) 45%, transparent); }
+img, svg { max-width: 100%; height: auto; }
+
+.mermaid-figure { margin: 1.8em 0; text-align: center; }
+.mermaid-figure img { background: #ffffff; border-radius: 6px; padding: 0.5rem; }
+@media print {
+body { max-width: none; padding: 0; font-size: 11pt; }
+pre, .table-wrap { overflow: visible; }
+a { text-decoration: none; color: inherit; }
+}
+</style>
+</head>
+<body>
+<nav id="TOC" role="doc-toc">
+<h2 id="toc-title">Contents</h2>
+<ul>
+<li><a href="#can-a-prompted-vlm-be-steered-to-a-house-style" id="toc-can-a-prompted-vlm-be-steered-to-a-house-style">Can a prompted VLM be steered to a house style?</a>
+<ul>
+<li><a href="#the-short-answer" id="toc-the-short-answer">The short answer</a></li>
+<li><a href="#what-is-being-measured" id="toc-what-is-being-measured">What is being measured</a>
+<ul>
+<li><a href="#full-page-transcription" id="toc-full-page-transcription">Full-page transcription</a></li>
+<li><a href="#the-corpus" id="toc-the-corpus">The corpus</a></li>
+<li><a href="#terms-used-throughout" id="toc-terms-used-throughout">Terms used throughout</a></li>
+</ul></li>
+<li><a href="#the-metrics" id="toc-the-metrics">The metrics</a>
+<ul>
+<li><a href="#cer-and-wer" id="toc-cer-and-wer">CER and WER</a></li>
+<li><a href="#two-ways-to-score-the-same-prediction" id="toc-two-ways-to-score-the-same-prediction">Two ways to score the same prediction</a></li>
+<li><a href="#the-gap" id="toc-the-gap">The gap</a></li>
+<li><a href="#column-integrity" id="toc-column-integrity">Column integrity</a></li>
+<li><a href="#table-structure" id="toc-table-structure">Table structure</a></li>
+</ul></li>
+<li><a href="#the-systems" id="toc-the-systems">The systems</a>
+<ul>
+<li><a href="#what-each-system-needs-to-run" id="toc-what-each-system-needs-to-run">What each system needs to run</a></li>
+<li><a href="#what-each-system-costs-to-run" id="toc-what-each-system-costs-to-run">What each system costs to run</a></li>
+</ul></li>
+<li><a href="#results" id="toc-results">Results</a></li>
+<li><a href="#reading-the-tables" id="toc-reading-the-tables">Reading the tables</a>
+<ul>
+<li><a href="#bank-transaction-tables" id="toc-bank-transaction-tables">Bank-transaction tables</a></li>
+</ul></li>
+<li><a href="#findings" id="toc-findings">Findings</a>
+<ul>
+<li><a href="#1-steerability-is-a-property-of-the-model-not-the-prompt" id="toc-1-steerability-is-a-property-of-the-model-not-the-prompt">1. Steerability is a property of the model, not the prompt</a></li>
+<li><a href="#2-what-a-worked-example-does-that-a-stated-rule-cannot" id="toc-2-what-a-worked-example-does-that-a-stated-rule-cannot">2. What a worked example does that a stated rule cannot</a></li>
+<li><a href="#3-stating-a-rule-is-not-the-same-as-communicating-it" id="toc-3-stating-a-rule-is-not-the-same-as-communicating-it">3. Stating a rule is not the same as communicating it</a></li>
+<li><a href="#4-normalised-cer-is-blind-to-the-error-that-matters-most-on-a-statement" id="toc-4-normalised-cer-is-blind-to-the-error-that-matters-most-on-a-statement">4. Normalised CER is blind to the error that matters most on a statement</a></li>
+<li><a href="#5-ground-truth-is-a-component-under-test" id="toc-5-ground-truth-is-a-component-under-test">5. Ground truth is a component under test</a></li>
+<li><a href="#6-a-prompt-is-part-of-the-eval-set" id="toc-6-a-prompt-is-part-of-the-eval-set">6. A prompt is part of the eval set</a></li>
+<li><a href="#7-getting-the-digits-right-is-a-separate-skill-and-cer-cannot-see-it" id="toc-7-getting-the-digits-right-is-a-separate-skill-and-cer-cannot-see-it">7. Getting the digits right is a separate skill, and CER cannot see it</a></li>
+<li><a href="#an-amount-you-cannot-attribute-to-a-row-is-not-usable" id="toc-an-amount-you-cannot-attribute-to-a-row-is-not-usable">An amount you cannot attribute to a row is not usable</a></li>
+<li><a href="#but-digits-alone-are-not-the-deployment-number" id="toc-but-digits-alone-are-not-the-deployment-number">But digits alone are not the deployment number</a></li>
+<li><a href="#8-the-digit-deficit-is-capacity-not-quantisation" id="toc-8-the-digit-deficit-is-capacity-not-quantisation">8. The digit deficit is capacity, not quantisation</a></li>
+<li><a href="#9-cer-ranks-systems-adequately-and-cannot-find-a-bad-page" id="toc-9-cer-ranks-systems-adequately-and-cannot-find-a-bad-page">9. CER ranks systems adequately and cannot find a bad page</a></li>
+<li><a href="#10-robustness-to-a-bad-scan-is-a-property-of-the-system-not-of-scanning" id="toc-10-robustness-to-a-bad-scan-is-a-property-of-the-system-not-of-scanning">10. Robustness to a bad scan is a property of the system, not of scanning</a></li>
+<li><a href="#a-wrong-number-and-a-missing-number-are-not-the-same-failure" id="toc-a-wrong-number-and-a-missing-number-are-not-the-same-failure">A wrong number and a missing number are not the same failure</a></li>
+</ul></li>
+<li><a href="#limits-1" id="toc-limits-1">Limits</a></li>
+<li><a href="#what-this-pass-produced" id="toc-what-this-pass-produced">What this pass produced</a></li>
+<li><a href="#appendix-the-prompt" id="toc-appendix-the-prompt">Appendix: the prompt</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="can-a-prompted-vlm-be-steered-to-a-house-style">Can a prompted VLM be steered to a house style?</h1>
+<p><strong>Calibration pass, August 2026.</strong> Six document-parsing systems over 165
+synthetic pages of Australian business documents.</p>
+<hr />
+<h2 id="the-short-answer">The short answer</h2>
+<p>The benchmark asks a model to read a whole page and write it out as Markdown.
+Doing that forces a <em>house style</em>: where headings go, how tables are drawn, how
+a label joins its value. The worry was that our house style might be
+idiosyncratic — that a model could read a page perfectly and still score badly
+for formatting it differently.</p>
+<p><strong>It is not, and the reason is that gemma-4 can be told.</strong> Three separate
+conventions were each stated, measured, and adopted:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Convention</th>
+<th>before</th>
+<th>after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>headerless item tables</td>
+<td>2/55 pages</td>
+<td><strong>53/55</strong></td>
+</tr>
+<tr>
+<td>dates carried down a group</td>
+<td>61.6% of rows</td>
+<td><strong>97.2%</strong> (truth: 98.9%)</td>
+</tr>
+<tr>
+<td>repeated glyphs are spacing</td>
+<td>275 stray lines</td>
+<td><strong>0</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Stating all three took the 12B&#39;s median normalised CER from <strong>0.0201 to
+0.0081</strong>, its mean from <strong>0.3011 to 0.0178</strong>, and its misfiled amounts from
+<strong>12.7% to 9.7%</strong> — and three pages the benchmark had written off as impossible
+now transcribe at 0.05.</p>
+<p><strong>The 31B at the same 4-bit quantisation goes further than steering alone
+could.</strong> Median normalised CER <strong>0.0000</strong> — <strong>128 of its 165 pages</strong> are
+character-perfect once formatting is set aside — with <strong>99.0%</strong> of
+bank-statement amounts <strong>usable</strong> (right value, right heading), <strong>94.7%</strong> of
+statement rows recovered, and <strong>1.0%</strong> filed under the wrong heading. It is the
+first system here that reads the tables, gets the digits right, and follows the
+house style at once.</p>
+<p>Six things qualify that, and they are the substance of this document:</p>
+<ol type="1">
+<li><strong>Steerability is a property of the model, not the prompt.</strong> The same three
+conventions, identically worded, moved the 12B and barely moved an 8B from
+another family. A prompt improvement is a property of the <em>pair</em>.</li>
+<li><strong>A worked example does something a stated rule cannot.</strong> Held to a
+controlled A/B, a rule alone stopped a model emitting the wrong characters
+but not improvising a replacement; the example supplied the behaviour the
+prohibition left undefined.</li>
+<li><strong>Normalised character error rate ranks systems adequately and cannot find a
+bad page.</strong> Across the six systems it tracks usable-amount rate closely
+(Spearman ρ = 0.943). <em>Within</em> a system it is uncorrelated with whether a
+page&#39;s numbers survive — ρ = 0.01 for two of them, and <strong>−0.17</strong> for the best,
+whose worst page loses 11% of its amounts at a CER of 0.0000. <strong>Fourteen
+pages lose every amount to the wrong column, and ten of them score below
+0.11</strong> — the worst being 50 amounts on one statement at 0.075.
+Ranking systems is something you do once; deciding which pages a human must
+check is something you do on every batch.</li>
+<li><strong>Ground truth and prompt are a matched pair, and both are components under
+test.</strong> Two defects in this corpus were found only by asking whether it
+treated the same visual device the same way everywhere.</li>
+<li><strong>A wrong number and a missing number are not the same failure.</strong> Ranked by
+what reaches a consumer as plausible-but-wrong, the 31B is at 2.0% and MinerU
+at 37.2% — and MinerU misreads <em>no</em> digits at all, losing 596 correctly-read
+amounts to rows with no date. &quot;Which system fabricates numbers?&quot; and &quot;which
+system delivers wrong data?&quot; have different answers.</li>
+<li><strong>Robustness to a bad scan is a property of the system, not of scanning.</strong>
+Over two degradation ladders and all four systems, the 31B leads at every
+tier and the margin <em>widens</em> as intake worsens — 17.7 points clear of the
+next system at scan-light, 33.7 clear at photo-heavy. A clean benchmark
+cannot see that. And what degradation destroys is <strong>attribution, not
+placement</strong>: the 31B keeps 89–99% of amounts under the correct heading all
+the way down, while the share that can be tied to a transaction falls from
+97.7% to 44.6%, because the <em>date cell</em> is what fails. Measured as placement,
+scanning looked free; measured as what a consumer can act on, <code>scan-heavy</code>
+costs 9.1 points.</li>
+</ol>
+<hr />
+<h2 id="what-is-being-measured">What is being measured</h2>
+<h3 id="full-page-transcription">Full-page transcription</h3>
+<p>Given one image of a document page, output <strong>all</strong> of its text, in reading
+order, as Markdown. Not information extraction, which asks for named fields and
+ignores the rest; not OCR, which returns characters without structure; not
+layout analysis, which returns boxes. The output is a document a person could
+read in place of the page.</p>
+<p>The score is a <strong>whole-page edit distance</strong>, so every character counts equally
+and there is nowhere to hide: a system cannot do well by getting the total right
+and skipping the address.</p>
+<h3 id="the-corpus">The corpus</h3>
+<p>165 pages — 55 cases across invoices, receipts and bank statements, in 18 layout
+variants. Every page is <strong>synthetic and authored</strong>: the ground truth is written
+by the renderer at the moment it draws the page, not annotated afterwards.
+Nothing is estimated or OCR&#39;d, so label error is zero by construction.</p>
+<p>Pages are pristine renders. A parallel set of <strong>degraded</strong> corpora derives from
+them — two intake channels, scanner and phone camera, three declared severities
+each — so the benchmark measures clean input by default and scanned input on
+demand. The degraded images alter legibility only; their transcripts are copied
+byte for byte from the clean corpus, so a score difference is attributable to
+image quality alone. See finding 10.</p>
+<h3 id="terms-used-throughout">Terms used throughout</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>convention</strong></td>
+<td>a rule in the house style: <code># </code> for the page title, pipe tables, <code>Label: value</code></td>
+</tr>
+<tr>
+<td><strong>prompted system</strong></td>
+<td>a VLM that reads the convention in its prompt</td>
+</tr>
+<tr>
+<td><strong>unprompted system</strong></td>
+<td>a dedicated parser with no prompt input</td>
+</tr>
+<tr>
+<td><strong>transcript</strong></td>
+<td>the ground-truth Markdown for one page</td>
+</tr>
+<tr>
+<td><strong>prediction</strong></td>
+<td>what a system produced for that page</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="the-metrics">The metrics</h2>
+<h3 id="cer-and-wer">CER and WER</h3>
+<p><strong>Character Error Rate</strong>: edit distance between prediction and truth, divided by
+the truth&#39;s length. 0.02 means about one character in fifty is wrong. The
+denominator is the truth, not the longer of the two, so a system that outputs
+nothing scores 1.0 rather than 0.5 — and a system that outputs far too much can
+score above 1.0. <strong>Word Error Rate</strong> is the same over whitespace-separated
+tokens.</p>
+<p>Lower is better throughout.</p>
+<h3 id="two-ways-to-score-the-same-prediction">Two ways to score the same prediction</h3>
+<p><strong>Normalised</strong> applies Unicode normalisation, collapses whitespace, folds dashes
+and quotes, and strips Markdown syntax. It measures <strong>reading</strong> — did the model
+see what is on the page?</p>
+<p><strong>Strict</strong> compares the text as written. It measures reading <strong>plus</strong> adherence
+to the house style.</p>
+<p>Case is deliberately not folded: capitalisation is on the page.</p>
+<h3 id="the-gap">The gap</h3>
+<p><strong>gap = strict CER − normalised CER.</strong></p>
+<p>What normalisation removes is, by construction, formatting. So the gap <em>is</em> the
+cost of the convention: how much a system is penalised for formatting
+differently while reading correctly. It is the experiment.</p>
+<h3 id="column-integrity">Column integrity</h3>
+<p>The pages draw row separators but <strong>no vertical rules</strong>. Column membership is
+never delimited on the page; it exists only as horizontal position under a
+heading. A model does not transcribe table structure — it <strong>infers</strong> it, then
+serialises the inference as pipes.</p>
+<p>Normalised CER cannot see that inference fail, because normalisation strips
+pipes as table marks and so discards exactly the delimiters that carry the
+answer. <strong>Column integrity</strong> counts, for every amount the page shows, whether
+the system filed it under the same heading. It is reported separately and never
+folded into CER, which would inherit the same blindness.</p>
+<h3 id="table-structure">Table structure</h3>
+<p>Column integrity presupposes the rows were segmented correctly. Often they are
+not, so rows are scored in their own right. Truth rows are matched to prediction
+rows by signature, so a dropped or invented row shifts nothing after it:</p>
+<ul>
+<li><strong>rows aligned</strong> — how many truth rows found a counterpart;</li>
+<li><strong>fragments</strong> — continuation rows, one logical row split in two, usually
+because a description wrapped;</li>
+<li><strong>width breaks</strong> — rows with the wrong number of cells;</li>
+<li><strong>content recall</strong> — of every truth cell, how many appear anywhere in the
+prediction. Catches the opposite failure, a system that aligns few rows but
+did read the text.</li>
+</ul>
+<p>There is deliberately <strong>no per-cell accuracy</strong> among these. An earlier draft
+reported one — cells matching within aligned rows — and it was withdrawn as
+near-tautological. Rows are matched by their content, so every aligned pair has
+matching cells by construction: a misread digit does not lower the accuracy, it
+drops the row out of the alignment. The figure sat at 0.95–1.00 for every system
+regardless of how well it read, and MinerU&#39;s 1.000 was read as &quot;transcribes
+cells perfectly&quot; when it meant &quot;the rows it got right, it got right&quot;. <strong>rows
+aligned</strong> is where a misread cell actually registers.</p>
+<p>Always read per document type. Bank statements are the only genuinely difficult
+tables here; averaging them with near-saturated invoices hides everything.</p>
+<hr />
+<h2 id="the-systems">The systems</h2>
+<p>Split by one property: <strong>whether they can be told the convention.</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Systems</th>
+<th>Reads a prompt?</th>
+<th>Measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Prompted</strong></td>
+<td>four gemma-4 checkpoints, InternVL3.5-8B</td>
+<td>yes</td>
+<td>is the convention <em>communicable</em>?</td>
+</tr>
+<tr>
+<td><strong>Unprompted</strong></td>
+<td>MinerU</td>
+<td>no</td>
+<td>is it <em>idiomatic Markdown at all</em>?</td>
+</tr>
+</tbody>
+</table></div>
+<p>You cannot ask MinerU to emit pipe tables. Its divergences are therefore
+uncontaminated evidence about whether the house style matches what the Markdown
+world does by default. A prompted model <em>is</em> told; if it still diverges, the
+instruction failed.</p>
+<p>Four gemma checkpoints appear: a 12B at 4-bit quantisation-aware training, the
+same QAT weights at BF16, the plain BF16 instruct model, and a 31B at 4-bit.
+They exist to separate precision, QAT training and capacity as explanations for
+character-level error — see finding 8.</p>
+<h3 id="what-each-system-needs-to-run">What each system needs to run</h3>
+<p>The prompted models only. Weights measured on disk, not derived from parameter
+counts. Under vLLM the memory a process actually claims is
+<code>gpu_memory_utilization</code> × the card regardless — what varies is how much of that
+budget the weights leave for the KV cache, and the KV cache is what fails first.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>weights</th>
+<th>24 GB card</th>
+<th>ran on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gemma-4-12B-it-qat-w4a16-ct</td>
+<td><strong>9.7 GB</strong></td>
+<td>one replica per card</td>
+<td>2×L4</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>16 GB</td>
+<td>one replica per card</td>
+<td>L4</td>
+</tr>
+<tr>
+<td>gemma-4-31B-it-qat-w4a16-ct</td>
+<td><strong>22 GB</strong></td>
+<td><strong>no — needs 2 cards</strong></td>
+<td>L40S; 2×L4 tp=2</td>
+</tr>
+<tr>
+<td>gemma-4-12B-it-qat-q4_0-unquantized</td>
+<td>23 GB</td>
+<td>no</td>
+<td>L40S 48 GB</td>
+</tr>
+<tr>
+<td>gemma-4-12B-it</td>
+<td>23 GB</td>
+<td>no</td>
+<td>L40S 48 GB</td>
+</tr>
+<tr>
+<td><em>gemma-4-31B-it (BF16)</em></td>
+<td><em>59 GB</em></td>
+<td><em>no</em></td>
+<td><em>fits nothing available</em></td>
+</tr>
+</tbody>
+</table></div>
+<p>MinerU is 2.2 GB and fits a card many times over. Every system here is measured
+on the L4s, so nothing in this document mixes hardware.</p>
+<p>Two consequences worth reading off it.</p>
+<p><strong>The 31B at 4 bits is 22 GB, not the ~15 GB its parameter count suggests.</strong> The
+embedding and vision tensors stay at higher precision and Gemma&#39;s vocabulary is
+large. On a 23,034 MiB card that leaves nothing for a KV cache: the single-card
+probe peaked at 21,908 MiB and died allocating it. Sharded across two L4s it
+loads and runs, holding ~20.4 GB per card.</p>
+<p>So on 24 GB hardware <strong>the best system in this study is a two-card-per-request
+model</strong>, and that is what makes the throughput question worth asking.</p>
+<p><strong>The 31B has no BF16 counterpart that fits anything here</strong>, at 59 GB against a
+48 GB card. That is why finding 8&#39;s precision comparison is done at 12B and its
+capacity comparison at 4 bits: those are the two experiments the hardware
+permits.</p>
+<h3 id="what-each-system-costs-to-run">What each system costs to run</h3>
+<p>Measured on the 2×L4, the hardware production has. Nothing is timed on the
+L40S — a rate from a card you cannot deploy predicts nothing — which also
+excludes the two BF16 12B checkpoints, since they need 48 GB.</p>
+<p>Each system is timed <strong>the way its weights allow it to be served</strong>, because
+that is what a box delivers:</p>
+<ul>
+<li>weights fit a card → <strong>dp=2</strong>, two independent replicas, one per card</li>
+<li>weights do not fit → <strong>tp=2</strong>, one engine sharded across both</li>
+</ul>
+<p>Timing one card and doubling it would assume data parallelism scales linearly.
+It roughly does, and roughly is not measured: replicas contend for host CPU
+during image preprocessing and for PCIe.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>deployment</th>
+<th>images/min</th>
+<th>per card</th>
+<th>usable amounts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MinerU2.5-Pro-1.2B</strong></td>
+<td>dp=2</td>
+<td><strong>≥ 22.20</strong></td>
+<td><strong>≥ 11.10</strong></td>
+<td>90.3%</td>
+</tr>
+<tr>
+<td>gemma-4-12B-it-qat-w4a16-ct</td>
+<td>dp=2</td>
+<td>13.79</td>
+<td>6.90</td>
+<td>88.3%</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>dp=2</td>
+<td>5.47</td>
+<td>2.74</td>
+<td>85.3%</td>
+</tr>
+<tr>
+<td><strong>gemma-4-31B-it-qat-w4a16-ct</strong></td>
+<td>tp=2</td>
+<td>5.33</td>
+<td>2.67</td>
+<td><strong>99.0%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>165 pages, both cards. Usable amounts are bank statements only, where the hard
+tables are.</em></p>
+<p><strong>MinerU&#39;s rate is a floor, marked <code>≥</code>.</strong> It is invoked as a subprocess per
+chunk and reloads the model each time, so its clock is wall clock with load
+included, while the three engine-driven systems time generation only. Its true
+rate is higher by an unmeasured margin. This is the one number in the study
+measured on a different basis from its neighbours, so it is labelled everywhere
+it appears rather than quietly compared.</p>
+<p><strong>InternVL3.5-8B is dominated on every axis.</strong> It is 2.5× slower than the 12B
+and delivers fewer usable amounts than it; and it runs at the 31B&#39;s speed while
+delivering 13.7 points fewer. There is no workload here for which it is the
+right choice — which is not visible from accuracy alone, where its digit reading
+looked like a reasonable middle option.</p>
+<p><strong>And so, on these tables, is the 12B gemma.</strong> MinerU is at least 1.6× faster
+<em>and</em> 2 points more usable. That is a genuine reversal: the 12B was on the
+frontier until MinerU had a comparable rate to be judged by, and prompted-VLM
+convention compliance — the thing the 12B is good at and MinerU cannot do at
+all — turns out not to be what buys usable amounts.</p>
+<p>Two qualifications, and they are load-bearing rather than hedges:</p>
+<ul>
+<li><strong>The y axis is bank statements.</strong> MinerU emits no table at all on receipts,
+where every gemma checkpoint misfiles not one amount. Its position here is its
+best document type, not its average.</li>
+<li><strong>It pays +0.387 strict CER</strong> for a Markdown dialect no prompt can change,
+against the 12B&#39;s +0.030. If the consumer is a downstream parser reading
+house-style Markdown rather than a person reading amounts, that cost is real
+and this chart does not show it.</li>
+</ul>
+<p>That leaves a frontier of two, and every number on it is now measured:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>MinerU2.5-Pro</th>
+<th>gemma-4-31B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cards per request</td>
+<td>1</td>
+<td>2</td>
+</tr>
+<tr>
+<td>images/min per card</td>
+<td><strong>≥ 11.10</strong></td>
+<td>2.67</td>
+</tr>
+<tr>
+<td>usable amounts</td>
+<td>90.3%</td>
+<td><strong>99.0%</strong></td>
+</tr>
+<tr>
+<td>wrong amounts per statement</td>
+<td>about 1 in 10</td>
+<td>about 1 in 100</td>
+</tr>
+<tr>
+<td>can be told the convention</td>
+<td>no</td>
+<td><strong>yes</strong></td>
+</tr>
+<tr>
+<td>produces a table on receipts</td>
+<td>no</td>
+<td><strong>yes</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>At least 4× the throughput per card, against roughly an order of magnitude
+fewer wrong amounts.</strong> Which side is right is a costing question rather than a
+measurement one, and it turns on what a wrong amount costs to catch downstream
+and on whether the workload is bank statements alone.</p>
+<h4 id="every-31b-figure-in-this-document-is-the-2xl4-tp2-deployment">Every 31B figure in this document is the 2xL4 tp=2 deployment</h4>
+<p>Production has no L40S, so the number quoted must be the one the deployed
+configuration produces. The single-card run on the 48 GB L40S is kept only as
+the control that says the choice costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>bank statements</th>
+<th>tp=1 (L40S)</th>
+<th><strong>tp=2 (2xL4)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>amounts placed</td>
+<td>99.01%</td>
+<td><strong>99.01%</strong></td>
+</tr>
+<tr>
+<td>amounts attributable</td>
+<td>97.71%</td>
+<td><strong>97.71%</strong></td>
+</tr>
+<tr>
+<td>amounts misfiled</td>
+<td>20</td>
+<td><strong>20</strong></td>
+</tr>
+<tr>
+<td>rows aligned</td>
+<td>94.73%</td>
+<td><strong>96.59%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Sharding costs nothing measurable and helps the one metric it moves.</strong> 31 of
+165 pages differ by a handful of bytes -- tensor parallelism all-reduces partial
+sums in a different order and float addition is not associative -- but no
+aggregate the deployment rests on changes, and row alignment is 1.9 points
+better under tp=2.</p>
+<p>That was worth measuring rather than assuming. Two version differences in this
+study did change results: an OpenCV bump altered 2 of 9 degraded images, and
+MinerU on Apple Silicon differs from MinerU on CUDA on 41 of 165 pages.</p>
+<h4 id="the-31b-was-re-measured-on-the-configuration-being-proposed">The 31B was re-measured on the configuration being proposed</h4>
+<p>Its accuracy figures came from a run at <code>tensor_parallel_size: 1</code> on a 48 GB
+card, while the throughput came from a sharded pair on the 2×L4. Production is
+24 GB cards, so tp=2 is the deployment — and accuracy had never been measured on
+it. The two system entries differ only in that setting, so re-running isolated
+sharding and nothing else.</p>
+<p><strong>31 of 165 pages differ</strong>, almost all by one to five bytes. That is expected:
+tensor parallelism all-reduces partial sums in a different order, floating-point
+addition is not associative, and a near-tied token occasionally flips. What
+matters is whether the aggregates move.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>bank statements</th>
+<th>tp=1</th>
+<th>tp=2 (proposed)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>usable amounts</td>
+<td>1991/2011 (<strong>99.0%</strong>)</td>
+<td>1991/2011 (<strong>99.0%</strong>)</td>
+</tr>
+<tr>
+<td>amounts misfiled</td>
+<td>20</td>
+<td>20</td>
+</tr>
+<tr>
+<td>digit recall</td>
+<td>99.80%</td>
+<td>99.80%</td>
+</tr>
+<tr>
+<td>fragments + width breaks</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>correct column count</td>
+<td>55/55</td>
+<td>55/55</td>
+</tr>
+<tr>
+<td><strong>rows aligned</strong></td>
+<td>1527/1612 (94.7%)</td>
+<td><strong>1557/1612 (96.6%)</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Every figure the deployment case rests on is identical, and row alignment is
+30 rows better.</strong> Not a contradiction: rows are matched by content, so one
+recovered character can restore a whole group — the same mechanism finding 8
+describes, running forwards.</p>
+<p>Two figures move slightly the other way: 124 pages are character-perfect against
+128, while the mean normalised CER improves from 0.0016 to 0.0014. Both are the
+same handful of flipped tokens, and neither touches an amount.</p>
+<p>The tables in this document continue to quote the tp=1 run, so that all six
+systems are reported from one vintage. The deployment case quotes tp=2, because
+that is what would be deployed. They agree.</p>
+<p>CER does show this difference where it matters — 0.0202 against 0.0004 on bank
+statements, a fifty-fold ratio. It is over all 165 pages that it flattens, to
+0.0081 against 0.0000, because two thirds of the corpus is easy. Which median
+gets quoted decides whether the difference looks decisive or negligible, and
+finding 9 is about the more serious limitation underneath that.</p>
+<hr />
+<h2 id="results">Results</h2>
+<p>Per-page <strong>medians</strong>. A handful of catastrophic pages distort the means badly,
+and quoting means alone misdescribes every system here.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>median nCER</th>
+<th>median sCER</th>
+<th><strong>median gap</strong></th>
+<th>mean nCER</th>
+<th>told?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td><strong>0.0000</strong></td>
+<td>0.0161</td>
+<td><strong>+0.0134</strong></td>
+<td><strong>0.0016</strong></td>
+<td>yes</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>0.0081</td>
+<td>0.0382</td>
+<td>+0.0136</td>
+<td>0.0178</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>0.0403</td>
+<td>0.4277</td>
+<td><strong>+0.3917</strong></td>
+<td>0.0495</td>
+<td>no</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>0.0420</td>
+<td>0.2119</td>
+<td><strong>+0.1630</strong></td>
+<td>0.0743</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The gap column is the median of each page&#39;s own gap — deliberately not the
+difference of the two medians beside it.</strong> A median of differences is not the
+difference of medians, and they answer different questions: subtracting the
+columns says how two summary statistics of the corpus relate, while the median
+gap says what the convention costs <em>on a page</em>, which is the quantity this
+study is about. The two coincide only if the same pages sit at both medians,
+and here they do not — the 31B&#39;s normalised median is 0.0000, drawn from a
+different set of pages than its strict median. Reading the column as column
+minus column is an easy mistake to make, and it was made here.</p>
+<p><strong>The 31B&#39;s median normalised CER is 0.0000</strong> — <strong>128 of 165 pages (78%)</strong> are
+transcribed without a single character wrong once formatting is set aside.</p>
+<p><strong>The convention cost is flat across all four gemma checkpoints</strong> — +0.0134,
++0.0138, +0.0139, +0.0136 — while their reading accuracy varies fivefold.
+Following a house style is not a fidelity-limited skill: precision and capacity
+move what a model <em>reads</em> and leave what it <em>formats</em> untouched. That
+dissociation is easy to miss in a table and obvious in figure 1.</p>
+<p><strong>MinerU and InternVL read comparably</strong> — 0.040 and 0.042 — and are separated
+almost entirely by convention cost.</p>
+<p><strong>MinerU pays 0.39 for formatting it cannot be instructed about</strong>, principally
+HTML tables on 110 of 165 pages where the corpus uses pipe tables. It reads well
+and formats differently, which is exactly what an unpromptable parser should
+look like.</p>
+<p><strong>InternVL sits between</strong>, and about half its gap is table <em>padding</em> — it
+pretty-prints <code>|-----|-----|</code> against the corpus&#39;s <code>| --- |</code>. Collapsing
+whitespace alone, changing nothing else, takes its median strict CER from 0.2116
+to <strong>0.1149</strong>.</p>
+<p>Whether padding should count is a fair question, and it should. These pages draw
+no vertical rules, so in a space-aligned block the whitespace <strong>is</strong> the
+structure — and <code>normalised</code> already discards it, making <code>strict</code> the only place
+spacing is measured at all.</p>
+<hr />
+<h2 id="reading-the-tables">Reading the tables</h2>
+<p>Across all 165 pages:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>rows aligned</th>
+<th>fragments</th>
+<th>width breaks</th>
+<th>content recall</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td><strong>1919/2005 (95.7%)</strong></td>
+<td><strong>0</strong></td>
+<td>6</td>
+<td><strong>0.987</strong></td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>1359/2005 (67.8%)</td>
+<td>9</td>
+<td>15</td>
+<td>0.888</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>1343/2005 (67.0%)</td>
+<td><strong>0</strong></td>
+<td>8</td>
+<td>0.867</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>1251/2005 (62.4%)</td>
+<td>276</td>
+<td>152</td>
+<td>0.881</td>
+</tr>
+</tbody>
+</table></div>
+<p>Amounts filed under the correct heading:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>misfiled</th>
+<th><strong>rate</strong></th>
+<th>wrong column count</th>
+<th><strong>correct width</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td>20/2503</td>
+<td><strong>0.8%</strong></td>
+<td>3</td>
+<td>162/165</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>242/2503</td>
+<td>9.7%</td>
+<td>2</td>
+<td>163/165</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>379/2503</td>
+<td>15.1%</td>
+<td>56</td>
+<td>109/165</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>330/2503</td>
+<td>13.2%</td>
+<td>13</td>
+<td>152/165</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Column-count stability separates the families.</strong> Every gemma checkpoint gets
+the table width right on at least 157 of 165 documents; MinerU manages 109. A
+system that invents or drops a column shifts every amount on the page, so this
+one property dominates everything downstream of it.</p>
+<p>By document type — and read it this way, because bank statements are the only
+genuinely hard tables here:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>misfiled</th>
+<th>bank statements</th>
+<th>invoices</th>
+<th>receipts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td><strong>1.0%</strong></td>
+<td><strong>0.0%</strong></td>
+<td><strong>0.0%</strong></td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>11.7%</td>
+<td>2.3%</td>
+<td><strong>0.0%</strong></td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>14.7%</td>
+<td>1.0%</td>
+<td>16.8%</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>9.7%</td>
+<td><strong>0.0%</strong></td>
+<td>100%</td>
+</tr>
+</tbody>
+</table></div>
+<p>MinerU&#39;s 100% on receipts is absence, not misplacement — it emits no table
+there at all. Every gemma checkpoint misfiles <strong>not one</strong> of the 184
+receipt amounts.</p>
+<h3 id="bank-transaction-tables">Bank-transaction tables</h3>
+<p>The hard case, and worth separating. 55 statements, 1,612 rows, 2,507 amounts.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>rows aligned</th>
+<th>fragments</th>
+<th>width breaks</th>
+<th>misfiled</th>
+<th><strong>width ok</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td><strong>1527/1612 (94.7%)</strong></td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+<td><strong>1.0%</strong></td>
+<td><strong>55/55</strong></td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>1042/1612 (64.6%)</td>
+<td>276</td>
+<td>152</td>
+<td>9.7%</td>
+<td>54/55</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>987/1612 (61.2%)</td>
+<td><strong>0</strong></td>
+<td>8</td>
+<td>14.7%</td>
+<td>51/55</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>971/1612 (60.2%)</td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+<td>11.7%</td>
+<td><strong>55/55</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The 31B is the first system to read these tables properly</strong> — 94.7% of rows
+recovered against everyone else&#39;s 60–70%, zero structure broken, and 1.0% of
+amounts misfiled, an order of magnitude below the next best.</p>
+<p><strong>MinerU breaks structure without being paid for it.</strong> It splits 276 rows in two
+and emits 152 of the wrong width, while every gemma checkpoint breaks structure
+<strong>zero times in 1,612 rows</strong> — and it does not recover more text for the damage.
+Its content recall is 0.881, below all three 12B checkpoints (0.888, 0.917,
+0.925), and its 64.6% of statement rows aligned sits between them rather than
+above.</p>
+<p>That is a <strong>correction to an earlier reading of this table</strong>, and the cause is
+worth stating: the run that supported it was MinerU on Apple Silicon via MLX,
+where content recall was 0.928 and it did lead every 12B. This study now quotes
+the vLLM run on the L4s throughout, because that is the hardware production has.
+Same weights, different inference stack, 41 of 165 pages different — and the
+conclusion about MinerU&#39;s structural trade-off reverses. <strong>Do not carry a
+finding across a runtime change on the grounds that the checkpoint is the
+same.</strong></p>
+<p>What survives is narrower and still notable: MinerU <strong>misreads</strong> none of the
+3,371 amounts. Every figure it misses is one it never emitted.</p>
+<p><strong>The alignment ceiling was a digit ceiling in disguise.</strong> For every system
+except the 31B, row recovery sits near 60–70%, and the cause is not
+segmentation. Rows are matched by their content, so one misread character fails
+the row it sits in — and where the convention carries a group&#39;s date onto every
+row beneath it, one wrong date fails the whole group. Two statements show both
+mechanisms:</p>
+<ul>
+<li>one lost 27 rows to a date read as <code>01/03/2024</code> instead of <code>01/01/2024</code>;</li>
+<li>another lost 24 rows to a balance read as <code>$15,571.32</code> instead of
+<code>$15,971.32</code>, after which <strong>every subsequent balance was recomputed from the
+wrong figure</strong>, <code>$16,073.50</code> becoming <code>$15,469.14</code>. The model is not reading
+that column; it is doing arithmetic down it.</li>
+</ul>
+<p>That second failure is invisible on any single row, invisible to an extraction
+task pulling one balance, and unmistakable only when the whole column is scored
+at once.</p>
+<p>The 31B, which misses five amounts in 2,507 — three misread, two never emitted — recovers 94.7% of rows. Fix the
+digits and the structural ceiling lifts with them.</p>
+<hr />
+<h2 id="findings">Findings</h2>
+<p>The first four turn on the exact wording of the prompt, which is reproduced in
+full in the <a href="#appendix-the-prompt">appendix</a> rather than quoted in fragments.</p>
+<h3 id="1-steerability-is-a-property-of-the-model-not-the-prompt">1. Steerability is a property of the model, not the prompt</h3>
+<p>Three conventions, each stated in the prompt and each measured on both prompted
+systems:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Convention</th>
+<th>gemma-4-12B</th>
+<th>InternVL3.5-8B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>headerless item tables (receipt rows segmented)</td>
+<td>4.9% → <strong>100%</strong></td>
+<td>9.2% → <strong>81.5%</strong></td>
+</tr>
+<tr>
+<td>dates carried down a group</td>
+<td>61.6% → <strong>97.2%</strong></td>
+<td>57.1% → 57.4%</td>
+</tr>
+<tr>
+<td>repeated glyphs omitted (stray lines)</td>
+<td>275 → <strong>0</strong></td>
+<td>69 → 6</td>
+</tr>
+<tr>
+<td>worked example added on top</td>
+<td>rescued a failed page</td>
+<td><strong>caused</strong> a new failure</td>
+</tr>
+</tbody>
+</table></div>
+<p>Compounded over the full corpus, the three conventions take gemma&#39;s median CER
+from 0.0201 to <strong>0.0081</strong> and its mean from 0.3011 to <strong>0.0178</strong> — and its
+receipt tables from 9 of 184 rows correctly segmented to <strong>184 of 184</strong>, with
+not one of 184 amounts misfiled. Over the same revisions InternVL&#39;s median moved
+0.0432 → 0.0420.</p>
+<p>The 12B adopts every one. The 8B adopts the structural rule about tables,
+ignores the procedural rule about dates entirely — three phrasings, a 0.9-point
+spread, no trend — and is <em>destabilised</em> by the intervention that helped the
+larger model most.</p>
+<p>The date rule is the cleanest case. It was phrased three ways across three runs,
+each more explicit than the last, and InternVL sat at 57.1%, 56.5%, 57.4%
+against a corpus that is 98.9% consistent. It also kept emitting the date band as
+a table row of its own, 17 then 25 then 17 times, never approaching zero.</p>
+<p><strong>A flat response across several genuine attempts is a capability signal, not an
+invitation to write a fourth version.</strong> Distinguishing &quot;badly worded&quot; from
+&quot;cannot do this&quot; requires more than one model, which is why the pass was
+specified with two families.</p>
+<p>This also qualifies the headline. The convention costs gemma +0.008 and InternVL
++0.155 — still far better than MinerU&#39;s +0.392, but eighteen times gemma&#39;s. How
+well a house style lands is a property of the model as much as of the style.</p>
+<h3 id="2-what-a-worked-example-does-that-a-stated-rule-cannot">2. What a worked example does that a stated rule cannot</h3>
+<p>Every prompt revision here changed wording and added an example at once, so none
+could say which half worked. One was run as a controlled A/B instead: two prompt
+files <strong>identical except for a single worked example</strong>, over 61 pages.</p>
+<p>The rule concerned runs of repeated punctuation — a line of dashes drawn as a
+separator, a trail of dots padding a reference out to a fixed width. The corpus
+treats both as typography and omits them.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>gemma-4-12B</th>
+<th>rule only</th>
+<th><strong>rule + example</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>stray separator lines</td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>median receipt CER</td>
+<td>0.0044</td>
+<td>0.0043</td>
+</tr>
+<tr>
+<td><strong>mean</strong> CER</td>
+<td>0.1108</td>
+<td><strong>0.0214</strong></td>
+</tr>
+<tr>
+<td>amounts misfiled</td>
+<td>7.6%</td>
+<td><strong>0.3%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>On medians the two are indistinguishable. On the mean they differ five times
+over, and <strong>the entire difference is one page</strong> — a statement whose truth is
+1,507 characters:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>output</th>
+<th>CER</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>rule only</td>
+<td>7,334 characters</td>
+<td><strong>5.52</strong></td>
+</tr>
+<tr>
+<td>rule + example</td>
+<td>1,491 characters</td>
+<td><strong>0.076</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>The rule-only output ends like this:</p>
+<pre><code>000000000000000000000000000000000000000000000000000000000000</code></pre>
+<p><strong>Told not to write repeated dots, the model wrote repeated zeros.</strong> It obeyed
+the letter of the instruction and improvised a substitute — and because that
+generation finished under the token limit, no completeness check flagged it.</p>
+<p>A prohibition says what not to emit and leaves the replacement undefined. An
+example shows what to write <em>instead</em>. The shipped rule now carries both, plus
+an explicit &quot;do not replace an omitted run with anything else&quot;.</p>
+<p>So the useful claim is not that examples help. It is that <strong>an example
+disambiguates the replacement behaviour a prohibition leaves open</strong>, which
+matters precisely where a model would otherwise invent one.</p>
+<p>The example is not free. It perturbs generation everywhere — 52 of 61 pages
+differ between the two arms — and mildly degrades about five pages the rule
+alone had nearly perfect. For the 8B it is a net loss, and it produced a fresh
+runaway on a page both other configurations handled.</p>
+<h3 id="3-stating-a-rule-is-not-the-same-as-communicating-it">3. Stating a rule is not the same as communicating it</h3>
+<p>The prompt had always said:</p>
+<blockquote>
+<p>If the table has no printed column headings, use an empty header row — do not
+promote the first line of data into the heading, and do not invent column
+names.</p>
+</blockquote>
+<p>Receipts are exactly that: an item list with prices, no headings. Compliance was
+<strong>2 of 55</strong> for gemma and 6 of 55 for InternVL. Near zero, because the rule was a
+clause inside a paragraph about tables, and a receipt&#39;s item list does not
+register as &quot;a table&quot; in the first place.</p>
+<p>Rewriting it to name the case — <em>&quot;A list of items with amounts beside them is a
+table, even when it has no column headings and no lines drawn between the
+columns&quot;</em>, with a worked example — moved gemma to <strong>53 of 55</strong>. Same rule, same
+model, same pages; only the wording.</p>
+<p><strong>A rule can be technically present and effectively absent.</strong> The prompt is a
+component to be tested, not documentation to be written once.</p>
+<h3 id="4-normalised-cer-is-blind-to-the-error-that-matters-most-on-a-statement">4. Normalised CER is blind to the error that matters most on a statement</h3>
+<p>Four statements print a header cell that wraps across two lines — <code>Date of / Transaction</code>. InternVL reads it as <strong>two columns</strong> on three of them. Every data
+row inherits the extra cell, so every amount sits one column right of the
+heading naming it. On a bank statement that is money out reported as money in.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Page</th>
+<th>amounts misfiled</th>
+<th>normalised CER</th>
+<th>column count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CASE033</td>
+<td><strong>38 of 38</strong></td>
+<td>0.0810</td>
+<td>wrong</td>
+</tr>
+<tr>
+<td>CASE012</td>
+<td><strong>39 of 39</strong></td>
+<td>0.0924</td>
+<td>wrong</td>
+</tr>
+<tr>
+<td>CASE005</td>
+<td><strong>39 of 39</strong></td>
+<td>0.1016</td>
+<td>wrong</td>
+</tr>
+<tr>
+<td>CASE025</td>
+<td>1 of 38</td>
+<td>0.0977</td>
+<td><strong>right</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Three of those pages have <strong>every single amount</strong> under the wrong heading and
+pay 8–10% character error for it — for output that is entirely worthless.
+Normalisation strips pipes as table marks, discarding exactly the delimiters
+that encode the answer, so a total structural failure registers as a mild
+reading day.</p>
+<p><strong>CASE025 is the control the corpus supplied by accident.</strong> Same wrapped header,
+same model, same prompt — and it gets the column count right and loses one
+amount instead of all of them. Its CER, 0.0977, sits <em>between</em> the three
+catastrophes. So the metric cannot separate a page where the structure held from
+one where it collapsed, on pages that differ in nothing else.</p>
+<p>This failure is also <strong>immune to prompting</strong>: it is unchanged across four
+successive prompt revisions, at 0.3034, 0.3028 and 0.3045 on the affected
+layout. Not every problem is an instruction problem.</p>
+<h3 id="5-ground-truth-is-a-component-under-test">5. Ground truth is a component under test</h3>
+<p>Two defects were found in this corpus, both the same fault: <strong>the same visual
+device treated two ways, decided by which piece of code drew it.</strong></p>
+<p><strong>Repeated glyphs.</strong> A dashed separator rule was excluded as decoration; a dot
+leader inside a table cell was captured as content. Both halves cost accuracy —
+three of four systems transcribed the separators anyway, and the leaders the
+corpus <em>did</em> record were skipped by one model and caused another to fail
+outright. Resolved: a run of four or more repeated punctuation glyphs is
+decoration wherever it is drawn. Three or fewer is punctuation, so an ellipsis
+and a decimal point survive.</p>
+<p><strong>Grouped dates.</strong> A statement prints a date once and leaves it blank on the
+rows beneath, in two forms: on a band of its own, or in the first transaction&#39;s
+own date cell. The corpus filled the date in for the first form only, so 123
+rows across 7 statements kept a blank date while 329 rows on 27 others had
+theirs supplied. A model following the single stated rule was correct on one
+layout family and wrong on the other.</p>
+<p>The second one produced a lesson worth generalising. Adding the date rule
+<em>appeared</em> to cost gemma 5.5 points of table accuracy. Against a corrected
+corpus the same predictions show a 5.2-point <strong>gain</strong>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>inconsistent corpus</th>
+<th>corrected corpus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>without the rule</td>
+<td>64.3% rows aligned</td>
+<td>58.6%</td>
+</tr>
+<tr>
+<td>with the rule</td>
+<td>58.8%</td>
+<td><strong>63.8%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>A metric regression is evidence about the pair (system, ground truth), never
+about the system alone.</strong> And internal consistency is a testable property that
+no whole-page CER will surface, because both behaviours produce plausible
+transcripts. Only asking &quot;does the corpus treat this device the same way
+everywhere?&quot; finds it.</p>
+<p>Neither fix changed a single image. Because ground truth is written at render
+time and serialisation is a separate step, a convention can change and every
+transcript re-emits in seconds — so every existing prediction stayed valid and
+both hypotheses were tested by re-scoring rather than re-running.</p>
+<h3 id="6-a-prompt-is-part-of-the-eval-set">6. A prompt is part of the eval set</h3>
+<p>The prompt ships <strong>with</strong> the corpus and is read by the systems being scored, so
+a real cell value in a worked example hands a model part of an answer it was
+supposed to read off the page. A model could reproduce those lines without
+seeing them, and nothing in the results would show it.</p>
+<p>Every example in every prompt file is now invented content, verified absent from
+all 165 transcripts, with a test that checks each example value against every
+transcript.</p>
+<p>Three details worth carrying to any similar benchmark:</p>
+<ul>
+<li><strong>Header words are fine, values are not.</strong> &quot;Date&quot; and &quot;Description&quot; appear on
+real pages by necessity; they are vocabulary, not answers. The guard exempts
+the header row and checks data cells.</li>
+<li><strong>Check every prompt file, not the shipped one.</strong> An experimental variant is
+run against the same scored pages and leaks just as effectively. Widening the
+guard to all of them immediately found a stale example carrying a real date and
+a real amount.</li>
+<li><strong>Verify the guard fails on a deliberate leak.</strong> A vacuously-passing guard
+manufactures confidence and is worse than none.</li>
+</ul>
+<h3 id="7-getting-the-digits-right-is-a-separate-skill-and-cer-cannot-see-it">7. Getting the digits right is a separate skill, and CER cannot see it</h3>
+<p>Character error rate weighs a wrong digit in a total exactly as it weighs a typo
+in a merchant&#39;s name. On a financial document those are not the same error, so
+amounts are scored on their own — extracted from the raw text, which makes this
+the only measure here that compares a system emitting HTML tables and one
+emitting pipe tables on identical terms.</p>
+<p><strong>Read the next table carefully: it measures the digits and nothing else.</strong>
+Amounts are pulled out of the raw text with a pattern match, so nothing here
+knows whether a figure ended up in the right column, the right row, or in a
+table at all. A system could score 100% on it and file every amount under the
+wrong heading. <code>recall</code> is the share of the page&#39;s amounts the system
+reproduced; <code>precision</code> is the share of what it emitted that the page actually
+shows.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>digit recall</th>
+<th>digit precision</th>
+<th>misread</th>
+<th>dropped</th>
+<th>invented</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MinerU</td>
+<td>99.5%</td>
+<td>99.8%</td>
+<td><strong>0</strong></td>
+<td>16</td>
+<td>7</td>
+</tr>
+<tr>
+<td>gemma 31B 4-bit</td>
+<td>99.9%</td>
+<td>99.9%</td>
+<td>3</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>97.2%</td>
+<td>99.8%</td>
+<td>2</td>
+<td>91</td>
+<td>3</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>92.5%</td>
+<td>92.9%</td>
+<td>106</td>
+<td>148</td>
+<td>132</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>All 165 pages, 3,371 amounts.</em></p>
+<p>The ordering is not the CER ordering. MinerU <strong>misreads not one</strong> of the 3,371
+amounts — every miss is an omission — while paying the largest convention penalty
+of any system; and the 12B gemma, first on CER and on table structure, is last.</p>
+<p>The two failure modes are reported apart rather than summed, because they call
+for different remedies. <strong>InternVL&#39;s deficit is almost entirely omission</strong>: 91
+dropped against 2 misread, and 99.8% of what it does emit is right. <strong>The 12B&#39;s
+is corruption</strong>: 106 misread and 132 invented, so roughly one amount in fourteen
+that it prints is not on the page at all.</p>
+<h3 id="an-amount-you-cannot-attribute-to-a-row-is-not-usable">An amount you cannot attribute to a row is not usable</h3>
+<p><code>usable</code> counted an amount as good when it sat under the right heading in <em>any</em>
+row. That is the right question for placement and the wrong one for usability: a
+consumer reading rows as records cannot act on a figure it cannot tie to a
+transaction.</p>
+<p>MinerU forces the distinction. It emits a group&#39;s date as a row of its own and
+the transaction beneath it with an empty date cell, so on <code>CASE015</code> it scores
+<strong>56 of 56 amounts placed and 0 of 56 attributable</strong> — every figure under the
+correct heading, not one of them attached to a date.</p>
+<p><strong>attributable</strong> = right value, right column, and in a row carrying the date
+that identifies it. Bank statements, 2,011 amounts:</p>
+<p>Only deployable systems are listed. The two BF16 12B checkpoints need 48 GB
+and fit no card production has; they appear in finding 8, where they are the
+precision control that the argument rests on, and nowhere that reads as a
+shortlist.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>placed</th>
+<th><strong>attributable</strong></th>
+<th>cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td>99.0%</td>
+<td><strong>97.7%</strong></td>
+<td>1.3</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>88.3%</td>
+<td>85.3%</td>
+<td>3.0</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>85.3%</td>
+<td>73.0%</td>
+<td>12.3</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>90.3%</td>
+<td><strong>60.7%</strong></td>
+<td><strong>29.6</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The ordering inverts.</strong> MinerU beats both the 12B and InternVL on placement
+and is <em>last</em> once the amount must identify itself. The measure flattered
+exactly the systems whose failure is row segmentation.</p>
+<p><strong>The cost column is a row-segmentation measure in its own right</strong>, and a
+cheaper one than table structure: it is the share of amounts a system files
+correctly and then orphans. Every gemma pays 1–3 points; InternVL 12; MinerU 30.</p>
+<p>The row key is the <strong>date</strong> cell and deliberately not the description as well.
+Requiring both would fail an amount because a merchant name was misread, folding
+reading accuracy into a placement measure — the conflation <code>read</code> and <code>placed</code>
+exist to keep apart. Under the stricter form the figures are 93.3%, 59.5%,
+57.0% and 55.0%; the ordering is unchanged.</p>
+<p>Both are reported. <code>placed</code> remains the placement diagnostic; <code>attributable</code> is
+what a consumer receives.</p>
+<h3 id="but-digits-alone-are-not-the-deployment-number">But digits alone are not the deployment number</h3>
+<p>An amount read perfectly and filed under the wrong heading is as wrong as one
+misread — downstream, neither can be told from the other. The figure a consumer
+can act on is <strong>usable</strong>: present, with the right value, under the right
+heading. That is <code>100% − misfiled</code>, since column integrity counts an amount as
+misplaced when it is absent from its column for <em>any</em> reason.</p>
+<p>Ranking by it reverses two systems:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>digit recall</th>
+<th>rows aligned</th>
+<th>width correct</th>
+<th><strong>usable</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gemma 31B 4-bit</td>
+<td>99.8%</td>
+<td><strong>94.7%</strong></td>
+<td>55/55</td>
+<td><strong>99.0%</strong></td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td><strong>99.4%</strong></td>
+<td>64.6%</td>
+<td>54/55</td>
+<td>90.3%</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>90.3%</td>
+<td>60.2%</td>
+<td><strong>55/55</strong></td>
+<td><strong>88.3%</strong></td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td><strong>96.9%</strong></td>
+<td>61.2%</td>
+<td>51/55</td>
+<td><strong>85.3%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Bank statements, 2,507 amounts.</em></p>
+<p><strong>InternVL reads 6.6 points more digits correctly than the 12B gemma and
+delivers 3 points fewer usable amounts.</strong> It gets the numbers right and puts
+them in the wrong place — 4 statements with the wrong column count against
+gemma&#39;s none. MinerU loses 9 points the same way, from 152 width breaks.</p>
+<p>So the three skills dissociate cleanly, and quoting any one of them alone
+misdescribes a system:</p>
+<ul>
+<li><strong>gemma 12B</strong>: structure right, digits wrong</li>
+<li><strong>InternVL3.5-8B</strong>: digits right, structure wrong</li>
+<li><strong>gemma 31B</strong>: both right, and an order of magnitude ahead on usable amounts</li>
+<li><strong>MinerU</strong>: near-perfect digits, 10% misplaced, and no table at all on receipts</li>
+</ul>
+<p>One mechanism deserves naming. On several statements a single misread amount is
+followed by every subsequent balance being <strong>recomputed from the wrong figure</strong> —
+<code>353.68</code> read as <code>355.68</code>, then each balance below it off by exactly <code>−2.00</code>. The
+model is not transcribing the running-balance column; it is doing arithmetic down
+it. That is invisible on any single row, invisible to an extraction task pulling
+one balance, and unmistakable only when the whole column is scored at once.</p>
+<p>All of this was measurable only because these figures are authored per page.
+Where a layout hardcodes one number repeated across seven pages, one error
+repeats seven times and a model can score well by memorising it.</p>
+<h3 id="8-the-digit-deficit-is-capacity-not-quantisation">8. The digit deficit is capacity, not quantisation</h3>
+<p>The obvious explanation for the 12B&#39;s 90.3% was its 4-bit quantisation —
+quantisation costs character fidelity first, so the story tells itself. It is
+wrong, and only a control could show that.</p>
+<p>The 12B checkpoint differs from a plain BF16 model in two ways at once, so three
+runs were needed to separate them. All decoding and engine settings were held
+identical; only the checkpoint varied.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>comparison</th>
+<th>isolates</th>
+<th>effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12B 4-bit → 12B BF16 QAT</td>
+<td>precision, QAT held fixed</td>
+<td><strong>+4.1 pts</strong></td>
+</tr>
+<tr>
+<td>12B BF16 QAT → 12B BF16</td>
+<td>QAT training, both BF16</td>
+<td>+0.1 pts</td>
+</tr>
+<tr>
+<td><strong>12B 4-bit → 31B 4-bit</strong></td>
+<td><strong>capacity, quantisation held fixed</strong></td>
+<td><strong>+9.5 pts</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>At the same 4 bits, the 31B reaches 99.8%.</strong> So 4-bit was never the binding
+constraint. Precision buys a real 4 points at 12B, but capacity subsumes it: the
+31B at 4 bits reads amounts <em>more</em> accurately than the 12B at BF16. QAT training
+contributes nothing measurable either way.</p>
+<p>The causal direction matters. &quot;Quantisation costs digit fidelity&quot; describes a
+model running out of capacity, with the bit-width as a symptom. Had the control
+not run, that sentence would have gone into this document as a finding.</p>
+<p><strong>The 31B is also the first system to read these tables properly</strong>, and the two
+results are connected. It aligns 94.7% of statement rows against everyone else&#39;s
+60–70%, with zero fragments and 1.0% of amounts misfiled — an order of magnitude
+below the next best. Row alignment matches rows by their content, so a single
+wrong digit fails the row it sits in; where a date is carried onto every row of a
+group, one wrong date fails the whole group. Every other system&#39;s alignment
+ceiling was substantially a digit-fidelity ceiling wearing a structural costume.
+Remove the digit errors and it lifts.</p>
+<p>It also beats MinerU on placement, which is where MinerU had been strongest.
+The two read digits almost identically — 99.8% against 99.4% — but MinerU files
+one figure in eleven under the wrong heading, so <strong>90.3% of its amounts are
+usable against the 31B&#39;s 99.0%</strong>. Reading the digits is not the same as
+delivering a usable number, and the 31B is the first system here that does
+both.</p>
+<p>One qualification. The 31B is a differently trained model, not a scaled 12B, so
+&quot;capacity&quot; is shorthand for everything that differs between the two sizes. It is
+a strong test rather than the clean isolation the precision comparison was.</p>
+<h3 id="9-cer-ranks-systems-adequately-and-cannot-find-a-bad-page">9. CER ranks systems adequately and cannot find a bad page</h3>
+<p>Every criticism of character error rate in this document has been mechanical:
+it strips the pipes that encode column membership, it prices a wrong digit like
+a typo. Those are arguments. This is the measurement.</p>
+<p><strong>Across systems it works.</strong> Median normalised CER against usable-amount rate,
+over the six systems on bank statements: <strong>Spearman ρ = 0.943</strong> (p = 0.005), one
+swap in six. As a way of ranking systems it is not misleading, and the case
+against it should not be overstated.</p>
+<p><strong>Within a system it is uncorrelated with whether a page is usable.</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ρ, CER vs unusable amounts, per page</th>
+<th>worst page</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gemma 31B 4-bit</td>
+<td><strong>−0.17</strong></td>
+<td>11% of amounts lost at CER <strong>0.0000</strong></td>
+</tr>
+<tr>
+<td>gemma 12B BF16</td>
+<td><strong>0.01</strong></td>
+<td>43% lost at CER 0.0653</td>
+</tr>
+<tr>
+<td>gemma 12B BF16 QAT</td>
+<td><strong>0.01</strong></td>
+<td>46% lost at CER 0.0332</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td>0.22</td>
+<td>59% lost at CER 0.0472</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>0.21</td>
+<td><strong>100% lost at CER 0.0810</strong></td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td>0.36</td>
+<td><strong>100% lost at CER 0.0755</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Worst page = the largest share of a page&#39;s amounts filed under the wrong
+heading. Where several pages lose everything, the one with the lowest CER is
+shown, because that is the case the metric is being asked about.</em></p>
+<p>ρ = 0.01 is noise. The best system&#39;s is <strong>negative</strong>: its worst page, losing 11%
+of its amounts, scored a perfect 0.0000.</p>
+<p>The most damaged pages in the corpus, by amounts lost:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>page</th>
+<th>amounts lost</th>
+<th>CER</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MinerU CASE028</td>
+<td><strong>50 of 50</strong></td>
+<td>0.0755</td>
+</tr>
+<tr>
+<td>InternVL CASE005</td>
+<td><strong>39 of 39</strong></td>
+<td>0.1016</td>
+</tr>
+<tr>
+<td>InternVL CASE012</td>
+<td><strong>39 of 39</strong></td>
+<td>0.0924</td>
+</tr>
+<tr>
+<td>InternVL CASE033</td>
+<td><strong>38 of 38</strong></td>
+<td>0.0810</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every amount on the page in the wrong column, at a character error rate that
+reads as a mildly imperfect transcription. Fourteen pages across the corpus lose
+every amount this way; ten of them score below 0.11.</p>
+<p>MinerU&#39;s 55 receipts also lose every amount, but for a different reason — it
+emits no table there at all, so there is no column to be wrong about. Those are
+excluded from the counts above, which would otherwise report 69.</p>
+<p><strong>That split is the practical conclusion of this whole document.</strong> Ranking
+systems is something you do once. Deciding which pages a human must check is
+something you do on every batch, and for that CER carries no signal at all —
+ρ = 0.01 means a review queue ordered by CER is a review queue ordered at
+random.</p>
+<p>The blindness is structural rather than statistical. Normalisation removes
+Markdown syntax; a table&#39;s pipes are Markdown syntax; the delimiters recording
+which column an amount sits in are therefore discarded before anything is
+compared. A page can be character-perfect and financially worthless, and CER
+cannot represent the difference — not because it is noisy, but because the
+information is gone by the time it computes.</p>
+<p>So: report CER, because it ranks systems and it catches the catastrophes
+(repetition loops, empty pages) that a field-level metric would miss entirely.
+Do not triage on it, do not size a review budget from it, and do not read a
+small CER as evidence that a page&#39;s numbers can be used.</p>
+<hr />
+<h3 id="10-robustness-to-a-bad-scan-is-a-property-of-the-system-not-of-scanning">10. Robustness to a bad scan is a property of the system, not of scanning</h3>
+<p>Every number above was measured on pristine renders. Production receives
+scanned documents, so the figure the deployment rests on described a condition
+production does not have.</p>
+<p>The 55 statements were re-rendered through a declared degradation ladder and
+read again — same prompts, same configurations. Only the images differ; the
+transcripts are copied byte for byte, so any change is attributable to image
+quality alone. Two ladders, because a flatbed scanner and a phone camera damage
+a page differently and one severity scale would make the difference
+unanswerable.</p>
+<p><strong>All four systems, 2026-08-25.</strong> Earlier versions of this finding covered the
+31B and MinerU only, and said so. The two prompted models have now been run over
+every tier, which is what makes the claim in the title testable rather than
+asserted.</p>
+<p><strong>The metric here is <code>attributable</code>, not <code>placed</code>.</strong> An earlier version of this
+section quoted 99.0% clean for the 31B, which is the share of amounts under the
+right heading. This one quotes the share that are <em>also</em> in a row carrying its
+identifying date — the figure the rest of this document and the deployment case
+use, because a consumer reads rows as records. On clean input the two differ by
+1.3 points and the choice hardly matters. <strong>Under degradation it matters more
+than anything else in this section</strong>, and a reader comparing against an older
+copy should expect every number to have moved down.</p>
+<p>Usable — right value, right column, in an attributable row — over 55 statements:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>tier</th>
+<th>gemma-4-31B</th>
+<th>gemma-4-12B</th>
+<th>InternVL3.5-8B</th>
+<th>MinerU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>clean</em></td>
+<td><em><strong>97.7%</strong></em></td>
+<td><em><strong>85.3%</strong></em></td>
+<td><em><strong>73.0%</strong></em></td>
+<td><em><strong>60.7%</strong></em></td>
+</tr>
+<tr>
+<td>scan-light</td>
+<td><strong>98.6%</strong></td>
+<td>80.9%</td>
+<td>70.4%</td>
+<td>61.4%</td>
+</tr>
+<tr>
+<td>scan-moderate</td>
+<td><strong>96.7%</strong></td>
+<td>88.1%</td>
+<td>72.5%</td>
+<td>47.3%</td>
+</tr>
+<tr>
+<td>scan-heavy</td>
+<td><strong>88.6%</strong></td>
+<td>67.1%</td>
+<td>59.5%</td>
+<td>42.8%</td>
+</tr>
+<tr>
+<td>photo-light</td>
+<td><strong>91.1%</strong></td>
+<td>61.8%</td>
+<td>69.4%</td>
+<td>56.6%</td>
+</tr>
+<tr>
+<td>photo-moderate</td>
+<td><strong>69.8%</strong></td>
+<td>39.5%</td>
+<td>42.5%</td>
+<td>45.4%</td>
+</tr>
+<tr>
+<td>photo-heavy</td>
+<td><strong>44.6%</strong></td>
+<td>10.9%</td>
+<td>18.0%</td>
+<td>31.4%</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The 31B leads at every tier, and the margin widens as conditions worsen</strong> —
+17.7 points clear of the next system at scan-light, 33.7 clear at photo-heavy.
+It is not merely the better system; it is differentially better where intake is
+worst. That is an argument for it which a clean benchmark cannot make.</p>
+<h4 id="what-degradation-actually-destroys-is-attribution-not-placement">What degradation actually destroys is attribution, not placement</h4>
+<p>The single most useful result in this section comes from scoring both metrics
+along the same ladder, for the 31B:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>tier</th>
+<th>placed</th>
+<th>attributable</th>
+<th>gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>clean</em></td>
+<td>99.0%</td>
+<td>97.7%</td>
+<td>1.3</td>
+</tr>
+<tr>
+<td>scan-light</td>
+<td>99.4%</td>
+<td>98.6%</td>
+<td>0.8</td>
+</tr>
+<tr>
+<td>scan-moderate</td>
+<td>99.2%</td>
+<td>96.7%</td>
+<td>2.5</td>
+</tr>
+<tr>
+<td>scan-heavy</td>
+<td>98.6%</td>
+<td><strong>88.6%</strong></td>
+<td><strong>10.0</strong></td>
+</tr>
+<tr>
+<td>photo-light</td>
+<td>98.8%</td>
+<td>91.1%</td>
+<td>7.7</td>
+</tr>
+<tr>
+<td>photo-moderate</td>
+<td>97.4%</td>
+<td><strong>69.8%</strong></td>
+<td><strong>27.5</strong></td>
+</tr>
+<tr>
+<td>photo-heavy</td>
+<td>89.4%</td>
+<td><strong>44.6%</strong></td>
+<td><strong>44.8</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Placement barely moves; attribution collapses.</strong> Across the whole ladder the
+31B keeps 89–99% of amounts under the correct heading, and the share that can be
+tied to a transaction falls from 97.7% to 44.6%. The mechanism is that the <em>date
+cell</em> is what fails: the amount is read correctly and filed correctly, and the
+row it sits in can no longer be identified, so a consumer reading rows as records
+receives a number it cannot use.</p>
+<p>This revises the previous headline. <strong>&quot;Scanning is free for the 31B&quot; was true of
+placement and false of attribution</strong> — on the same images, at <code>scan-heavy</code>,
+placement costs 0.4 points and attribution costs 9.1. The earlier claim was not
+a measurement error; it was the wrong measurement, and it flattered the system
+in exactly the direction a deployment decision is sensitive to.</p>
+<h4 id="reading-is-not-what-fails--except-for-the-12b">Reading is not what fails — except for the 12B</h4>
+<p>At <code>photo-heavy</code> the 31B still reads <strong>96.4%</strong> of figures correctly while only
+44.6% are usable. The gap is placement and attribution, not perception: the heavy
+photo tier casts a shadow across part of the sheet and blurs it, so column
+boundaries — which these layouts never draw — become unrecoverable while the
+digits themselves survive. <strong>Occlusion is not degradation.</strong> No amount of model
+capability recovers a column edge that is not in the image.</p>
+<p>The 12B fails the opposite way, and this is finding 8 reappearing under load:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>tier</th>
+<th>31B digits</th>
+<th>12B digits</th>
+<th>InternVL digits</th>
+<th>MinerU digits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>scan-light</td>
+<td><strong>100.0%</strong></td>
+<td>88.6%</td>
+<td>96.4%</td>
+<td>99.1%</td>
+</tr>
+<tr>
+<td>scan-heavy</td>
+<td><strong>99.8%</strong></td>
+<td>78.5%</td>
+<td>95.4%</td>
+<td>97.0%</td>
+</tr>
+<tr>
+<td>photo-moderate</td>
+<td><strong>99.5%</strong></td>
+<td>63.0%</td>
+<td>91.9%</td>
+<td>94.0%</td>
+</tr>
+<tr>
+<td>photo-heavy</td>
+<td>96.4%</td>
+<td><strong>39.4%</strong></td>
+<td>74.0%</td>
+<td>87.3%</td>
+</tr>
+</tbody>
+</table></div>
+<p>The 12B stops <em>reading</em>, down to 39.4% of amounts correct, with 69.8% of what it
+does read landing under the wrong heading. Capacity buys legibility under noise,
+and the deficit that was visible as a few digit substitutions on clean pages
+becomes the dominant failure on a bad one.</p>
+<h4 id="photo-is-the-harder-channel-and-it-is-where-the-floor-is">Photo is the harder channel, and it is where the floor is</h4>
+<p><code>photo-moderate</code> is worse than <code>scan-heavy</code> for <strong>every</strong> system. If production
+accepts phone photographs, that is the column to plan against, and the ladder
+has found the floor: scanned documents need no quality gate this corpus can
+detect, photographed ones need capture guidance or a legibility check before
+parsing, and <code>photo-moderate</code> is where the cost becomes real rather than
+statistical.</p>
+<h4 id="a-net-change-is-not-evidence">A net change is not evidence</h4>
+<p>Pages worse / better / unchanged against each system&#39;s own clean run:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>tier</th>
+<th>gemma-4-31B</th>
+<th>gemma-4-12B</th>
+<th>InternVL3.5-8B</th>
+<th>MinerU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>scan-light</td>
+<td>6/10/39 noise</td>
+<td>21/17/17 noise</td>
+<td>24/17/14 noise</td>
+<td>3/2/50 noise</td>
+</tr>
+<tr>
+<td>scan-moderate</td>
+<td>7/9/39 noise</td>
+<td>17/20/18 noise</td>
+<td>15/25/15 noise</td>
+<td><strong>11/3/41 real</strong></td>
+</tr>
+<tr>
+<td>scan-heavy</td>
+<td>9/8/38 noise</td>
+<td><strong>30/15/10 real</strong></td>
+<td>18/22/15 noise</td>
+<td><strong>15/1/39 real</strong></td>
+</tr>
+<tr>
+<td>photo-light</td>
+<td>10/9/36 noise</td>
+<td><strong>35/11/9 real</strong></td>
+<td>20/21/14 noise</td>
+<td>4/2/49 noise</td>
+</tr>
+<tr>
+<td>photo-moderate</td>
+<td><strong>19/7/29 real</strong></td>
+<td><strong>47/2/6 real</strong></td>
+<td><strong>33/13/9 real</strong></td>
+<td><strong>22/4/29 real</strong></td>
+</tr>
+<tr>
+<td>photo-heavy</td>
+<td><strong>41/2/12 real</strong></td>
+<td><strong>53/1/1 real</strong></td>
+<td><strong>41/10/4 real</strong></td>
+<td><strong>37/3/15 real</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Balanced directions are the signature of the token-level perturbation that moved
+31 of 165 pages between tp=1 and tp=2 on <em>identical</em> images. <strong>A net total is not
+evidence; only when the two directions stop balancing is there a signal.</strong> The
+test earns its keep by disagreeing on the same data at the same threshold — it
+calls the 31B&#39;s whole scan ladder noise and MinerU&#39;s scan tail real.</p>
+<p><strong>It would have been easy to report that scanning helps.</strong> <code>scan-light</code> scores
+above clean for the 31B, and the first reading of that said so. It is noise, and
+counting the direction of every page&#39;s change is what shows it.</p>
+<p><strong>A system must be compared against its own clean run.</strong> An earlier version fell
+back to the only baseline loaded and compared MinerU&#39;s degraded pages against the
+<em>31B&#39;s</em> clean ones, reporting every MinerU tier as a real effect — including
+<code>scan-light</code>, where MinerU barely moves. Borrowing a baseline is worse than
+having none: it reports one system&#39;s degradation as another&#39;s, and the output
+looks entirely normal. The same fault recurred in <code>collect()</code>, which read a
+single clean report and so gave three of four systems no clean point at all.</p>
+<h4 id="two-things-the-ladder-found-that-were-not-being-looked-for">Two things the ladder found that were not being looked for</h4>
+<p><strong>The transcript degrades on the scan ladder while placement does not.</strong> Median
+CER rises sharply from clean to <code>scan-heavy</code> and rows aligned falls 23 points,
+while amounts under the right heading barely move. A system chosen on transcript
+quality would be rejected at <code>scan-heavy</code>; the same system chosen on placement
+would be kept. <strong>This is the sharpest form of finding 9&#39;s argument</strong> — and note
+that <code>attributable</code> sits between the two, which is why it is the metric to
+deploy on.</p>
+<p><strong>Fragmentation falls as the image worsens.</strong> MinerU splits 276 rows on clean
+input and fewer as the picture degrades: 251 at scan-heavy, 204 at photo-heavy.
+The prediction going in was the opposite, since fragmentation is a
+row-segmentation failure and blur ought to attack segmentation. The obvious
+artefact was ruled out first — MinerU emits the <em>same</em> number of table rows at
+every severity, 1,876 clean against 1,945 at photo-heavy, on all 55 pages — so it
+is not fragmenting less because it is producing less table. Blur appears to merge
+the two visual lines of a wrapped description so they read as one. It falls while
+everything that matters collapses.</p>
+<h4 id="limits">Limits</h4>
+<p><strong>25 pages are declared unproducible and scored as total failures</strong> — token-cap
+repetition loops, each evidenced by a file kept under <code>_truncated/</code>. They fall
+entirely on the 12B (16) and InternVL (9); the 31B and MinerU produced all 330.
+Declaring rather than dropping keeps every system averaged over the same 55
+transcripts; dropping would have averaged the two failing systems over fewer,
+easier pages. The ranking does not depend on the choice — excluding them lifts
+the 12B&#39;s photo-heavy figure only to roughly 12%.</p>
+<p>Docling was never run on a degraded tier and is absent rather than shown with a
+clean point alone, which would read as a system that held up perfectly.</p>
+<p>What this does not establish: 55 statements of one document type, against
+modelled degradation rather than real scans. Four systems are enough to show that
+robustness differs sharply between systems and that the difference is not
+predictable from clean accuracy; they are not enough to predict where a fifth
+would fall.</p>
+<hr />
+<h3 id="a-wrong-number-and-a-missing-number-are-not-the-same-failure">A wrong number and a missing number are not the same failure</h3>
+<p>Every measure so far counts amounts that did not arrive correctly. It does not
+distinguish the two ways they fail, and downstream those could hardly be more
+different:</p>
+<ul>
+<li><strong>silently wrong</strong> — a plausible number reaches the consumer. A misread digit,
+an amount under the wrong heading, or one orphaned in a row that identifies
+nothing. <code>$1,982.56</code> for <code>$1,182.56</code> passes every validation a consumer is
+likely to run.</li>
+<li><strong>visibly missing</strong> — the amount is absent. A gap can be counted, alerted on,
+and routed to a human.</li>
+</ul>
+<p>Bank statements, 2,011 amounts, deployable systems only:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>misread</th>
+<th>mis-column</th>
+<th>orphaned</th>
+<th><strong>silently wrong</strong></th>
+<th>dropped</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gemma 31B 4-bit</strong></td>
+<td>3</td>
+<td>11</td>
+<td>26</td>
+<td><strong>2.0%</strong></td>
+<td>0.1%</td>
+</tr>
+<tr>
+<td>gemma 12B 4-bit</td>
+<td><strong>101</strong></td>
+<td>24</td>
+<td>61</td>
+<td>9.2%</td>
+<td>5.7%</td>
+</tr>
+<tr>
+<td>InternVL3.5-8B</td>
+<td>2</td>
+<td><strong>192</strong></td>
+<td>247</td>
+<td><strong>21.9%</strong></td>
+<td>3.0%</td>
+</tr>
+<tr>
+<td>MinerU</td>
+<td><strong>0</strong></td>
+<td>152</td>
+<td><strong>596</strong></td>
+<td><strong>37.2%</strong></td>
+<td>0.6%</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Two questions, and they rank the systems differently:</strong></p>
+<blockquote>
+<p><strong>&quot;Which system fabricates numbers?&quot;</strong>
+gemma 12B 4-bit is the worst tested — 101 misread amounts — and MinerU is
+perfect, misreading <strong>none</strong> of 2,507 figures.</p>
+</blockquote>
+<blockquote>
+<p><strong>&quot;Which system delivers wrong data?&quot;</strong>
+MinerU is the worst by a distance at 37.2%, and the 12B 4-bit is mid-table at
+9.2%.</p>
+</blockquote>
+<p>Both are legitimate; they are not the same question. The second is the
+deployment question, because a consumer cannot tell how a wrong number became
+wrong. The first is a separate and real indictment of the 12B that the aggregate
+hides, and it is what finding 8 is about: capacity takes misreads from 101 to
+<strong>3</strong>.</p>
+<p><strong>A misread digit is the most insidious failure here</strong>, whatever the totals say.
+A mis-columned amount has some chance of failing a debit/credit reconciliation
+downstream; an orphaned one is missing its date and may be caught as malformed.
+A wrong digit in the right field of the right row is indistinguishable from a
+correct answer.</p>
+<p><strong>Note what this does to MinerU&#39;s best number.</strong> It misreads nothing at all —
+the cleanest digit fidelity of any system here — and has the highest
+silently-wrong rate of any system here, because it puts 596 correctly-read
+amounts in rows with no date. Reading perfectly is not a defence.</p>
+<hr />
+<h2 id="limits-1">Limits</h2>
+<p><strong>Coverage.</strong> All four gemma checkpoints produced all 165 pages. InternVL
+produced 164; the one failure is scored as a total failure rather than dropped,
+so every system is averaged over the same 165 transcripts. MinerU produced all
+165.</p>
+<p><strong>The four gemma checkpoints differ only in the checkpoint.</strong> Every decoding and
+engine setting is identical across them, including the vision budget — varying
+that would confound precision or capacity with what the model can see. All six
+systems were scored against the same corpus, and the analysis refuses reports
+that were not.</p>
+<p><strong>The two prompted systems were run under the prompt shipped with this corpus</strong>,
+verified by hashing the text actually sent. <strong>The two parsers read no prompt</strong>,
+so their figures are unaffected by prompt revisions and are directly comparable
+throughout.</p>
+<p><strong>Row alignment is fragile to single-character errors.</strong> A row is matched by its
+content, so one misread digit in a cell fails that row — and where the
+convention carries a date onto every row of a group, one misread date fails the
+whole group. Two statements lose 27 and 24 rows this way. Alignment percentages
+are therefore a joint measure of segmentation <em>and</em> character fidelity, not of
+segmentation alone.</p>
+<p><strong>The column metric conflates two things.</strong> <code>misfiled</code> counts an amount as
+misplaced if it is absent from its column for <em>any</em> reason, including a misread
+digit. It is not purely structural.</p>
+<p><strong>Synthetic.</strong> Clean renders, plus a declared degradation ladder over them
+(finding 10) rather than real scans. No claim is
+made about degraded documents.</p>
+<p><strong>&quot;Capacity&quot; is shorthand.</strong> The 31B is a differently trained model, not a
+scaled 12B, so finding 8 attributes the digit deficit to everything that differs
+between the two sizes. The precision comparison is a clean isolation — same QAT
+weights, only the bit-width varies — and the capacity one is a strong test
+rather than a controlled experiment.</p>
+<p><strong>One convention mismatch is known and unresolved.</strong> On one layout the corpus
+records a block&#39;s visual alignment (<code>Opening Balance          345,678</code>) while a
+model writes <code>Opening Balance: 345,678</code>, obeying the prompt&#39;s instruction to put
+labelled values on one line. The block is drawn as plain lines rather than
+label/value pairs, so the transcript keeps the spacing. A model reads correctly,
+follows the shipped rule, and still diverges.</p>
+<p><strong>Two correct instructions can be jointly wrong.</strong> Removing the separator rules
+also removed the visual fence around a receipt&#39;s totals block, which then looks
+exactly like the headerless item list another rule instructs the model to render
+as a table. Spurious second tables on gemma&#39;s receipts went from 5 of 55 to
+<strong>18 of 55</strong>, and they are the sole source of its 9 fragments and 15 width
+breaks — every one of which is on a receipt, none on a statement.</p>
+<hr />
+<h2 id="what-this-pass-produced">What this pass produced</h2>
+<p><strong>A house style that is demonstrably communicable.</strong> Told the conventions, a
+capable prompted model adopts them for <strong>+0.013</strong> — the gap between its strict
+and normalised CER, which is by construction what formatting costs it. An
+unpromptable parser pays +0.392 for the same corpus. The style is not an
+arbitrary imposition.</p>
+<p>That figure is remarkably stable: <strong>+0.0134, +0.0136, +0.0138, +0.0139</strong> across
+four gemma checkpoints whose reading accuracy varies fivefold. Precision and
+capacity move what a model reads and leave what it formats untouched. Following
+a house style is not a fidelity-limited skill.</p>
+<p><strong>A steerability result with a sharp edge.</strong> The 12B adopts every convention put
+to it; an 8B from another family adopts one of three and is destabilised by the
+technique that helps the 12B most. Prompt engineering results do not transfer
+across model scales, and reporting one without the other overstates both.</p>
+<p><strong>Three metrics that normalised CER cannot replace.</strong> Column integrity, because
+a page can be character-perfect and financially meaningless. Table structure,
+because column integrity presupposes the rows. Numeric fidelity, because CER
+prices a wrong digit in a total at a typo in a merchant&#39;s name — and it is the
+only measure here that is convention-blind, so it compares a system emitting
+HTML tables with one emitting pipe tables on identical terms.</p>
+<p>Between them they produced the pass&#39;s most counter-intuitive result, and it only
+appears when the metrics are kept apart. <strong>MinerU misreads not one of the 3,371
+amounts in the corpus — every miss is an omission — and still delivers fewer
+usable amounts than the 31B</strong>, because it misfiles a tenth of them.
+<strong>InternVL3.5-8B reads 6.6 points more digits correctly than the 12B gemma and
+delivers 3 points fewer usable amounts</strong>, for the same reason.</p>
+<p>Reading a table, matching a house style and getting the digits right are three
+separable skills, and no single one of them ranks these systems correctly for
+anyone who cares about the money. The figure that does is <strong>usable</strong> — present,
+right value, right heading — and it is the one to quote.</p>
+<p><strong>And a measured limit on the headline metric, rather than an argued one.</strong>
+Across systems, normalised CER tracks usable-amount rate closely: Spearman
+ρ = 0.943 over six systems (p = 0.005). Within a system it is uncorrelated with whether a
+page&#39;s numbers survive — ρ = 0.01 for two of them, −0.17 for the best. A review
+queue ordered by CER is a review queue ordered at random. Report it, because it
+ranks systems and it catches the catastrophes a field-level metric would miss;
+do not triage on it, and do not read a small CER as evidence that a page&#39;s
+numbers can be used.</p>
+<p><strong>One observation that only a whole-page metric could surface.</strong> A model that
+misreads a running balance then <strong>recomputes every balance below it</strong> from the
+wrong figure. It is arithmetically reconstructing the column rather than
+transcribing it — invisible on any single row, invisible to an extraction task
+pulling one balance, and unmistakable when the whole column is scored at once.</p>
+<p><strong>A cause established by control rather than assumed.</strong> The 12B&#39;s digit errors
+looked like a quantisation cost, and quantisation costing character fidelity
+first is exactly what theory predicts. Three controlled runs say otherwise:
+precision buys 4 points, quantisation-aware training buys none, and <strong>capacity
+buys 9.5</strong> — the 31B at the same 4 bits reads amounts more accurately than the
+12B at BF16. The plausible explanation was the wrong one, and only running the
+control distinguished them.</p>
+<p><strong>Four scoring corrections</strong>, each closing a case where formatting was scored as
+misreading: HTML tables, HTML entities, trailing label colons, and repeated-glyph
+decoration. Together they took MinerU&#39;s median normalised CER from <strong>0.4740 to
+0.0393</strong> — a twelvefold correction on a system whose reading never changed, and
+a measure of how badly a formatting-blind metric can misrepresent a competent
+reader.</p>
+<p><strong>Two corpus defects fixed and one prompt contradiction removed</strong>, all found by
+asking whether the benchmark said the same thing about the same device
+everywhere.</p>
+<p><strong>A working practice.</strong> Ground truth is written at render time; serialisation and
+scoring are separate steps. A convention can change and every transcript
+re-emits in seconds without re-rendering an image — which is what made it cheap
+enough to discover that a regression was the benchmark&#39;s fault rather than the
+model&#39;s.</p>
+<hr />
+<h2 id="appendix-the-prompt">Appendix: the prompt</h2>
+<p>Findings 1, 2, 3 and 6 are all about this text, and quoting fragments of it
+makes them hard to check. It is reproduced whole, exactly as sent.</p>
+<p>Only the part below is sent. <code>config/prompt.md</code> opens with a preamble addressed
+to whoever runs the benchmark — 1,018 words in the file, <strong>974 reach the
+model</strong> — and the runner strips everything above the <code>---</code> rule. Provenance is
+recorded per run: every scored system here read the same prompt, digest
+<code>38919c6a</code>, which is <code>config/prompt.md</code> at the commit this document describes.</p>
+<p>Read it against the findings. Three things are worth noticing:</p>
+<ul>
+<li><strong>The headerless-table rule names its case and shows it</strong> (finding 2). An
+earlier version stated the rule without the worked example and reached 2 of 55
+receipts; this version reaches 53. Same model, same pages.</li>
+<li><strong>The decoration rule says what to write instead of the run it removes.</strong> That
+sentence — &quot;do not replace an omitted run with anything else&quot; — exists because
+a version without it led a model to substitute repeated zeros for repeated
+dots, and finish under the token cap so that nothing flagged it.</li>
+<li><strong>The date-carry rule is stated as clearly as the other two and lands on only
+one of the two models</strong> (finding 3). Wording is not the whole story, and this
+is the evidence for that.</li>
+</ul>
+<pre class="text"><code>Transcribe this document page completely, as Markdown.
+
+Read the page top to bottom and write out every piece of text you can see, in
+the order it is meant to be read. Do not summarise, do not skip repeated or
+boilerplate wording, and do not add anything the page does not show.
+
+Follow these conventions exactly.
+
+**Use only this small Markdown subset.** A single `#` heading for the page&#39;s own
+title, plain paragraph lines for ordinary text, and pipe tables for tables.
+Nothing else.
+
+**The `#` heading is the document&#39;s title, and there is exactly one per page.**
+It is the name of the document or of the business that issued it, printed at the
+top — &quot;TAX INVOICE&quot; on an invoice, the bank&#39;s name on a statement, the shop&#39;s
+name on a receipt. Write that one line as `# `. Every other line on the page is
+an ordinary paragraph, including section headings inside the body such as
+&quot;Payment Terms:&quot; or &quot;Rewards Points Balance Summary&quot;, however large or bold they
+are printed.
+
+**Never use bold or italic.** No `**`, no `__`, no `*`. Some text on the page is
+visually bold; write it as ordinary text anyway.
+
+**A run of repeated dots or dashes is spacing, not content — leave it out.**
+Pages use runs of punctuation two ways, and both are typography rather than
+text: a line of them drawn across the page as a separator, and a trail of them
+padding a line out to a fixed width. Write the words and numbers at each end and
+omit the run itself.
+
+A run is **four or more** of `.` `-` `_` `=` `*` in a row. Three or fewer is
+ordinary punctuation and is kept, so an ellipsis and a decimal point are written
+as printed, and a hyphen inside a range or a date stays where it is.
+
+This applies to text **on the page**. It does not apply to the `| --- |`
+separator row of a pipe table, which is Markdown you are writing and must still
+be there.
+
+For example, where a statement pads a reference out to a fixed width and rules a
+line beneath a section:
+
+```
+Ref: 3070829164..........................
+BRIGHTWATER MUTUAL Kew AUS
+--------------------------------------
+```
+
+write
+
+```
+Ref: 3070829164
+
+BRIGHTWATER MUTUAL Kew AUS
+```
+
+The dots and the ruled line are gone; every character that carries information
+is kept, including the `.` inside an amount and the digits either side of it.
+Do not replace an omitted run with anything else — no substitute characters, no
+placeholder.
+
+**Labelled values go on one line as `Label: value`.** For example a page showing
+&quot;Date&quot; beside &quot;04/03/2025&quot; becomes `Date: 04/03/2025`. Write the label once,
+with a single colon and space, even if the page draws its own colon.
+
+**Tables become pipe tables with a header separator row**, like this:
+
+```
+| Date | Reference | Charge |
+| --- | --- | --- |
+| 26/11/2019 | Sprocket Housing 6mm | $19.07 |
+```
+
+Keep one cell per column on every row. Where a cell is blank on the page, leave
+it blank in the table rather than dropping it or shifting the other cells
+across.
+
+**A list of items with amounts beside them is a table, even when it has no
+column headings and no lines drawn between the columns.** A receipt&#39;s list of
+purchases is the common case: the item names form one column and the prices
+form another, because they line up vertically down the page. Write it as a pipe
+table with an EMPTY header row, like this:
+
+```
+|  |  |
+| --- | --- |
+| Lanyard Clip 2pk | 19.23 |
+| Gasket Ring 40mm | 19.53 |
+```
+
+Do not promote the first line of data into the heading, and do not invent column
+names such as &quot;Item&quot; or &quot;Price&quot;. Do not write these lines as ordinary
+paragraphs — the way they line up down the page is what makes them a table.
+
+**Where a date heads a group of rows, repeat it on every row of that group.**
+A statement prints a date once and then lists that day&#39;s entries beneath it with
+the date column left blank. It does this in two ways, and both are the same
+thing: the date may sit on a band of its own across the table, or it may sit in
+the date cell of the group&#39;s first entry. Either way, put the date in the date
+cell of **every** row of that group, and do not give the date a row of its own:
+
+```
+| 14/03/2018 | Ratchet Spanner 8mm | 19.67 |
+| 14/03/2018 | Torque Bar 12mm | 19.89 |
+```
+
+not a row containing only `14/03/2018` followed by rows with an empty date.
+Every row should stand on its own.
+
+Carry a date **downwards only**. Where a row&#39;s date cell is blank and no date
+appears above it in the table — an opening-balance line is the usual case —
+leave that cell blank rather than borrowing the date from below.
+
+**Where a page is laid out in side-by-side columns, read one column fully before
+starting the next, working left to right.** Do not read across the page in
+visual rows. A header with payer details on the left and document details on the
+right is transcribed as all of the left block, then all of the right block.
+
+**Rejoin any line the page wrapped.** Where one piece of text runs onto a second
+line because it ran out of room, write it as a single line. Wrapping is an
+artifact of the page&#39;s width, not part of the content.
+
+**Preserve the text exactly as printed.** Keep the original capitalisation,
+punctuation, currency symbols, and number formatting. Do not tidy, correct, or
+reformat anything.
+
+Output only the transcription.</code></pre>
+<p>The figures in <code>docs/figures/prompt-*.svg</code>, generated by
+<code>render_prompt_figure.py</code>, render one convention per image for presentation.</p>
+</body>
+</html>
