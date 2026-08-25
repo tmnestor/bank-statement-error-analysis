@@ -65,6 +65,14 @@ runs_degraded*.gz
 # repository means that does not depend on a temporary transfer repo existing.
 # Re-export it whenever the notebook is re-executed, or it silently goes stale.
 
+# Generated images at the REPOSITORY ROOT. The rules below cover comparisons/
+# and docs/figures/, but three files were committed at the root where no rule
+# reached them -- two stray figure copies and a 1.2 MB duplicate of a comparison
+# sheet. Anything generated belongs in its directory; this catches the slip.
+/*.png
+/*.jpg
+/*.svg
+
 # Side-by-side comparison sheets, regenerable from compare_transcripts.py.
 comparisons/
 comparisons_degraded/
