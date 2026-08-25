@@ -21,7 +21,7 @@ recovering slightly *less* of the text overall. Neither ordering is wrong — th
 answer different questions, so the metric reports both rather than averaging
 them into a ranking that hides the trade.
 
-Column assignment, the third question, lives in `generators.columns`.
+Column assignment, the third question, lives in `evaluation.columns`.
 
 **There is deliberately no cell-accuracy figure here, and there must not be
 one.** Rows are aligned by `row_signature`, which is their content — so any
@@ -37,7 +37,7 @@ import difflib
 import re
 from collections import Counter
 
-from generators.columns import column_width, table_rows
+from evaluation.columns import column_width, table_rows
 
 _WHITESPACE = re.compile(r"\s+")
 
@@ -47,7 +47,7 @@ def row_signature(cells: list[str]) -> str:
 
     Empty cells and whitespace runs are dropped: a pretty-printed table and an
     unpadded one describe the same row, and a cell's *position* is scored by
-    `generators.columns`, not here. Case is preserved — reading identifiers with
+    `evaluation.columns`, not here. Case is preserved — reading identifiers with
     correct case is part of the job.
 
     Args:
@@ -82,7 +82,7 @@ def table_report(truth: str, prediction: str) -> dict:
 
     Rows are aligned by signature with `difflib`, so an inserted fragment or a
     dropped row shifts nothing after it. `autojunk` is off for the same reason
-    it is off in `generators.divergence`: these tables are built from repeated
+    it is off in `evaluation.divergence`: these tables are built from repeated
     tokens, and the heuristic would treat exactly them as junk.
 
     Note what `aligned` therefore means: rows match on *content*, so a misread

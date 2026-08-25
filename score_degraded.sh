@@ -36,7 +36,7 @@ for d in "$DEGRADED"/*/; do
     # that leaves "scoring failed" with no cause, which is the one message that
     # cannot be acted on.
     log="scores_${name}.log"
-    if conda run -n "$ENV_NAME" python -m generators.pipeline score \
+    if conda run -n "$ENV_NAME" python -m evaluation.cli \
         --corpus "${d%/}" --predictions "$predictions" \
         --report "scores_${name}.json" > "$log" 2>&1; then
         echo "  -> scores_${name}.json"

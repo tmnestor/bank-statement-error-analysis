@@ -15,7 +15,7 @@ differs from the truth is filled; a row the system invented, or never produced,
 is filled whole. Fill survives being looked at from across a room, which is how
 these are actually used.
 
-Rows are aligned to the truth by `generators.tables.row_signature` — the same
+Rows are aligned to the truth by `evaluation.tables.row_signature` — the same
 matching `score` uses — so a dropped or invented row shifts nothing after it and
 the cells being compared are the cells that correspond.
 
@@ -35,8 +35,8 @@ import typer
 from PIL import Image, ImageDraw, ImageFont
 from rich import print as rprint
 
-from generators.columns import column_integrity, table_rows
-from generators.tables import row_signature
+from evaluation.columns import column_integrity, table_rows
+from evaluation.tables import row_signature
 
 REPO = Path(__file__).resolve().parent
 MONO = REPO / "fonts" / "LiberationMono-Regular.ttf"
@@ -170,7 +170,7 @@ def align_tables(truth: Table, prediction: Table) -> list[tuple[str, list[str], 
     """Pair prediction rows with truth rows, keeping unmatched ones visible.
 
     Uses `row_signature` and `autojunk=False` for the reason
-    `generators.divergence` gives: these tables are built from repeated tokens,
+    `evaluation.divergence` gives: these tables are built from repeated tokens,
     and the heuristic treats exactly those as junk.
 
     Args:
@@ -464,7 +464,7 @@ def panel_stats(
     early warning and a misleading headline.
 
     **usable** counts amounts with the right value under the right heading —
-    what a downstream consumer receives. Computed by `generators.columns`, the
+    what a downstream consumer receives. Computed by `evaluation.columns`, the
     same code `score` uses, so a sheet cannot disagree with the report.
 
     Args:

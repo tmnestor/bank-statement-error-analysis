@@ -129,5 +129,5 @@ echo "  tar czf ${OUT}.tgz $OUT"
 echo
 echo "Scoring happens against parsing_20260820, which is not on this host:"
 echo
-echo "  python -m generators.pipeline score --corpus parsing_20260820 \\"
+echo "  python -m evaluation.cli --corpus parsing_20260820 \\"
 echo "      --predictions $OUT --report scores_v4.json"

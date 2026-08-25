@@ -8,13 +8,13 @@ classifier cannot drift from the policy because it *is* the policy, applied at
 hunk granularity instead of document granularity.
 
 `difflib` locates divergences here and never scores them; the numbers come from
-`generators.metrics` (spec §5.1).
+`evaluation.metrics` (spec §5.1).
 """
 
 import difflib
 from dataclasses import dataclass
 
-from generators.scoring import normalise, space_html_table_tags
+from evaluation.scoring import normalise, space_html_table_tags
 
 CONVENTION = "convention"
 READING = "reading"

@@ -127,7 +127,7 @@ differ by construction, and score will refuse any other pairing:
 
   for d in $DEGRADED/*/; do
       n=\$(basename "\${d%/}")
-      conda run -n docparse python -m generators.pipeline score \\
+      conda run -n docparse python -m evaluation.cli \\
           --corpus "\${d%/}" --predictions "$OUT/\$n" \\
           --report "scores_\$n.json"
   done

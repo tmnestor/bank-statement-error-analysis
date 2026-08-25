@@ -142,7 +142,7 @@ cat <<NOTE
 
 Then score it and put the two side by side:
 
-  conda run -n docparse python -m generators.pipeline score \\
+  conda run -n docparse python -m evaluation.cli \\
       --corpus $CORPUS --predictions $OUT --report scores_31b_tp2.json
 
   # the numbers the case rests on, from the configuration being proposed

@@ -34,7 +34,7 @@ from typing import Annotated
 import typer
 from rich import print as rprint
 
-from generators.unproduced import declare_unproduced
+from evaluation.unproduced import declare_unproduced
 from runners.common import (
     RunnerError,
     check_prompt_provenance,

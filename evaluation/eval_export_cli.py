@@ -8,7 +8,7 @@ this repo's own export layout and a different consumer.
 Both layouts are produced from the same render. Nothing is re-generated for the
 second consumer, so the two cannot drift.
 
-    python -m generators.eval_export_cli \\
+    python -m evaluation.eval_export_cli \\
         --corpus parsing_20260822 --degraded degraded --out ~/Desktop/evaluation_data
 """
 
@@ -19,7 +19,7 @@ from typing import Annotated
 import typer
 from rich import print as rprint
 
-from generators.eval_export import (
+from evaluation.eval_export import (
     EvalExportError,
     load_entries,
     project_bank_statement,

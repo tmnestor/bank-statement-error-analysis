@@ -146,7 +146,7 @@ rsync -av runs/gemma-4-12B-it-qat-w4a16-ct/ local:/path/to/runs/gemma-4-12B-it-q
 ```
 
 ```bash
-conda run -n docparse python -m generators.pipeline score \
+conda run -n docparse python -m evaluation.cli \
     --corpus parsing_20260818 --predictions runs
 ```
 

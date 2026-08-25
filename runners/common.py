@@ -152,7 +152,7 @@ def corpus_stems(corpus: Path) -> list[str]:
             expected="an exported corpus directory, e.g.\n"
             "              parsing_20260818/transcripts/CASE001_invoices.md",
             recover="pass --corpus pointing at an exported parsing_YYYYMMDD/ directory, "
-            "or run `python -m generators.pipeline export` to produce one.",
+            "or run `python -m evaluation.cli export` to produce one.",
         )
     return stems
 
@@ -220,7 +220,7 @@ def corpus_images(corpus: Path) -> dict[str, Path]:
             else:
                 recover = (
                     f"{images} holds {present} file(s) but not these. Re-run "
-                    "`python -m generators.pipeline export` if this corpus was "
+                    "`python -m evaluation.cli export` if this corpus was "
                     "assembled here, or re-transfer it as a single archive if it was "
                     "copied."
                 )
