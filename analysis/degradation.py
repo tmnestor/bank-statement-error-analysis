@@ -17,7 +17,6 @@ Usage, once the runs are scored:
 """
 
 import json
-import re
 from pathlib import Path
 
 import pandas as pd
@@ -28,7 +27,86 @@ REPO = Path(__file__).resolve().parent.parent
 # are declared points on a scale, and spacing them evenly on the axis would
 # assert a linearity nothing measured.
 SEVERITIES = ("clean", "light", "moderate", "heavy")
-_TIER = re.compile(r"_(?P<family>scan|photo)-(?P<severity>light|moderate|heavy)$")
+
+
+def _refuse(what: str, *, where: str, expected: str, recover: str) -> None:
+    """Stop with a four-element diagnostic, in this module's existing shape."""
+    raise SystemExit(
+        f"Cannot label a degraded tier.\n"
+        f"  What:     {what}\n"
+        f"  Where:    {where}\n"
+        f"  Expected: {expected}\n"
+        f"  Recover:  {recover}"
+    )
+
+
+def _tier_of(path: Path, payload: dict, root: Path = REPO) -> dict[str, str] | None:
+    """Which (family, severity) produced this report, read from the corpus's manifest.
+
+    **The manifest is the only source.** This used to fall back to the corpus
+    directory's name and then to the report's own filename, and both are written
+    by whoever ran the scoring loop: renaming or copying a report relabelled the
+    tier silently, and a curve drawn from relabelled points is wrong in a way
+    nothing downstream catches. Three sources also meant a reader had to work
+    out which one produced the label in front of them.
+
+    So a corpus that cannot answer stops the run. That refuses two situations
+    which used to pass quietly, and both deserve to stop: a report copied back
+    from the sandbox without its corpus, and a corpus exported before the
+    generator stated these fields -- which is also a corpus whose images predate
+    later corrections, so scoring against it is invalid regardless.
+
+    Args:
+        path: The report, named in diagnostics.
+        payload: The parsed report, for the `corpus` the scorer recorded in it.
+        root: Repository root that a report's `corpus` path is relative to.
+
+    Returns:
+        `{"family": ..., "severity": ...}`, or None when the manifest says this
+        corpus is `clean` -- a classification, not a failure to find one. The
+        clean point is not a rung; `collect` adds it to both ladders separately.
+    """
+    corpus = str(payload.get("corpus", ""))
+    if not corpus:
+        _refuse(
+            f"{path.name} records no `corpus`, so there is no manifest to read its tier from.",
+            where=str(path.resolve()),
+            expected="every score report to name the corpus it scored, e.g.\n"
+            '              {"corpus": "degraded/parsing_20260902_scan-heavy", ...}',
+            recover="re-score this run with `python -m evaluation.cli score`, which records "
+            "the corpus, or remove a report that predates that field.",
+        )
+
+    manifest = root / corpus / "manifest.jsonl"
+    if not manifest.exists():
+        _refuse(
+            f"{corpus}/manifest.jsonl is not on disk, so {path.name} cannot be labelled.",
+            where=str(manifest.resolve()),
+            expected="the corpus a report names to be present beside this repository.",
+            recover=f"copy {Path(corpus).name}/ back from the sandbox, or remove the reports "
+            "scored against corpora you no longer hold.",
+        )
+
+    record: dict = {}
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            record = json.loads(line)
+            break
+
+    family, severity = record.get("family"), record.get("severity")
+    if not family or not severity:
+        _refuse(
+            f"{corpus}/manifest.jsonl states no `family`/`severity`, so its tier is unknown.",
+            where=str(manifest.resolve()),
+            expected="every manifest record to carry both, e.g.\n"
+            '              {"image": "images/CASE001_bank_statements.jpg", '
+            '"family": "scan", "severity": "heavy", ...}',
+            recover="re-export this corpus with a generator that labels its manifest. A corpus "
+            "predating those fields also predates later ladder corrections, so its images "
+            "are a dead vintage and re-rendering is required in any case.",
+        )
+
+    return None if family == "clean" else {"family": str(family), "severity": str(severity)}
 
 
 def _usable(documents: list[dict]) -> dict:
@@ -108,20 +186,24 @@ def collect(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
                     )
 
     for path in sorted(reports.glob("scores_*.json")):
-        match = _TIER.search(path.stem)
-        if not match:
-            continue
+        # Every report is parsed now, not only those whose NAME names a tier:
+        # the manifest can only outrank the filename if the file is opened.
         payload = json.loads(path.read_text(encoding="utf-8"))
+        tier = _tier_of(path, payload)
+        if tier is None:
+            continue
         for system, block in payload["systems"].items():
-            rows.append({"system": system, **match.groupdict()} | _usable(block["documents"]))
+            rows.append({"system": system, **tier} | _usable(block["documents"]))
 
     if not rows:
         raise SystemExit(
             "No degraded reports found.\n"
-            f"  What:     no scores_*_{{scan,photo}}-{{light,moderate,heavy}}.json in {reports}.\n"
+            f"  What:     no scores_*.json in {reports} names a corpus whose manifest\n"
+            "            states a degraded family and severity.\n"
             f"  Where:    {reports.resolve()}\n"
             "  Expected: one report per tier, written by the scoring loop that\n"
-            "            run_degraded_31b.sh prints when it finishes.\n"
+            "            run_degraded_31b.sh prints when it finishes, each naming a\n"
+            "            corpus present on disk and labelled by its manifest.\n"
             "  Recover:  score each tier against its OWN corpus — the manifests differ\n"
             "            by construction and score refuses any other pairing."
         )
@@ -219,8 +301,8 @@ def paired_change(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
 
     rows = []
     for path in sorted(reports.glob("scores_*.json")):
-        match = _TIER.search(path.stem)
-        if not match:
+        tier = _tier_of(path, json.loads(path.read_text(encoding="utf-8")))
+        if tier is None:
             continue
         for name, current in misfiled_by_stem(path).items():
             # A system with no clean run has nothing to compare against, and
@@ -239,7 +321,7 @@ def paired_change(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
             rows.append(
                 {
                     "system": name,
-                    **match.groupdict(),
+                    **tier,
                     "worse": sum(1 for d in deltas if d > 0),
                     "better": sum(1 for d in deltas if d < 0),
                     "same": sum(1 for d in deltas if d == 0),
