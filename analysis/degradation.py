@@ -18,8 +18,11 @@ Usage, once the runs are scored:
 
 import json
 from pathlib import Path
+from typing import NoReturn
 
 import pandas as pd
+
+from analysis.tiers import read_tier
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -29,7 +32,7 @@ REPO = Path(__file__).resolve().parent.parent
 SEVERITIES = ("clean", "light", "moderate", "heavy")
 
 
-def _refuse(what: str, *, where: str, expected: str, recover: str) -> None:
+def _refuse(what: str, *, where: str, expected: str, recover: str) -> NoReturn:
     """Stop with a four-element diagnostic, in this module's existing shape."""
     raise SystemExit(
         f"Cannot label a degraded tier.\n"
@@ -66,47 +69,8 @@ def _tier_of(path: Path, payload: dict, root: Path = REPO) -> dict[str, str] | N
         corpus is `clean` -- a classification, not a failure to find one. The
         clean point is not a rung; `collect` adds it to both ladders separately.
     """
-    corpus = str(payload.get("corpus", ""))
-    if not corpus:
-        _refuse(
-            f"{path.name} records no `corpus`, so there is no manifest to read its tier from.",
-            where=str(path.resolve()),
-            expected="every score report to name the corpus it scored, e.g.\n"
-            '              {"corpus": "degraded/parsing_20260902_scan-heavy", ...}',
-            recover="re-score this run with `python -m evaluation.cli score`, which records "
-            "the corpus, or remove a report that predates that field.",
-        )
-
-    manifest = root / corpus / "manifest.jsonl"
-    if not manifest.exists():
-        _refuse(
-            f"{corpus}/manifest.jsonl is not on disk, so {path.name} cannot be labelled.",
-            where=str(manifest.resolve()),
-            expected="the corpus a report names to be present beside this repository.",
-            recover=f"copy {Path(corpus).name}/ back from the sandbox, or remove the reports "
-            "scored against corpora you no longer hold.",
-        )
-
-    record: dict = {}
-    for line in manifest.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            record = json.loads(line)
-            break
-
-    family, severity = record.get("family"), record.get("severity")
-    if not family or not severity:
-        _refuse(
-            f"{corpus}/manifest.jsonl states no `family`/`severity`, so its tier is unknown.",
-            where=str(manifest.resolve()),
-            expected="every manifest record to carry both, e.g.\n"
-            '              {"image": "images/CASE001_bank_statements.jpg", '
-            '"family": "scan", "severity": "heavy", ...}',
-            recover="re-export this corpus with a generator that labels its manifest. A corpus "
-            "predating those fields also predates later ladder corrections, so its images "
-            "are a dead vintage and re-rendering is required in any case.",
-        )
-
-    return None if family == "clean" else {"family": str(family), "severity": str(severity)}
+    tier = read_tier(path, payload, root, _refuse)
+    return None if tier["family"] == "clean" else tier
 
 
 def _refuse_mixed_prompts(key, first, second, first_path: Path, second_path: Path) -> None:

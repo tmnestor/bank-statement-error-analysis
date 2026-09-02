@@ -473,6 +473,12 @@ def score(
     grouped = group(hunks_by_system)
     payload = {
         "corpus": str(corpus),
+        # Recorded so throughput can be joined to accuracy later. The runner
+        # writes `_timing.json` beside the predictions, not into the report, and
+        # without this key nothing connects the two -- see
+        # `analysis.export_results`. Absolute, because a relative path is only
+        # meaningful from the directory scoring happened to run in.
+        "predictions": str(predictions.resolve()),
         "policy": str(policy),
         "systems": systems,
         "divergences": grouped,
@@ -706,9 +712,6 @@ def _print_divergences(grouped: dict, report: Path) -> None:
 
     rprint(f"[green]Full report written to {report}.[/green]")
 
-
-if __name__ == "__main__":
-    app()
 
 if __name__ == "__main__":
     app()
