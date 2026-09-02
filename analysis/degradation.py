@@ -109,6 +109,32 @@ def _tier_of(path: Path, payload: dict, root: Path = REPO) -> dict[str, str] | N
     return None if family == "clean" else {"family": str(family), "severity": str(severity)}
 
 
+def _refuse_mixed_prompts(key, first, second, first_path: Path, second_path: Path) -> None:
+    """Two reports for one rung, produced under different prompts.
+
+    Averaging them describes a run that never happened. Every prompt revision in
+    this project has moved results -- the 2026-09-02 table-syntax fix moved
+    photo-heavy from 0.4296 to 0.4718 on identical images -- so this is a real
+    difference being silently merged, not noise.
+    """
+    system, family, severity = key
+
+    def shown(digest: str | None) -> str:
+        return digest[:12] if digest else "unstamped"
+
+    _refuse(
+        f"{system} has two reports for {family}-{severity}, made under different "
+        f"prompts ({shown(first)} and {shown(second)}).",
+        where=f"{first_path.name} and {second_path.name}",
+        expected="one report per (system, family, severity), all answering the same "
+        "prompt. A report written before prompts were stamped carries none, which "
+        "counts as its own value rather than matching anything.",
+        recover="move the superseded report out of this directory, e.g. into "
+        "experiments/, and re-run. Keep runs under different prompts apart: a "
+        "prompt revision moves results, so the two are not comparable.",
+    )
+
+
 def _statements(documents: list[dict]) -> list[dict]:
     """The bank-statement rows, which are the only ones this module reports on.
 
@@ -190,6 +216,10 @@ def collect(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
     """
     rows: list[dict] = []
     seen: set[str] = set()
+    # (system, family, severity) -> the prompt hash its report carried, and the
+    # report it came from, so a clash can name both files.
+    prompts: dict[tuple[str, str, str], str | None] = {}
+    prompts_from: dict[tuple[str, str, str], Path] = {}
 
     for name in (clean,) if clean else CLEAN_REPORTS:
         baseline = reports / name
@@ -220,6 +250,21 @@ def collect(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
         if tier is None:
             continue
         for system, block in payload["systems"].items():
+            # One rung must answer ONE prompt. `check_prompt_provenance` stops a
+            # prediction DIRECTORY mixing two; nothing stopped a ladder doing it,
+            # and on 2026-09-03 a baseline and a prompt-variant run of the same
+            # tier were plotted as two heavy rungs, 0.4296 and 0.4718, with
+            # nothing saying why they differed. A report predating the field
+            # carries None, which is treated as its own value rather than as
+            # equal to anything: old reports still plot alone, and never beside
+            # a run whose prompt is known.
+            key = (system, tier["family"], tier["severity"])
+            seen_prompt = prompts.get(key)
+            digest = block.get("prompt_sha256")
+            if key in prompts and seen_prompt != digest:
+                _refuse_mixed_prompts(key, seen_prompt, digest, prompts_from[key], path)
+            prompts[key] = digest
+            prompts_from[key] = path
             # The SAME filter as the clean baseline above -- see _statements.
             rows.append({"system": system, **tier} | _usable(_statements(block["documents"])))
 

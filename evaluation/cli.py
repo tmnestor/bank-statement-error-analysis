@@ -85,6 +85,65 @@ def _score_input_err(what: str, *, where: str, expected: str, recover: str) -> S
     )
 
 
+_STAMP_EXAMPLE = '              {"prompt": "config/prompt.md", "sha256": "21ea89f3b5be...", ...}'
+
+
+def _prompt_sha256(system_dir: Path) -> str | None:
+    """The prompt these predictions answered, as the runner recorded it.
+
+    `runners.common.check_prompt_provenance` writes `_prompt_provenance.json`
+    into every prediction directory and refuses to resume one holding answers to
+    a different prompt. Reading it here carries that fact into the report, so
+    downstream analysis can tell two runs apart instead of averaging them.
+
+    **No stamp and a broken stamp are different facts.** A directory with no
+    stamp predates the field, which `analysis.degradation` treats as its own
+    value -- such runs plot alone, never beside a run whose prompt is known. A
+    stamp that is present but unreadable would take that same path if it
+    returned None, and would then merge with every genuinely unstamped run:
+    exactly the contamination this whole mechanism exists to stop. So it fails
+    instead.
+
+    Args:
+        system_dir: One system's prediction directory.
+
+    Returns:
+        The hex digest, or None when the directory carries no stamp at all.
+
+    Raises:
+        ScoreInputError: A stamp is present but unparseable or states no hash.
+    """
+    stamp = system_dir / "_prompt_provenance.json"
+    if not stamp.exists():
+        return None
+
+    try:
+        recorded = json.loads(stamp.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as err:
+        raise _score_input_err(
+            f"{stamp.name} is present but is not valid JSON ({err.msg}), so the prompt "
+            f"behind {system_dir.name}'s predictions cannot be established.",
+            where=str(stamp.resolve()),
+            expected=f"the JSON object the runner writes, e.g.\n{_STAMP_EXAMPLE}",
+            recover="delete the corrupt stamp and re-run the runner over this directory, "
+            "which rewrites it. Do not hand-edit it to make scoring proceed: an "
+            "unreadable stamp is not the same fact as an absent one.",
+        ) from err
+
+    digest = recorded.get("sha256")
+    if not digest:
+        raise _score_input_err(
+            f"{stamp.name} states no `sha256`, so the prompt behind "
+            f"{system_dir.name}'s predictions cannot be established.",
+            where=str(stamp.resolve()),
+            expected=f"a `sha256` key holding the hex digest of the prompt text sent, e.g.\n"
+            f"{_STAMP_EXAMPLE}",
+            recover="delete the incomplete stamp and re-run the runner over this directory, "
+            "which rewrites it in full.",
+        )
+    return str(digest)
+
+
 def _verify_corpus(corpus: Path) -> list[dict]:
     """Read the manifest and check every image against its recorded hash.
 
@@ -399,6 +458,12 @@ def score(
             for metric in ("normalised", "strict")
             for stat in ("cer", "wer")
         }
+        # Which prompt produced these predictions. The runner already stamped
+        # the directory with it and refuses to resume one holding answers to a
+        # different prompt; carrying it into the report extends that protection
+        # downstream, where two runs of one tier under two prompts were
+        # otherwise indistinguishable and got plotted as one rung.
+        systems[system]["prompt_sha256"] = _prompt_sha256(predictions / system)
         systems[system]["columns"] = columns
         systems[system]["tables"] = tables
         systems[system]["numbers"] = numbers
