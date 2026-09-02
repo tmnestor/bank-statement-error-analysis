@@ -340,12 +340,9 @@ systems:
   # — no NVLink on these cards, so the all-reduce crosses PCIe on every layer.
   # The probe asks whether the memory works and what it costs in throughput.
   #
-  # DEPLOYMENT NOTE, and it applies to PROD rather than to this sandbox. vLLM's
-  # tensor-parallel path communicates through shared memory, and an undersized
-  # /dev/shm makes it hang rather than fail — a deadlock with no error, which
-  # reads as a wedged model. PROD hit exactly that and it was resolved by
-  # raising the shared-memory limit. The sandbox is sized adequately and has
-  # never shown it.
+  # DEPLOYMENT NOTE. vLLM's tensor-parallel path communicates through shared
+  # memory, and an undersized /dev/shm makes it hang rather than fail — a
+  # deadlock with no error, which reads as a wedged model.
   #
   # This is not incidental here: the 31B does not fit a 24 GB card, so on an
   # A10G or L4 cluster it MUST run tensor-parallel. Size /dev/shm before
