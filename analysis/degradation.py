@@ -109,6 +109,33 @@ def _tier_of(path: Path, payload: dict, root: Path = REPO) -> dict[str, str] | N
     return None if family == "clean" else {"family": str(family), "severity": str(severity)}
 
 
+def _statements(documents: list[dict]) -> list[dict]:
+    """The bank-statement rows, which are the only ones this module reports on.
+
+    The single implementation, used for the clean baseline AND every degraded
+    tier. They diverged once: the clean row filtered and the degraded rows did
+    not, so a table headed "Usable bank-statement amounts by image quality" had
+    exactly one row that was bank-statement amounts.
+
+    That matters because receipts carry a structural attribution floor. A
+    receipt has one date, in its header, and `attributable` requires an amount
+    to sit in a row carrying its identifying date -- which a receipt line item
+    never does. Measured on gemma-4-31B against a clean corpus, receipts read
+    184/184 amounts with 404/404 numerically correct and a median normalised CER
+    of 0.0000, and still scored 129/184 attributable. Counting that floor on one
+    side of a comparison and not the other makes every "points dropped" figure
+    incomparable: it reported photo-heavy as 0.4799 where the bank-statement
+    figure is 0.4296.
+
+    Args:
+        documents: Per-document rows from one system's block of a report.
+
+    Returns:
+        Only the bank-statement rows.
+    """
+    return [d for d in documents if d["stem"].endswith("_bank_statements")]
+
+
 def _usable(documents: list[dict]) -> dict:
     """Reduce one system's per-document rows to the figures the case quotes.
 
@@ -175,7 +202,7 @@ def collect(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
             # sorted last.
             if system in seen:
                 continue
-            statements = [d for d in block["documents"] if d["stem"].endswith("_bank_statements")]
+            statements = _statements(block["documents"])
             if statements:
                 seen.add(system)
                 # The clean point belongs to both ladders; it is duplicated
@@ -193,7 +220,8 @@ def collect(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
         if tier is None:
             continue
         for system, block in payload["systems"].items():
-            rows.append({"system": system, **tier} | _usable(block["documents"]))
+            # The SAME filter as the clean baseline above -- see _statements.
+            rows.append({"system": system, **tier} | _usable(_statements(block["documents"])))
 
     if not rows:
         raise SystemExit(
@@ -285,11 +313,7 @@ def paired_change(reports: Path = REPO, clean: str = "") -> pd.DataFrame:
         """system -> stem -> misfiled, so two systems never merge into one."""
         payload = json.loads(path.read_text(encoding="utf-8"))
         return {
-            name: {
-                d["stem"]: d["misfiled"]
-                for d in block["documents"]
-                if d["stem"].endswith("_bank_statements")
-            }
+            name: {d["stem"]: d["misfiled"] for d in _statements(block["documents"])}
             for name, block in payload["systems"].items()
         }
 
