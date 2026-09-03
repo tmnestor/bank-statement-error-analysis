@@ -85,7 +85,7 @@ def _score_input_err(what: str, *, where: str, expected: str, recover: str) -> S
     )
 
 
-_STAMP_EXAMPLE = '              {"prompt": "config/prompt.md", "sha256": "21ea89f3b5be...", ...}'
+_STAMP_EXAMPLE = '              {"prompt": "<corpus>/prompt.md", "sha256": "21ea89f3b5be...", ...}'
 
 
 def _prompt_sha256(system_dir: Path) -> str | None:

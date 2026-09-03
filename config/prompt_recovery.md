@@ -1,6 +1,6 @@
 # Transcription prompt (repetition-recovery variant)
 
-NOT the benchmark prompt. This is config/prompt.md with ONE added instruction —
+NOT the benchmark prompt. This is the corpus prompt.md with ONE added instruction —
 the 'write every line exactly once' paragraph below — and every convention rule
 left byte-identical, so the convention being measured is unchanged.
 

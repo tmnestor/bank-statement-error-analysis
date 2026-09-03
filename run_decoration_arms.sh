@@ -7,7 +7,7 @@
 # length and runs away on the dot leaders of nab_classic. Both variants fix that
 # contradiction and state the rule; ONLY arm B adds a worked example.
 #
-#   baseline  config/prompt.md                     already run -> runs_v3_61/
+#   baseline  <corpus>/prompt.md                    already run -> runs_v3_61/
 #   arm A     config/prompt_decoration_rule.md     rule, no example
 #   arm B     config/prompt_decoration_example.md  rule + one-shot example
 #

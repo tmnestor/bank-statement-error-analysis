@@ -40,16 +40,9 @@ fail() { echo "!! $*" >&2; exit 1; }
 [[ -d $MODEL ]] || fail "checkpoint not found: $MODEL (set MODEL=)"
 
 # The prompt must be the one the scored run used, or this compares two things.
-./verify_prompt.sh >/dev/null 2>&1 || fail "verify_prompt.sh is unhappy; run it and read the output"
-digest=$(python3 -c "
-import hashlib,pathlib
-t=pathlib.Path('config/prompt.md').read_text(encoding='utf-8')
-_,s,b=t.partition('\n---\n')
-print(hashlib.sha256((b if s else t).strip().encode()).hexdigest())
-")
-[[ $digest == 38919c6a81ee959a4d43c0cf2d6de918fee72028317983a99f6a7cc55276db61 ]] ||
-    fail "config/prompt.md sends ${digest:0:12}, not the 38919c6a the scored runs used.
-   Re-running under a different prompt measures the prompt, not the sharding."
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 # A timing figure over a resumed run is meaningless, and a half-populated
 # directory would also make the diff below compare different sets of pages.

@@ -37,10 +37,9 @@ CORPUS=${CORPUS:-}
 # would fit and prove nothing.
 PAGES=(CASE001_bank_statements CASE001_invoices CASE001_receipts)
 
-if ! grep -q "four or more" config/prompt.md; then
-    echo "config/prompt.md is stale — run 'git pull'."
-    exit 1
-fi
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 # ------------------------------------------------------------- probe corpus
 if [[ -z $CORPUS ]]; then

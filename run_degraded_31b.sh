@@ -32,14 +32,9 @@ corpora=("$DEGRADED"/*/)
 
 # Same prompt as every scored run, or this measures the prompt as well as the
 # image quality.
-digest=$(python3 -c "
-import hashlib, pathlib
-t = pathlib.Path('config/prompt.md').read_text(encoding='utf-8')
-_, s, b = t.partition('\n---\n')
-print(hashlib.sha256((b if s else t).strip().encode()).hexdigest())
-")
-[[ $digest == 38919c6a81ee959a4d43c0cf2d6de918fee72028317983a99f6a7cc55276db61 ]] ||
-    fail "config/prompt.md sends ${digest:0:12}, not the 38919c6a every scored run used."
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 # Corpus completeness first, before the hardware check: it is cheaper, it does
 # not need a GPU to diagnose, and it is the failure that actually happens.

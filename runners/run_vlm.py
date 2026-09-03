@@ -2,13 +2,19 @@
 
 This is the other half of the §8.6 calibration pass. Docling and MinerU cannot
 be told the convention, so they measure whether it is idiomatic Markdown at
-all; a prompted VLM reads `config/prompt.md` and so measures whether the
-convention is **communicable**. Both arms write the same
+all; a prompted VLM reads the corpus's own `prompt.md` and so measures whether
+the convention is **communicable**. Both arms write the same
 `runs/<system>/<stem>.md` layout and are scored by the same command.
 
-The prompt is sent verbatim, exactly as `prompt.md` says to. Editing the text
-here rather than in `prompt.md` would silently unpair the prompt from the
-transcripts it was written against.
+**The prompt comes from the corpus being scored**, not from this repository.
+`prompt.md` ships inside an exported corpus because the prompt and the
+transcripts are a matched pair. A second copy here could drift from the pages it
+was written against, and did: on 2026-09-03 a seven-tier 31B ladder ran under a
+974-word prompt asking for Markdown pipe tables, against a corpus shipping a
+1,297-word prompt asking for HTML tables with `colspan` and `rowspan`. Pass
+`--prompt` only to run a deliberate variant; it is recorded either way.
+
+The prompt is sent verbatim, exactly as `prompt.md` says to.
 
 Two transports, declared per system in `config/vlm_systems.yml`:
 
@@ -55,7 +61,23 @@ from runners.vlm_config import load_vlm_systems, resolve_base_url, system_named
 app = typer.Typer(add_completion=False)
 
 _DEFAULT_SYSTEMS = Path("config/vlm_systems.yml")
-_DEFAULT_PROMPT = Path("config/prompt.md")
+
+
+def resolve_prompt_path(corpus: Path, override: Path | None) -> Path:
+    """Which prompt file to send, given the corpus and an optional override.
+
+    There is deliberately no repository-local default. The corpus ships the
+    prompt its transcripts assume, so taking it from anywhere else is how a run
+    ends up scored against conventions it was never told about.
+
+    Args:
+        corpus: The exported corpus being transcribed.
+        override: An explicit `--prompt`, for running a deliberate variant.
+
+    Returns:
+        The override when given, otherwise the corpus's own `prompt.md`.
+    """
+    return override if override is not None else corpus / "prompt.md"
 
 
 def apply_penalty_override(spec: dict, penalty: float | None) -> tuple[dict, bool]:
@@ -98,8 +120,9 @@ def read_prompt(path: Path) -> str:
             f"{path} does not exist.",
             where=str(path.resolve()),
             expected="the shipped transcription prompt, whose text below the '---' rule "
-            "is sent verbatim, e.g.\n              config/prompt.md",
-            recover="pass --prompt pointing at the prompt that ships with this corpus.",
+            "is sent verbatim, e.g.\n              <corpus>/prompt.md",
+            recover="point --corpus at an exported corpus, which ships its own prompt.md, or "
+            "pass --prompt to send a deliberate variant.",
         )
 
     text = path.read_text(encoding="utf-8")
@@ -670,8 +693,9 @@ def main(
         Path, typer.Option("--systems", help="Where the systems are declared.")
     ] = _DEFAULT_SYSTEMS,
     prompt_path: Annotated[
-        Path, typer.Option("--prompt", help="The prompt shipped with the corpus.")
-    ] = _DEFAULT_PROMPT,
+        Path | None,
+        typer.Option("--prompt", help="A deliberate variant. Defaults to <corpus>/prompt.md."),
+    ] = None,
     shard: Annotated[
         int,
         typer.Option(
@@ -709,11 +733,13 @@ def main(
         system: The declared system to run.
         out: Predictions root.
         systems_file: Path to the systems declaration.
-        prompt_path: Path to the shipped prompt.
+        prompt_path: A deliberate prompt variant. Defaults to the corpus's own
+            `prompt.md`, which is the prompt its transcripts assume.
 
     Raises:
         typer.Exit: Configuration is unusable, or a page produced no prediction.
     """
+    prompt_path = resolve_prompt_path(corpus, prompt_path)
     try:
         spec = system_named(load_vlm_systems(systems_file), system, systems_file)
         prompt = read_prompt(prompt_path)

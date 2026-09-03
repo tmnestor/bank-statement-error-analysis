@@ -1,4 +1,4 @@
-"""Render config/prompt.md as terminal-chrome SVGs, one per convention.
+"""Render a corpus prompt.md as terminal-chrome SVGs, one per convention.
 
 The findings document argues that prompt *wording* is a component under test —
 three conventions were stated, measured, and adopted, and one of them moved a
@@ -13,8 +13,10 @@ worked example — silently, since a short block still renders. So the skill's
 three rendering functions are reused directly and the splitting is done here,
 on paragraph boundaries the prompt already has.
 
+The prompt lives in the corpus, not in this repository, so it is named per run.
+
 Usage:
-    python3 render_prompt_figure.py [--out docs/figures]
+    python3 render_prompt_figure.py --prompt <corpus>/prompt.md [--out docs/figures]
 """
 
 import argparse
@@ -25,7 +27,6 @@ from pathlib import Path
 
 SKILL = Path.home() / ".claude" / "skills" / "render-code" / "render_code_blocks.py"
 REPO = Path(__file__).resolve().parent
-PROMPT = REPO / "config" / "prompt.md"
 
 
 def _ascii_safe(svg: str) -> str:
@@ -121,6 +122,12 @@ def split_sections(body: str) -> list[tuple[str, str]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--prompt",
+        type=Path,
+        required=True,
+        help="The prompt.md to render, normally the one inside an exported corpus.",
+    )
     parser.add_argument("--out", type=Path, default=REPO / "docs" / "figures")
     parser.add_argument(
         "--whole",
@@ -132,9 +139,9 @@ def main() -> None:
     renderer = load_renderer()
     args.out.mkdir(parents=True, exist_ok=True)
 
-    body = prompt_body(PROMPT)
+    body = prompt_body(args.prompt)
     sections = split_sections(body)
-    print(f"{PROMPT.relative_to(REPO)}: {len(body.splitlines())} lines -> {len(sections)} figure(s)\n")
+    print(f"{args.prompt}: {len(body.splitlines())} lines -> {len(sections)} figure(s)\n")
 
     written = []
     for index, (title, text) in enumerate(sections, 1):
@@ -149,7 +156,7 @@ def main() -> None:
     if args.whole:
         highlighted = renderer.pygmentize_svg(body, "text")
         lines = renderer.parse_pygments_svg(highlighted)
-        svg = _ascii_safe(renderer.build_terminal_svg(lines, "config/prompt.md - the whole prompt"))
+        svg = _ascii_safe(renderer.build_terminal_svg(lines, f"{args.prompt.name} - the whole prompt"))
         path = args.out / "prompt-00-whole.svg"
         path.write_text(svg, encoding="utf-8")
         written.append(path)

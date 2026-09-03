@@ -36,13 +36,9 @@ CORPUS=${CORPUS:-}
 SYSTEMS=("$@")
 [[ ${#SYSTEMS[@]} -gt 0 ]] || SYSTEMS=(gemma-4-12B-it-qat-q4_0-unquantized gemma-4-12B-it)
 
-if ! grep -q "four or more" config/prompt.md; then
-    echo "config/prompt.md does not carry the decoration rule — run 'git pull'."
-    echo "The run these are compared against used the current prompt; a stale one"
-    echo "would confound the checkpoint with the prompt version, which is exactly"
-    echo "what a control exists to prevent."
-    exit 1
-fi
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 if [[ -z $CORPUS ]]; then
     for candidate in parsing_20260820 parsing_20260819d parsing_20260819c \

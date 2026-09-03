@@ -78,14 +78,9 @@ fi
 # image quality. The digest is of the body below the `---` rule, which is what
 # the runner actually sends -- hashing the whole file compares a preamble the
 # model never reads, and that false alarm has already cost a sandbox start here.
-digest=$(python3 -c "
-import hashlib, pathlib
-t = pathlib.Path('config/prompt.md').read_text(encoding='utf-8')
-_, s, b = t.partition('\n---\n')
-print(hashlib.sha256((b if s else t).strip().encode()).hexdigest())
-")
-[[ $digest == 38919c6a81ee959a4d43c0cf2d6de918fee72028317983a99f6a7cc55276db61 ]] ||
-    fail "config/prompt.md sends ${digest:0:12}, not the 38919c6a every scored run used."
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 # Every corpus is checked BEFORE any model loads. Checking each in turn reports
 # a truncated transfer once per tier, after however long the earlier tiers took;

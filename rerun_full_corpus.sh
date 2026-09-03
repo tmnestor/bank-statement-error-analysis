@@ -26,17 +26,9 @@ SYSTEMS=(gemma-4-12B-it-qat-w4a16-ct InternVL3.5-8B)
 # A git pull that did not happen would spend 45 minutes reproducing the old
 # results, and nothing downstream would say so. These strings are asserted by
 # tests/test_prompt.py against generators/decoration.py, so they cannot drift.
-if ! grep -q "four or more" config/prompt.md || ! grep -q "spacing, not content" config/prompt.md; then
-    echo "config/prompt.md does not carry the decoration rule."
-    echo "Run 'git pull' first — this run would otherwise reproduce the old numbers."
-    exit 1
-fi
-if grep -q "boilerplate text" config/prompt.md; then
-    echo "config/prompt.md still says 'do not skip repeated or boilerplate text',"
-    echo "which instructs the model to transcribe what the corpus strips. Pull first."
-    exit 1
-fi
-echo "prompt: config/prompt.md carries the decoration rule"
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 # --------------------------------------------------------------- the corpus
 # Any parsing_20260819* or later vintage will do: the runner reads images/ and

@@ -61,10 +61,9 @@ if [[ ${#SYSTEMS[@]} -eq 0 ]]; then
     SYSTEMS=(gemma-4-12B-it-qat-w4a16-ct gemma-4-31B-it-qat-w4a16-ct-2xL4-tp2)
 fi
 
-if ! grep -q "four or more" config/prompt.md; then
-    echo "config/prompt.md is stale — run 'git pull'."
-    exit 1
-fi
+# The prompt is no longer checked here. The runner sends the prompt.md that
+# ships inside the corpus -- covered by its manifest -- so there is no
+# repo-local copy left to drift or to go stale behind a missing git pull.
 
 if [[ -z $CORPUS ]]; then
     for candidate in parsing_20260820 parsing_20260819d parsing_20260819c \

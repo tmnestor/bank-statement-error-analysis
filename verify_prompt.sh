@@ -8,15 +8,31 @@
 # whoever runs the benchmark and never reaches the model.
 #
 # Hashing the raw file instead reports a mismatch against the very file that
-# produced the run. That mistake was made here on 2026-08-21 and briefly
-# promoted to "the prompt is not in version control", which was false: the
-# committed config/prompt.md matches exactly. 1018 raw words, 974 sent; the
-# 44-word difference is the preamble.
+# produced the run. That mistake was made here on 2026-08-21, and again on
+# 2026-09-03 -- both times it was briefly read as the prompt having gone
+# missing or stale when it had not. Hash the body, not the file.
+#
+# The prompt to check against is the one that ships INSIDE the corpus: there is
+# no repo-local copy any more, because a second copy drifted from the corpus's
+# and a full seven-tier ladder was run under the older one.
+#
+#   CORPUS=.../parsing_20260902 ./verify_prompt.sh
+#   PROMPT=config/prompt_recovery.md ./verify_prompt.sh     # a variant run
 
 set -uo pipefail
 
 REPO=${REPO:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}
-PROMPT=${PROMPT:-$REPO/config/prompt.md}
+CORPUS=${CORPUS:-}
+PROMPT=${PROMPT:-${CORPUS:+$CORPUS/prompt.md}}
+if [[ -z $PROMPT ]]; then
+    echo "Cannot verify a prompt."
+    echo "  What:     neither CORPUS nor PROMPT is set, so there is nothing to hash."
+    echo "  Where:    $REPO"
+    echo "  Expected: the corpus whose prompt.md the run should have used, e.g."
+    echo "              CORPUS=~/evaluation_data/corpus_20260902/parsing_20260902"
+    echo "  Recover:  set CORPUS=<exported corpus>, or PROMPT=<file> for a variant."
+    exit 1
+fi
 
 python3 - "$REPO" "$PROMPT" <<'PYTHON'
 import hashlib
